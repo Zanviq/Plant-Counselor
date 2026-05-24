@@ -17,13 +17,13 @@
 
 ## 기술 스택
 
-| 계층 | 기술 |
-|------|------|
+| 계층     | 기술                                                                   |
+| -------- | ---------------------------------------------------------------------- |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind v4, Zustand, TanStack Query |
-| Backend | FastAPI, SQLAlchemy 2.x, Pydantic v2, APScheduler |
-| LLM | Google Gemini 2.5 Flash |
-| DB | SQLite (dev) / PostgreSQL (prod) |
-| Auth | JWT + Argon2 + Fernet |
+| Backend  | FastAPI, SQLAlchemy 2.x, Pydantic v2, APScheduler                      |
+| LLM      | Google Gemini 2.5 Flash                                                |
+| DB       | SQLite (dev) / PostgreSQL (prod)                                       |
+| Auth     | JWT + Argon2 + Fernet                                                  |
 
 ## 빠른 시작
 
@@ -65,15 +65,15 @@ cp assets/sprites/* frontend/public/sprites/
 
 `backend/.env` 파일에 설정합니다.
 
-| 변수 | 기본값 | 설명 |
-|------|--------|------|
-| `DATABASE_URL` | `sqlite:///./plant_counselor.db` | DB 연결 문자열 |
-| `JWT_SECRET` | `dev-secret` | JWT 서명 시크릿 (**prod에서 반드시 교체**) |
-| `JWT_ACCESS_TTL` | `15` | 액세스 토큰 유효시간 (분) |
-| `JWT_REFRESH_TTL` | `14` | 리프레시 토큰 유효시간 (일) |
-| `LLM_API_KEY` | — | Gemini API 키 (사용자별 키의 fallback) |
-| `KEY_ENCRYPTION_SECRET` | `dev-encryption-...` | 사용자 API 키 암호화 시크릿 |
-| `CORS_ALLOW_ORIGIN` | `http://localhost:3000` | 프론트엔드 도메인 |
+| 변수                    | 기본값                           | 설명                                       |
+| ----------------------- | -------------------------------- | ------------------------------------------ |
+| `DATABASE_URL`          | `sqlite:///./plant_counselor.db` | DB 연결 문자열                             |
+| `JWT_SECRET`            | `dev-secret`                     | JWT 서명 시크릿 (**prod에서 반드시 교체**) |
+| `JWT_ACCESS_TTL`        | `15`                             | 액세스 토큰 유효시간 (분)                  |
+| `JWT_REFRESH_TTL`       | `14`                             | 리프레시 토큰 유효시간 (일)                |
+| `LLM_API_KEY`           | —                                | Gemini API 키 (사용자별 키의 fallback)     |
+| `KEY_ENCRYPTION_SECRET` | `dev-encryption-...`             | 사용자 API 키 암호화 시크릿                |
+| `CORS_ALLOW_ORIGIN`     | `http://localhost:3000`          | 프론트엔드 도메인                          |
 
 ## 프로젝트 구조
 
@@ -113,6 +113,8 @@ AI: think → match_plant("취업") → create_plant("취업") → create_bud("�
 ```
 
 ## 문서
+
+`Plant-Counselor_Documents`을 옵시디언에서 열어 마크다운 문서를 확인할 수 있습니다.
 
 상세 문서는 [`Plant-Counselor_Documents/MVP_Documents/`](./Plant-Counselor_Documents/MVP_Documents/) 에 있습니다.
 

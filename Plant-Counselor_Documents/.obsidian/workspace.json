@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "구체화.md",
+                "file": "MVP_Documents/06_API_Reference.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "구체화"
+              "title": "06_API_Reference"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 276.5004348754883
   },
   "right": {
     "id": "c35b341df81abeee",
@@ -183,41 +183,46 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "725e1e56852518c8",
+  "active": "e226fb7a41d3ab72",
   "lastOpenFiles": [
-    "Idea-note.md",
-    "구체화.md",
-    "Documents/04_데이터/GardenState_JSON.md",
-    "Documents/04_데이터/폴더_구조.md",
-    "Documents/05_코드구조/클래스_함수_사전.md",
-    "Documents/02_기능/캘린더.md",
-    "Documents/02_기능/알림.md",
-    "Documents/02_기능/식물_생성.md",
-    "Documents/02_기능/상태_자동전이.md",
-    "Documents/02_기능/봉우리_생애주기.md",
-    "Documents/02_기능/데이터_백업_복구.md",
-    "Documents/01_페이지/식물.md",
-    "Documents/01_페이지/공통_AI대화창.md",
-    "Documents/05_코드구조/UI_구조.md",
-    "Documents/05_코드구조/AI_연동.md",
-    "Documents/05_코드구조/Manager_클래스들.md",
-    "Documents/04_데이터/ConversationLog_JSON.md",
-    "Documents/04_데이터/Bud_JSON.md",
-    "Documents/04_데이터/Plant_JSON.md",
-    "Documents/04_데이터/User_JSON.md",
-    "Documents/03_LLM/Skills/search_conversation.md",
-    "Documents/03_LLM/Skills/get_garden_briefing.md",
-    "Documents/03_LLM/Skills/get_statistics.md",
-    "Documents/03_LLM/Skills/list_buds.md",
-    "Documents/03_LLM/Skills/list_plants.md",
-    "Documents/03_LLM/Skills/harvest_bud.md",
-    "Documents/03_LLM/Skills",
-    "Documents/05_코드구조",
-    "Documents/03_LLM",
-    "Documents/04_데이터",
-    "Documents/01_페이지",
-    "Documents/02_기능",
-    "Documents",
-    "FILE"
+    "MVP_Documents/04_AI_Chat_And_Skills.md.tmp.25104.a498696eeda2",
+    "MVP_Documents/09_Summary.md",
+    "MVP_Documents/09_Summary.md.tmp.25104.478d0cb75fea",
+    "MVP_Documents/04_AI_Chat_And_Skills.md",
+    "MVP_Documents/01_Architecture.md",
+    "MVP_Documents/00_Overview.md",
+    "Web_Documents/02_기능/상태_자동전이.md",
+    "Web_Documents/02_기능/알림.md",
+    "Web_Documents/01_페이지/공통_AI대화창.md",
+    "Web_Documents/04_데이터/DB_스키마.md",
+    "Web_Documents/03_LLM/Skills/abandon_bud.md",
+    "Web_Documents/02_기능/통계_시스템.md",
+    "Web_Documents/02_기능/캘린더.md",
+    "Web_Documents/05_백엔드/API_엔드포인트.md",
+    "Web_Documents/09_목업/이미지/image copy 2.png",
+    "Web_Documents/09_목업/이미지/image copy.png",
+    "Web_Documents/09_목업/이미지/image.png",
+    "Web_Documents/09_목업/목업_사용_규칙.md",
+    "Web_Documents/01_페이지/캘린더_페이지.md",
+    "Web_Documents/09_목업/캘린더_화면.md",
+    "Web_Documents/09_목업/식물_정원.md",
+    "Web_Documents/09_목업/홈_화면.md",
+    "Web_Documents/09_목업/README.md",
+    "Web_Documents/09_목업/이미지",
+    "Web_Documents/09_목업",
+    "Web_Documents/이미지_생성_프롬프트.md",
+    "Web_Documents/08_에셋/로고.md",
+    "Web_Documents/08_에셋/픽셀_에셋.md",
+    "Web_Documents/07_디자인/화면_레이아웃/홈_레이아웃.md",
+    "Web_Documents/07_디자인/화면_레이아웃/식물_정원_레이아웃.md",
+    "Web_Documents/07_디자인/화면_레이아웃/설정_레이아웃.md",
+    "Web_Documents/07_디자인/컴포넌트/통계_카드.md",
+    "copy_design.py",
+    "copy_skills.py",
+    "Web_Documents/04_데이터/Bud.md.tmp.15396.820dd8e24d6c",
+    "Web_Documents/04_데이터/Plant.md.tmp.15396.c185846f850a",
+    "Web_Documents/07_디자인/화면_레이아웃",
+    "Web_Documents/07_디자인/컴포넌트",
+    "Web_Documents/03_LLM/Skills"
   ]
 }

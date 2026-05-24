@@ -1,0 +1,109 @@
+{
+  "max_buds": 6,
+  "plant": {
+    "file": "plant.png",
+    "width": 140,
+    "height": 240,
+    "slots": [
+      {
+        "x": 28,
+        "y": 12
+      },
+      {
+        "x": 108,
+        "y": 12
+      },
+      {
+        "x": 20,
+        "y": 56
+      },
+      {
+        "x": 116,
+        "y": 56
+      },
+      {
+        "x": 32,
+        "y": 108
+      },
+      {
+        "x": 104,
+        "y": 108
+      }
+    ]
+  },
+  "buds": {
+    "seed": {
+      "file": "bud_seed.png",
+      "width": 20,
+      "height": 28,
+      "anchor": {
+        "x": 10,
+        "y": 28
+      }
+    },
+    "sprout": {
+      "file": "bud_sprout.png",
+      "width": 36,
+      "height": 28,
+      "anchor": {
+        "x": 18,
+        "y": 28
+      }
+    },
+    "flower": {
+      "file": "bud_flower.png",
+      "width": 36,
+      "height": 32,
+      "anchor": {
+        "x": 18,
+        "y": 32
+      }
+    },
+    "fruit": {
+      "file": "bud_fruit.png",
+      "width": 28,
+      "height": 32,
+      "anchor": {
+        "x": 14,
+        "y": 32
+      }
+    },
+    "wilted": {
+      "file": "bud_wilted.png",
+      "width": 28,
+      "height": 24,
+      "anchor": {
+        "x": 14,
+        "y": 24
+      }
+    },
+    "harvested": {
+      "file": "bud_harvested.png",
+      "width": 28,
+      "height": 20,
+      "anchor": {
+        "x": 14,
+        "y": 20
+      }
+    }
+  },
+  "status_to_sprite": {
+    "seed": "seed",
+    "bud": "sprout",
+    "flower": "flower",
+    "fruit": "fruit",
+    "wilting": "wilted",
+    "rot": "wilted",
+    "harvested": "harvested"
+  },
+  "sky": {
+    "file": "sky.png",
+    "width": 800,
+    "height": 400
+  },
+  "grass": {
+    "file": "grass.png",
+    "width": 800,
+    "height": 32
+  }
+}

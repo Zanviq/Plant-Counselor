@@ -20,10 +20,12 @@
 | [07](./07_System_Test_Plan.md) | **시스템 테스트** | 60+ 테스트 케이스 | 참조 |
 | [08](./08_Operations.md) | **운영** | 실행·환경변수·마이그레이션·운영 체크리스트 | 참조 |
 | [09](./09_Summary.md) | **전체 요약** | 모든 기능 + 핵심 동작 흐름 + API 전체 목록 | **필독** |
+| [10](./10_Complete_Implementation_State.md) | **완성본 구현 상태** | 체크리스트 + 최근 수정 + 향후 계획 (최신) | **최신 기준** |
 
 ## 빠르게 찾기
 
 - **"이 서비스가 뭐야?"** → `00_Overview.md` §1~2
+- **"현재 완성 상태"** → `10_Complete_Implementation_State.md` §2
 - **"전체 기능 목록"** → `09_Summary.md` §2
 - **"요청이 어떻게 처리되나?"** → `09_Summary.md` §3 (흐름도)
 - **"AI가 어떻게 동작하나?"** → `04_AI_Chat_And_Skills.md`
@@ -33,9 +35,11 @@
 - **"테스트하려면?"** → `07_System_Test_Plan.md`
 - **"배포하려면?"** → `08_Operations.md`
 - **"DB 스키마"** → `09_Summary.md` §4
+- **"최근 버그 수정 내역"** → `10_Complete_Implementation_State.md` §7
+- **"향후 작업 계획"** → `10_Complete_Implementation_State.md` §9
 
 ## 최종 업데이트
 
-- **날짜**: 2026-05-24
-- **버전**: v0.1.0 (MVP)
-- **주요 변경**: 캘린더 전용 채팅 스코프, 일정 자동 생성, 픽셀아트 정원 그래픽, 크림/올리브 디자인
+- **날짜**: 2026-05-27
+- **버전**: v0.1.0 (MVP 완성)
+- **주요 변경**: 화살표 키 네비 딜레이 수정, requirements.txt 추가, CLAUDE.md 작성, google-genai 의존성 수정

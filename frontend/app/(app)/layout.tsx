@@ -36,9 +36,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     );
 
+    // Already fully hydrated — nothing to do.
     if (accessToken && user) return;
 
     (async () => {
+      // Step 1: Refresh the access token (uses httpOnly refresh cookie).
       const res = await refreshToken();
       if (!res.ok) {
         clearSession();
@@ -47,6 +49,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
       const token = (res.data as { access_token: string }).access_token;
       useAuthStore.setState({ accessToken: token });
+
+      // Step 2 (conditional): Fetch user profile only when not already cached
+      // in localStorage (via authStore.persist).  If the profile is available
+      // we trust it for this session — a background refresh isn't needed because
+      // profile data changes only via intentional settings edits.
+      const cachedUser = useAuthStore.getState().user;
+      if (cachedUser) {
+        // Token refreshed, profile already available — we're done.
+        return;
+      }
+
       const meRes = await apiGet<Record<string, unknown>>("/me");
       if (!meRes.ok) {
         clearSession();

@@ -148,10 +148,10 @@ export default function Sidebar() {
   }, [qc]);
 
   const { data: notifRes } = useQuery({
-    queryKey: ["notifications"],
+    queryKey: QK.notifications(),
     queryFn: () => listNotifications(),
     enabled: !!accessToken,
-    staleTime: 30_000,
+    staleTime: 30_000,    // short stale time so badge stays fresh
     refetchInterval: 60_000,
   });
   const notifCount = notifRes?.ok ? notifRes.data.items.length : 0;

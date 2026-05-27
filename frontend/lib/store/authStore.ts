@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface User {
   id: string;
@@ -20,9 +21,21 @@ interface AuthState {
   clearSession: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: null,
-  user: null,
-  setSession: (token, user) => set({ accessToken: token, user }),
-  clearSession: () => set({ accessToken: null, user: null }),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      accessToken: null,
+      user: null,
+      setSession: (token, user) => set({ accessToken: token, user }),
+      clearSession: () => set({ accessToken: null, user: null }),
+    }),
+    {
+      name: "pc-auth",
+      // Only persist the user profile — NOT the access token.
+      // The token is short-lived and refreshed from the httpOnly cookie each load.
+      // Persisting just the user object lets the UI render correctly on mount
+      // while the background token refresh is still in flight.
+      partialize: (state) => ({ user: state.user }),
+    }
+  )
+);

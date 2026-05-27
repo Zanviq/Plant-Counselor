@@ -110,14 +110,14 @@
 
 ## 4. 기술 스택
 
-| 계층 | 기술 |
-|------|------|
+| 계층    | 기술                                                                                             |
+| ----- | ---------------------------------------------------------------------------------------------- |
 | 프론트엔드 | Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind v4, Zustand, TanStack Query |
-| 백엔드 | FastAPI, SQLAlchemy 2.x (Mapped types), Pydantic v2, APScheduler |
-| DB | SQLite (개발) — Postgres 등으로 교체 가능 |
-| LLM | Google Gemini 2.5 Flash (`google-genai` SDK) |
-| 인증 | JWT (python-jose), Argon2 비밀번호 해시, Fernet API 키 암호화 |
-| 스프라이트 | Python Pillow — 자동 생성·crop·좌표 매핑 |
+| 백엔드   | FastAPI, SQLAlchemy 2.x (Mapped types), Pydantic v2, APScheduler                               |
+| DB    | SQLite (개발) — Postgres 등으로 교체 가능                                                               |
+| LLM   | Google Gemini 2.5 Flash (`google-genai` SDK)                                                   |
+| 인증    | JWT (python-jose), Argon2 비밀번호 해시, Fernet API 키 암호화                                            |
+| 스프라이트 | Python Pillow — 자동 생성·crop·좌표 매핑                                                               |
 
 ---
 

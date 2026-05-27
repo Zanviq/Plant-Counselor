@@ -3,12 +3,15 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getPlant, deletePlant } from "@/lib/api/plants";
+import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
 import { listBuds, getBud, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import {
   STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, BudStatus, isActive, isDone,
 } from "@/lib/status";
+import { QK } from "@/lib/queryKeys";
+import type { ApiResult } from "@/lib/api/client";
+import { Skeleton, BudRowSkeleton } from "@/components/ui/Skeleton";
 
 // ── Bud row ───────────────────────────────────────────────────
 
@@ -216,8 +219,24 @@ export default function PlantDetailPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [confirming, setConfirming] = useState(false);
 
-  const { data: plantRes } = useQuery({ queryKey: ["plant", id], queryFn: () => getPlant(id) });
-  const { data: budsRes }  = useQuery({ queryKey: ["buds", { plant_id: id }], queryFn: () => listBuds({ plant_id: id }) });
+  const { data: plantRes, isLoading: loadingPlant } = useQuery({
+    queryKey: QK.plant(id),
+    queryFn: () => getPlant(id),
+    // Populate immediately from the plants list cache if available —
+    // avoids a blank header while the individual-plant request is in flight.
+    initialData: () => {
+      const list = qc.getQueryData<ApiResult<{ items: Plant[] }>>(QK.plants());
+      if (list?.ok) {
+        const hit = list.data.items.find((p) => p.id === id);
+        if (hit) return { ok: true as const, data: hit };
+      }
+      return undefined;
+    },
+  });
+  const { data: budsRes, isLoading: loadingBuds }  = useQuery({
+    queryKey: QK.plantBuds(id),
+    queryFn: () => listBuds({ plant_id: id }),
+  });
 
   const plant = plantRes?.ok ? plantRes.data : null;
   const allBuds = budsRes?.ok ? budsRes.data.items : [];
@@ -241,6 +260,22 @@ export default function PlantDetailPage() {
       <button className="btn btn-ghost btn-sm" onClick={() => router.back()} style={{ marginBottom: 20 }}>
         ← 정원으로
       </button>
+
+      {/* Loading skeleton — shown only when no cached data is available */}
+      {loadingPlant && !plant && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div className="card" style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <Skeleton w="45%" h={28} />
+            <Skeleton w="70%" h={13} />
+            <div style={{ display: "flex", gap: 24, marginTop: 6 }}>
+              <Skeleton w={48} h={28} /><Skeleton w={48} h={28} /><Skeleton w={48} h={28} />
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <BudRowSkeleton /><BudRowSkeleton /><BudRowSkeleton />
+          </div>
+        </div>
+      )}
 
       {plant && (
         <>
@@ -294,7 +329,11 @@ export default function PlantDetailPage() {
             </div>
           </div>
 
-          {visible.length === 0 ? (
+          {loadingBuds ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <BudRowSkeleton /><BudRowSkeleton /><BudRowSkeleton />
+            </div>
+          ) : visible.length === 0 ? (
             <div className="card" style={{ padding: 32, textAlign: "center", background: "var(--bg-subtle)" }}>
               <p className="t-body-sm" style={{ color: "var(--fg-muted)" }}>
                 {filter === "all" ? "봉우리가 없습니다. AI에게 추가를 요청하세요." : "조건에 맞는 봉우리가 없습니다."}

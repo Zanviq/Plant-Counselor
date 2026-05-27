@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { getCalendar, getSummary, getBriefing } from "@/lib/api/stats";
 import { useChatStore } from "@/lib/store/chatStore";
 import { STATUS_COLOR_VAR, STATUS_LABEL, BudStatus } from "@/lib/status";
+import { QK } from "@/lib/queryKeys";
+import { CalendarSkeleton, StatCardSkeleton } from "@/components/ui/Skeleton";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
@@ -37,9 +39,9 @@ export default function CalendarPage() {
   const from = ymd(year, month, 1);
   const to   = ymd(year, month, daysInMonth(year, month));
 
-  const { data: calRes }     = useQuery({ queryKey: ["calendar", year, month], queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000 });
-  const { data: briefRes }   = useQuery({ queryKey: ["briefing", "today"], queryFn: getBriefing, staleTime: 5 * 60_000 });
-  const { data: summaryRes } = useQuery({ queryKey: ["stats", "summary"], queryFn: getSummary });
+  const { data: calRes,     isLoading: loadingCal } = useQuery({ queryKey: QK.calendar(year, month), queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000 });
+  const { data: briefRes }                           = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000 });
+  const { data: summaryRes }                         = useQuery({ queryKey: QK.summary(),  queryFn: getSummary });
 
   const events: Record<string, CalEvent[]> = calRes?.ok ? calRes.data.events : {};
   const summary = summaryRes?.ok ? summaryRes.data : null;
@@ -83,7 +85,8 @@ export default function CalendarPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, marginBottom: 16 }}>
         {/* Calendar card */}
-        <section className="card" style={{ padding: 18 }}>
+        {loadingCal ? <CalendarSkeleton /> : null}
+        <section className="card" style={{ padding: 18, display: loadingCal ? "none" : undefined }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
               <div className="t-h1" style={{ color: "var(--fg)" }}>{year}년 {MONTHS[month]}</div>
@@ -191,10 +194,16 @@ export default function CalendarPage() {
 
       {/* Summary */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stagger">
-        <SmallStat label="진행 중인 일정" value={summary?.active_schedules ?? 0} accent="default" />
-        <SmallStat label="진행 중인 고민" value={summary?.active_concerns ?? 0} accent="default" />
-        <SmallStat label="주의 필요"     value={summary?.wilting_count ?? 0} accent="warning" />
-        <SmallStat label="이번 달 수확"   value={summary?.harvested_this_month ?? 0} accent="positive" />
+        {!summaryRes ? (
+          <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
+        ) : (
+          <>
+            <SmallStat label="진행 중인 일정" value={summary?.active_schedules ?? 0} accent="default" />
+            <SmallStat label="진행 중인 고민" value={summary?.active_concerns ?? 0} accent="default" />
+            <SmallStat label="주의 필요"     value={summary?.wilting_count ?? 0} accent="warning" />
+            <SmallStat label="이번 달 수확"   value={summary?.harvested_this_month ?? 0} accent="positive" />
+          </>
+        )}
       </section>
     </div>
   );

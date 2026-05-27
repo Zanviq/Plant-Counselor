@@ -7,6 +7,8 @@ import { listPlants, Plant } from "@/lib/api/plants";
 import { listBuds, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, BudStatus } from "@/lib/status";
+import { QK } from "@/lib/queryKeys";
+import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
 
 // ── Sprite constants (from manifest.json v5) ───────────────
 
@@ -174,8 +176,8 @@ export default function PlantsPage() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data: plantsRes } = useQuery({ queryKey: ["plants", {}], queryFn: () => listPlants() });
-  const { data: budsRes }   = useQuery({ queryKey: ["buds", {}], queryFn: () => listBuds() });
+  const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants() });
+  const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds() });
 
   const plants = plantsRes?.ok ? plantsRes.data.items : [];
   const allBuds = budsRes?.ok ? budsRes.data.items : [];
@@ -245,8 +247,22 @@ export default function PlantsPage() {
         <button className="btn btn-primary btn-sm" onClick={() => openWith()}>+ AI와 식물 만들기</button>
       </div>
 
+      {/* Loading skeleton */}
+      {isLoading && (
+        <div>
+          {view === "garden" ? (
+            <GardenSkeleton />
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+              <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
+              <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Empty */}
-      {plants.length === 0 && (
+      {!isLoading && plants.length === 0 && (
         <div className="card" style={{ padding: "56px 32px", textAlign: "center", background: "var(--bg-subtle)", border: "1px dashed var(--border-strong)" }}>
           <h2 className="t-h1" style={{ color: "var(--fg)", marginBottom: 8 }}>정원이 비어 있어요</h2>
           <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginBottom: 20 }}>AI 정원사에게 말해보세요.</p>
@@ -255,7 +271,7 @@ export default function PlantsPage() {
       )}
 
       {/* Garden view — inside a card with sky background */}
-      {plants.length > 0 && view === "garden" && (
+      {!isLoading && plants.length > 0 && view === "garden" && (
         <div className="card" style={{
           padding: 0, overflow: "hidden", position: "relative",
           borderRadius: "var(--r-xl)", minHeight: 480,
@@ -325,7 +341,7 @@ export default function PlantsPage() {
       )}
 
       {/* List view */}
-      {plants.length > 0 && view === "list" && (
+      {!isLoading && plants.length > 0 && view === "list" && (
         <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {filtered.map(p => (
             <PlantCard key={p.id} plant={p} buds={budsByPlant.get(p.id) ?? []}

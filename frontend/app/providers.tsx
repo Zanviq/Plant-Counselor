@@ -8,8 +8,10 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30_000,
-        gcTime: 5 * 60_000,
+        // 2 minutes: plant/bud data doesn't change on its own within this window.
+        // Individual queries can override this with a smaller staleTime.
+        staleTime: 2 * 60_000,
+        gcTime: 10 * 60_000,
         retry: 1,
         refetchOnWindowFocus: false,
       },

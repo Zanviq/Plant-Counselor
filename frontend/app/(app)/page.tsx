@@ -10,6 +10,8 @@ import { listBuds, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_PILL, STATUS_LABEL, dominantStatus, isActive, BudStatus } from "@/lib/status";
+import { QK } from "@/lib/queryKeys";
+import { StatCardSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
 
 // ── stat card ──────────────────────────────────────────────────
 
@@ -191,10 +193,11 @@ export default function HomePage() {
   const { openWith } = useChatStore();
   const { user } = useAuthStore();
 
-  const { data: sumRes }    = useQuery({ queryKey: ["stats", "summary"],              queryFn: getSummary });
-  const { data: briefRes }  = useQuery({ queryKey: ["briefing", "today"],             queryFn: getBriefing,                          staleTime: 5 * 60_000 });
-  const { data: plantsRes } = useQuery({ queryKey: ["plants", { sort: "activity" }], queryFn: () => listPlants("activity", false) });
-  const { data: budsRes }   = useQuery({ queryKey: ["buds", {}],                     queryFn: () => listBuds({}) });
+  // Query keys from QK factory — shared with plants/page.tsx to hit the same cache.
+  const { data: sumRes,    isLoading: loadingSum }    = useQuery({ queryKey: QK.summary(),  queryFn: getSummary });
+  const { data: briefRes }                             = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000 });
+  const { data: plantsRes, isLoading: loadingPlants } = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants() });
+  const { data: budsRes }                             = useQuery({ queryKey: QK.buds(),     queryFn: () => listBuds() });
 
   const summary  = sumRes?.ok    ? sumRes.data            : null;
   const briefing = briefRes?.ok  ? briefRes.data.briefing : "";
@@ -262,10 +265,18 @@ export default function HomePage() {
         className="stagger"
         style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}
       >
-        <StatCard label="진행 중인 고민"   value={summary?.active_concerns      ?? 0} accent="default"  sub="활성 봉우리" onClick={() => router.push("/plants")} />
-        <StatCard label="진행 중인 일정"   value={summary?.active_schedules     ?? 0} accent="positive" sub="활성 봉우리" onClick={() => router.push("/calendar")} />
-        <StatCard label="이번 달 수확"    value={summary?.harvested_this_month ?? 0} accent="positive" sub="완료된 봉우리" />
-        <StatCard label="주의 필요"      value={summary?.wilting_count        ?? 0} accent="warning"  sub="시들고 있는 봉우리" onClick={() => openWith()} />
+        {loadingSum ? (
+          <>
+            <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatCard label="진행 중인 고민"   value={summary?.active_concerns      ?? 0} accent="default"  sub="활성 봉우리" onClick={() => router.push("/plants")} />
+            <StatCard label="진행 중인 일정"   value={summary?.active_schedules     ?? 0} accent="positive" sub="활성 봉우리" onClick={() => router.push("/calendar")} />
+            <StatCard label="이번 달 수확"    value={summary?.harvested_this_month ?? 0} accent="positive" sub="완료된 봉우리" />
+            <StatCard label="주의 필요"      value={summary?.wilting_count        ?? 0} accent="warning"  sub="시들고 있는 봉우리" onClick={() => openWith()} />
+          </>
+        )}
       </section>
 
       {/* Plants */}
@@ -282,18 +293,25 @@ export default function HomePage() {
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }} className="stagger">
-          {plants.slice(0, 5).map((p) => (
-            <PlantCard
-              key={p.id}
-              plant={p}
-              buds={budsByPlant.get(p.id) ?? []}
-              onClick={() => router.push(`/plants/${p.id}`)}
-              onChat={() => openWith({ kind: "plant", id: p.id })}
-            />
-          ))}
-          <NewPlantCTA onClick={() => openWith()} />
-        </div>
+        {loadingPlants ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
+            <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }} className="stagger">
+            {plants.slice(0, 5).map((p) => (
+              <PlantCard
+                key={p.id}
+                plant={p}
+                buds={budsByPlant.get(p.id) ?? []}
+                onClick={() => router.push(`/plants/${p.id}`)}
+                onChat={() => openWith({ kind: "plant", id: p.id })}
+              />
+            ))}
+            <NewPlantCTA onClick={() => openWith()} />
+          </div>
+        )}
       </section>
 
       {/* Wilting */}

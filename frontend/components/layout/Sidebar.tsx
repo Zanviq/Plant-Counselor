@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { listNotifications } from "@/lib/api/notifications";
 import NotificationsPopover from "./NotificationsPopover";
+import { listPlants } from "@/lib/api/plants";
+import { listBuds } from "@/lib/api/buds";
+import { getSummary, getBriefing, getCalendar } from "@/lib/api/stats";
+import { QK } from "@/lib/queryKeys";
 
 // ── icons ───────────────────────────────────────────────────
 
@@ -69,8 +73,9 @@ function BellIcon() { return (
 
 // ── primitives ──────────────────────────────────────────────
 
-function NavLink({ href, label, active, children }: {
+function NavLink({ href, label, active, children, onPrefetch }: {
   href: string; label: string; active: boolean; children: React.ReactNode;
+  onPrefetch?: () => void;
 }) {
   return (
     <Link
@@ -78,6 +83,7 @@ function NavLink({ href, label, active, children }: {
       className={"sidebar-icon-btn" + (active ? " active" : "")}
       aria-label={label}
       aria-current={active ? "page" : undefined}
+      onMouseEnter={onPrefetch}
     >
       {children}
       <span className="sidebar-tip">{label}</span>
@@ -118,6 +124,28 @@ export default function Sidebar() {
   const { open, openWith, close } = useChatStore();
   const { user, accessToken } = useAuthStore();
   const [notifOpen, setNotifOpen] = useState(false);
+  const qc = useQueryClient();
+
+  // Prefetch the garden page data on hover — fires before navigation starts,
+  // so the page renders from cache instead of waiting for the API round-trip.
+  const prefetchPlants = useCallback(() => {
+    qc.prefetchQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), staleTime: 2 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   staleTime: 2 * 60_000 });
+  }, [qc]);
+
+  // Prefetch calendar + summary on hover.
+  const prefetchCalendar = useCallback(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const from = `${y}-${pad(m + 1)}-01`;
+    const days = new Date(y, m + 1, 0).getDate();
+    const to   = `${y}-${pad(m + 1)}-${pad(days)}`;
+    qc.prefetchQuery({ queryKey: QK.calendar(y, m), queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.summary(),       queryFn: getSummary,                  staleTime: 5 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.briefing(),      queryFn: getBriefing,                 staleTime: 5 * 60_000 });
+  }, [qc]);
 
   const { data: notifRes } = useQuery({
     queryKey: ["notifications"],
@@ -149,9 +177,9 @@ export default function Sidebar() {
 
       {/* Primary nav */}
       <nav style={{ flex: 1, paddingTop: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-        <NavLink href="/" label="홈" active={isActive("/", true)}><HomeIcon /></NavLink>
-        <NavLink href="/plants" label="정원" active={isActive("/plants")}><PlantsIcon /></NavLink>
-        <NavLink href="/calendar" label="캘린더" active={isActive("/calendar")}><CalendarIcon /></NavLink>
+        <NavLink href="/"        label="홈"    active={isActive("/", true)} onPrefetch={prefetchPlants}><HomeIcon /></NavLink>
+        <NavLink href="/plants"  label="정원"  active={isActive("/plants")}  onPrefetch={prefetchPlants}><PlantsIcon /></NavLink>
+        <NavLink href="/calendar" label="캘린더" active={isActive("/calendar")} onPrefetch={prefetchCalendar}><CalendarIcon /></NavLink>
 
         <div style={{ width: 24, height: 1, background: "rgba(255,255,255,0.10)", margin: "8px 0" }} />
 

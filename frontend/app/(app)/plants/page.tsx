@@ -192,16 +192,21 @@ export default function PlantsPage() {
 
   const activeCount = allBuds.filter(b => isActive(b.status)).length;
 
+  // 상태만 업데이트 — 스크롤은 아래 effect가 처리
   const navigate = useCallback((dir: number) => {
-    setSelectedIdx(prev => {
-      const next = Math.max(0, Math.min(filtered.length - 1, prev + dir));
-      setTimeout(() => {
-        const el = scrollRef.current?.children[next] as HTMLElement | undefined;
-        el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-      }, 50);
-      return next;
-    });
+    setSelectedIdx(prev => Math.max(0, Math.min(filtered.length - 1, prev + dir)));
   }, [filtered.length]);
+
+  // selectedIdx가 바뀐 뒤(React 재렌더 완료 후) 스크롤 — setTimeout 불필요
+  useEffect(() => {
+    if (view !== "garden") return;
+    const el = scrollRef.current?.children[selectedIdx] as HTMLElement | undefined;
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [selectedIdx, view]);
+
+  // 현재 selectedIdx를 ref로 유지해 키보드 핸들러에서 stale closure 방지
+  const selectedIdxRef = useRef(selectedIdx);
+  useEffect(() => { selectedIdxRef.current = selectedIdx; }, [selectedIdx]);
 
   useEffect(() => {
     if (view !== "garden") return;
@@ -210,11 +215,14 @@ export default function PlantsPage() {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowLeft") { e.preventDefault(); navigate(-1); }
       if (e.key === "ArrowRight") { e.preventDefault(); navigate(1); }
-      if (e.key === "Enter" && filtered[selectedIdx]) { e.preventDefault(); router.push(`/plants/${filtered[selectedIdx].id}`); }
+      if (e.key === "Enter") {
+        const plant = filtered[selectedIdxRef.current];
+        if (plant) { e.preventDefault(); router.push(`/plants/${plant.id}`); }
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view, navigate, filtered, selectedIdx, router]);
+  }, [view, navigate, filtered, router]);
 
   useEffect(() => {
     if (selectedIdx >= filtered.length) setSelectedIdx(Math.max(0, filtered.length - 1));

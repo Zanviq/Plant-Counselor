@@ -3,19 +3,26 @@ name = "plant-counselor-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    # Web framework
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
+    # Database
     "sqlalchemy>=2.0.0",
     "alembic>=1.13.0",
+    # Auth
     "python-jose[cryptography]>=3.3.0",
     "passlib[argon2]>=1.7.4",
+    # Config & env
     "python-dotenv>=1.0.0",
-    "anthropic>=0.30.0",
-    "apscheduler>=3.10.0",
-    "python-ulid>=2.0.0",
-    "cryptography>=42.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    # LLM (Google Gemini)
+    "google-genai>=1.0.0",
+    # Scheduling
+    "apscheduler>=3.10.0",
+    # Utilities
+    "python-ulid>=2.0.0",
+    "cryptography>=42.0.0",
 ]
 
 [tool.uv]

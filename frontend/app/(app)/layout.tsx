@@ -56,6 +56,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!session) {
+          // Bug A fix: PKCE OAuth callback sends ?code= in the URL. Supabase
+          // exchanges the code asynchronously; INITIAL_SESSION fires with null
+          // before the exchange completes. Don't redirect — wait for SIGNED_IN.
+          const isOAuthCallback =
+            typeof window !== "undefined" &&
+            (window.location.search.includes("code=") ||
+              window.location.hash.includes("access_token="));
+          if (isOAuthCallback) return;
+
           clearSession();
           router.replace("/login");
           return;
@@ -68,14 +77,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         // Kick off cache warming immediately (no waiting for profile fetch)
         prefetchAll();
 
-        // Fetch backend profile if not yet loaded
+        // Bug B fix: always refresh profile on SIGNED_IN so name/email are
+        // up-to-date. On TOKEN_REFRESHED / INITIAL_SESSION use cached value.
         const cachedUser = useAuthStore.getState().user;
-        if (cachedUser) return; // already have profile
+        if (cachedUser && event !== "SIGNED_IN") return;
 
         const meRes = await apiGet<UserProfile>("/me");
         if (!meRes.ok) {
-          clearSession();
-          router.replace("/login");
+          // Bug C fix: only clear session on real 401 (invalid token).
+          // A 500 (backend down, DB error) must not log the user out.
+          if (!meRes.error || meRes.error.code === "401") {
+            clearSession();
+            router.replace("/login");
+          }
           return;
         }
         setSession(token, meRes.data);

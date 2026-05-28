@@ -1,28 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function LandingPage() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
 
   // If already logged in, skip landing and go straight to the app.
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.replace("/home");
-      } else {
-        setChecking(false);
-      }
+      if (session) router.replace("/home");
     });
   }, [router]);
-
-  if (checking) {
-    // Blank while we confirm session — avoids flash of landing for logged-in users.
-    return <div style={{ minHeight: "100vh", background: "var(--bg)" }} />;
-  }
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
@@ -46,12 +37,9 @@ export default function LandingPage() {
           </span>
         </div>
 
-        <button
-          onClick={() => router.push("/login")}
-          className="btn btn-primary btn-sm"
-        >
+        <Link href="/login" className="btn btn-primary btn-sm">
           시작하기
-        </button>
+        </Link>
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────── */}
@@ -97,13 +85,13 @@ export default function LandingPage() {
 
           {/* CTA */}
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              onClick={() => router.push("/login")}
+            <Link
+              href="/login"
               className="btn btn-primary"
               style={{ padding: "12px 28px", fontSize: 15, fontWeight: 600 }}
             >
               Google로 무료 시작
-            </button>
+            </Link>
             <button
               onClick={() => {
                 document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
@@ -190,13 +178,13 @@ export default function LandingPage() {
         <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginBottom: 32 }}>
           Google 계정으로 5초 만에 가입할 수 있어요.
         </p>
-        <button
-          onClick={() => router.push("/login")}
+        <Link
+          href="/login"
           className="btn btn-primary"
           style={{ padding: "14px 36px", fontSize: 16, fontWeight: 600 }}
         >
           Google로 시작하기
-        </button>
+        </Link>
       </section>
 
       {/* ── Footer ───────────────────────────────────────────── */}

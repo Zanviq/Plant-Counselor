@@ -1,31 +1,27 @@
 from __future__ import annotations
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from types import SimpleNamespace
+
+from supabase import Client
 from ulid import ULID
 
-from app.db.models.garden_state import GardenState
+
+def _row(d: dict | None) -> SimpleNamespace | None:
+    return SimpleNamespace(**d) if d else None
 
 
 class GardenStateRepository:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Client) -> None:
         self.db = db
 
-    def get_or_create(self, user_id: str) -> GardenState:
-        stmt = select(GardenState).where(GardenState.user_id == user_id)
-        state = self.db.scalar(stmt)
-        if state is None:
-            state = GardenState(
-                id=str(ULID()),
-                user_id=user_id,
-            )
-            self.db.add(state)
-            self.db.flush()
-        return state
+    def get_or_create(self, user_id: str) -> SimpleNamespace:
+        res = self.db.table("garden_state").select("*").eq("user_id", user_id).maybe_single().execute()
+        if res.data:
+            return _row(res.data)
+        row = {"id": str(ULID()), "user_id": user_id}
+        ins = self.db.table("garden_state").insert(row).execute()
+        return _row(ins.data[0])
 
-    def update(self, user_id: str, fields: dict) -> GardenState:
+    def update(self, user_id: str, fields: dict) -> SimpleNamespace:
         state = self.get_or_create(user_id)
-        for key, value in fields.items():
-            setattr(state, key, value)
-        self.db.flush()
-        return state
-
+        res = self.db.table("garden_state").update(fields).eq("id", state.id).execute()
+        return _row(res.data[0]) if res.data else state

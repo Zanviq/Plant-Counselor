@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     # Get JWT secret from: Supabase Dashboard → Settings → API → JWT Secret
     supabase_jwt_secret: str = ""
     supabase_url: str = "https://mnqwrofidwotcsvsymnd.supabase.co"
+    # Service role key for PostgREST access (bypasses RLS)
+    supabase_service_role_key: str = ""
 
     # ── LLM ───────────────────────────────────────────────────────────────
     llm_api_key: str = ""

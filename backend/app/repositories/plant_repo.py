@@ -1,15 +1,21 @@
 from __future__ import annotations
 from datetime import datetime
+from types import SimpleNamespace
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from supabase import Client
 from ulid import ULID
 
-from app.db.models.plant import Plant
+
+def _row(d: dict | None) -> SimpleNamespace | None:
+    return SimpleNamespace(**d) if d else None
+
+
+def _rows(lst: list[dict]) -> list[SimpleNamespace]:
+    return [SimpleNamespace(**d) for d in lst]
 
 
 class PlantRepository:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Client) -> None:
         self.db = db
 
     def create(
@@ -19,22 +25,28 @@ class PlantRepository:
         description: str = "",
         species: str = "tree_oak",
         color: str = "brand.primary_leaf",
-    ) -> Plant:
-        plant = Plant(
-            id=str(ULID()),
-            user_id=user_id,
-            name=name,
-            description=description,
-            species=species,
-            color=color,
-        )
-        self.db.add(plant)
-        self.db.flush()
-        return plant
+    ) -> SimpleNamespace:
+        row = {
+            "id": str(ULID()),
+            "user_id": user_id,
+            "name": name,
+            "description": description,
+            "species": species,
+            "color": color,
+        }
+        res = self.db.table("plants").insert(row).execute()
+        return _row(res.data[0])
 
-    def get(self, user_id: str, plant_id: str) -> Plant | None:
-        stmt = select(Plant).where(Plant.id == plant_id, Plant.user_id == user_id)
-        return self.db.scalar(stmt)
+    def get(self, user_id: str, plant_id: str) -> SimpleNamespace | None:
+        res = (
+            self.db.table("plants")
+            .select("*")
+            .eq("id", plant_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return _row(res.data)
 
     def list(
         self,
@@ -42,25 +54,27 @@ class PlantRepository:
         include_dormant: bool = True,
         sort: str = "activity",
         limit: int = 100,
-    ) -> list[Plant]:
-        stmt = select(Plant).where(Plant.user_id == user_id, Plant.status != "archived")
+    ) -> list[SimpleNamespace]:
+        q = self.db.table("plants").select("*").eq("user_id", user_id).neq("status", "archived")
         if not include_dormant:
-            stmt = stmt.where(Plant.status == "active")
+            q = q.eq("status", "active")
         if sort == "activity":
-            stmt = stmt.order_by(Plant.last_activity_at.desc().nulls_last(), Plant.created_at.desc())
+            q = q.order("last_activity_at", desc=True, nulls_last=True).order("created_at", desc=True)
         else:
-            stmt = stmt.order_by(Plant.created_at.desc())
-        stmt = stmt.limit(limit)
-        return list(self.db.scalars(stmt).all())
+            q = q.order("created_at", desc=True)
+        q = q.limit(limit)
+        res = q.execute()
+        return _rows(res.data or [])
 
-    def update(self, user_id: str, plant_id: str, fields: dict) -> Plant | None:
-        plant = self.get(user_id, plant_id)
-        if plant is None:
-            return None
-        for key, value in fields.items():
-            setattr(plant, key, value)
-        self.db.flush()
-        return plant
+    def update(self, user_id: str, plant_id: str, fields: dict) -> SimpleNamespace | None:
+        res = (
+            self.db.table("plants")
+            .update(fields)
+            .eq("id", plant_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return _row(res.data[0]) if res.data else None
 
     def increment_stat(self, user_id: str, plant_id: str, stat_key: str) -> None:
         plant = self.get(user_id, plant_id)
@@ -68,9 +82,10 @@ class PlantRepository:
             return
         stats = dict(plant.stats or {})
         stats[stat_key] = stats.get(stat_key, 0) + 1
-        plant.stats = stats
-        plant.last_activity_at = datetime.utcnow()
-        self.db.flush()
+        self.db.table("plants").update({
+            "stats": stats,
+            "last_activity_at": datetime.utcnow().isoformat(),
+        }).eq("id", plant_id).eq("user_id", user_id).execute()
 
     def update_active_bud_count(self, user_id: str, plant_id: str, count: int) -> None:
         plant = self.get(user_id, plant_id)
@@ -78,16 +93,13 @@ class PlantRepository:
             return
         stats = dict(plant.stats or {})
         stats["active_bud_count"] = count
-        plant.stats = stats
-        self.db.flush()
+        self.db.table("plants").update({"stats": stats}).eq("id", plant_id).eq("user_id", user_id).execute()
 
-    def update_stats(self, user_id: str, plant_id: str, stats_update: dict) -> Plant | None:
+    def update_stats(self, user_id: str, plant_id: str, stats_update: dict) -> SimpleNamespace | None:
         plant = self.get(user_id, plant_id)
         if plant is None:
             return None
         stats = dict(plant.stats or {})
         stats.update(stats_update)
-        plant.stats = stats
-        self.db.flush()
-        return plant
-
+        res = self.db.table("plants").update({"stats": stats}).eq("id", plant_id).eq("user_id", user_id).execute()
+        return _row(res.data[0]) if res.data else None

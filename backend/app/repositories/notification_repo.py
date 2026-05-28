@@ -1,45 +1,45 @@
 from __future__ import annotations
 from datetime import datetime
+from types import SimpleNamespace
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from supabase import Client
 from ulid import ULID
 
-from app.db.models.notification import Notification
+
+def _row(d: dict | None) -> SimpleNamespace | None:
+    return SimpleNamespace(**d) if d else None
+
+
+def _rows(lst: list[dict]) -> list[SimpleNamespace]:
+    return [SimpleNamespace(**d) for d in lst]
 
 
 class NotificationRepository:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Client) -> None:
         self.db = db
 
-    def push(self, user_id: str, kind: str, payload: dict) -> Notification:
-        notif = Notification(
-            id=str(ULID()),
-            user_id=user_id,
-            kind=kind,
-            payload=payload,
-        )
-        self.db.add(notif)
-        self.db.flush()
-        return notif
+    def push(self, user_id: str, kind: str, payload: dict) -> SimpleNamespace:
+        row = {"id": str(ULID()), "user_id": user_id, "kind": kind, "payload": payload}
+        res = self.db.table("notifications").insert(row).execute()
+        return _row(res.data[0])
 
-    def list_unread(self, user_id: str) -> list[Notification]:
-        stmt = (
-            select(Notification)
-            .where(Notification.user_id == user_id, Notification.acked_at.is_(None))
-            .order_by(Notification.created_at.asc())
+    def list_unread(self, user_id: str) -> list[SimpleNamespace]:
+        res = (
+            self.db.table("notifications")
+            .select("*")
+            .eq("user_id", user_id)
+            .is_("acked_at", "null")
+            .order("created_at", desc=False)
+            .execute()
         )
-        return list(self.db.scalars(stmt).all())
+        return _rows(res.data or [])
 
     def ack(self, user_id: str, notification_id: str) -> bool:
-        stmt = select(Notification).where(
-            Notification.id == notification_id,
-            Notification.user_id == user_id,
+        res = (
+            self.db.table("notifications")
+            .update({"acked_at": datetime.utcnow().isoformat()})
+            .eq("id", notification_id)
+            .eq("user_id", user_id)
+            .execute()
         )
-        notif = self.db.scalar(stmt)
-        if notif is None:
-            return False
-        notif.acked_at = datetime.utcnow()
-        self.db.flush()
-        return True
-
+        return bool(res.data)

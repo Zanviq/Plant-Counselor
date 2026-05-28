@@ -1,15 +1,21 @@
 from __future__ import annotations
 from datetime import datetime, date, timedelta
+from types import SimpleNamespace
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from supabase import Client
 from ulid import ULID
 
-from app.db.models.bud import Bud, BudHistory
+
+def _row(d: dict | None) -> SimpleNamespace | None:
+    return SimpleNamespace(**d) if d else None
+
+
+def _rows(lst: list[dict]) -> list[SimpleNamespace]:
+    return [SimpleNamespace(**d) for d in lst]
 
 
 class BudRepository:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Client) -> None:
         self.db = db
 
     def create(
@@ -20,23 +26,30 @@ class BudRepository:
         type: str = "concern",
         detail: str = "",
         deadline: date | None = None,
-    ) -> Bud:
-        bud = Bud(
-            id=str(ULID()),
-            user_id=user_id,
-            plant_id=plant_id,
-            title=title,
-            type=type,
-            detail=detail,
-            deadline=deadline,
-        )
-        self.db.add(bud)
-        self.db.flush()
-        return bud
+    ) -> SimpleNamespace:
+        row: dict = {
+            "id": str(ULID()),
+            "user_id": user_id,
+            "plant_id": plant_id,
+            "title": title,
+            "type": type,
+            "detail": detail,
+        }
+        if deadline is not None:
+            row["deadline"] = deadline.isoformat()
+        res = self.db.table("buds").insert(row).execute()
+        return _row(res.data[0])
 
-    def get(self, user_id: str, bud_id: str) -> Bud | None:
-        stmt = select(Bud).where(Bud.id == bud_id, Bud.user_id == user_id)
-        return self.db.scalar(stmt)
+    def get(self, user_id: str, bud_id: str) -> SimpleNamespace | None:
+        res = (
+            self.db.table("buds")
+            .select("*")
+            .eq("id", bud_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return _row(res.data)
 
     def list(
         self,
@@ -47,32 +60,36 @@ class BudRepository:
         wilting_only: bool = False,
         deadline_within_days: int | None = None,
         limit: int = 50,
-    ) -> list[Bud]:
-        stmt = select(Bud).where(Bud.user_id == user_id)
-
+    ) -> list[SimpleNamespace]:
+        q = self.db.table("buds").select("*").eq("user_id", user_id)
         if plant_id is not None:
-            stmt = stmt.where(Bud.plant_id == plant_id)
+            q = q.eq("plant_id", plant_id)
         if statuses is not None:
-            stmt = stmt.where(Bud.status.in_(statuses))
+            q = q.in_("status", statuses)
         if bud_type is not None:
-            stmt = stmt.where(Bud.type == bud_type)
+            q = q.eq("type", bud_type)
         if wilting_only:
-            stmt = stmt.where(Bud.status == "wilting")
+            q = q.eq("status", "wilting")
         if deadline_within_days is not None:
-            cutoff = date.today() + timedelta(days=deadline_within_days)
-            stmt = stmt.where(Bud.deadline != None, Bud.deadline <= cutoff)  # noqa: E711
+            cutoff = (date.today() + timedelta(days=deadline_within_days)).isoformat()
+            q = q.lte("deadline", cutoff).not_.is_("deadline", "null")
+        q = q.order("created_at", desc=True).limit(limit)
+        res = q.execute()
+        return _rows(res.data or [])
 
-        stmt = stmt.order_by(Bud.created_at.desc()).limit(limit)
-        return list(self.db.scalars(stmt).all())
-
-    def update(self, user_id: str, bud_id: str, fields: dict) -> Bud | None:
-        bud = self.get(user_id, bud_id)
-        if bud is None:
-            return None
-        for key, value in fields.items():
-            setattr(bud, key, value)
-        self.db.flush()
-        return bud
+    def update(self, user_id: str, bud_id: str, fields: dict) -> SimpleNamespace | None:
+        # convert date → isoformat for JSON
+        safe = {}
+        for k, v in fields.items():
+            safe[k] = v.isoformat() if isinstance(v, date) else v
+        res = (
+            self.db.table("buds")
+            .update(safe)
+            .eq("id", bud_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return _row(res.data[0]) if res.data else None
 
     def add_history(
         self,
@@ -80,35 +97,36 @@ class BudRepository:
         from_status: str,
         to_status: str,
         reason: str = "",
-    ) -> BudHistory:
-        history = BudHistory(
-            id=str(ULID()),
-            bud_id=bud_id,
-            from_status=from_status,
-            to_status=to_status,
-            at=datetime.utcnow(),
-            reason=reason,
-        )
-        self.db.add(history)
-        self.db.flush()
-        return history
+    ) -> SimpleNamespace:
+        row = {
+            "id": str(ULID()),
+            "bud_id": bud_id,
+            "from_status": from_status,
+            "to_status": to_status,
+            "at": datetime.utcnow().isoformat(),
+            "reason": reason,
+        }
+        res = self.db.table("bud_history").insert(row).execute()
+        return _row(res.data[0])
 
-    def get_history(self, bud_id: str) -> list[BudHistory]:
-        stmt = (
-            select(BudHistory)
-            .where(BudHistory.bud_id == bud_id)
-            .order_by(BudHistory.at.asc())
+    def get_history(self, bud_id: str) -> list[SimpleNamespace]:
+        res = (
+            self.db.table("bud_history")
+            .select("*")
+            .eq("bud_id", bud_id)
+            .order("at", desc=False)
+            .execute()
         )
-        return list(self.db.scalars(stmt).all())
+        return _rows(res.data or [])
 
     def count_active(self, plant_id: str) -> int:
-        from sqlalchemy import func
-        result = self.db.scalar(
-            select(func.count()).select_from(Bud).where(
-                Bud.plant_id == plant_id,
-                Bud.status.not_in(["harvested", "rot"]),
-                Bud.disappeared_at.is_(None),
-            )
+        inactive = ["harvested", "rot"]
+        res = (
+            self.db.table("buds")
+            .select("id", count="exact")
+            .eq("plant_id", plant_id)
+            .not_.in_("status", inactive)
+            .is_("disappeared_at", "null")
+            .execute()
         )
-        return result or 0
-
+        return res.count or 0

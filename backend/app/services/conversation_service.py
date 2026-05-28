@@ -1,49 +1,28 @@
 from __future__ import annotations
-from sqlalchemy.orm import Session
+from types import SimpleNamespace
 
-from app.db.models.conversation import ConversationMessage
+from supabase import Client
+
 from app.repositories.conversation_repo import ConversationRepository
 
 
 class ConversationService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Client) -> None:
         self.db = db
         self._repo = ConversationRepository(db)
 
-    def append(
-        self,
-        user_id: str,
-        scope: str,
-        scope_id: str | None,
-        role: str,
-        text: str,
-        skill_call: dict | None = None,
-    ) -> ConversationMessage:
+    def append(self, user_id: str, scope: str, scope_id: str | None,
+               role: str, text: str, skill_call: dict | None = None) -> SimpleNamespace:
         conv = self._repo.get_or_create(user_id, scope, scope_id)
-        msg = self._repo.add_message(conv.id, role, text, skill_call)
-        self.db.commit()
-        self.db.refresh(msg)
-        return msg
+        return self._repo.add_message(conv.id, role, text, skill_call)
 
-    def get_history(
-        self,
-        user_id: str,
-        scope: str,
-        scope_id: str | None,
-        limit: int = 20,
-    ) -> list[ConversationMessage]:
+    def get_history(self, user_id: str, scope: str, scope_id: str | None,
+                    limit: int = 20) -> list[SimpleNamespace]:
         return self._repo.get_history(user_id, scope, scope_id, limit)
 
     def list_conversations(self, user_id: str) -> list[dict]:
         return self._repo.list_conversations_for_user(user_id)
 
-    def search(
-        self,
-        user_id: str,
-        query: str,
-        scope: str,
-        scope_id: str | None,
-        limit: int = 10,
-    ) -> list[ConversationMessage]:
+    def search(self, user_id: str, query: str, scope: str, scope_id: str | None,
+               limit: int = 10) -> list[SimpleNamespace]:
         return self._repo.search(user_id, query, scope, scope_id, limit)
-

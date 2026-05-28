@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useChatStore } from "@/lib/store/chatStore";
+import { useChatStore, MIN_CHAT_W, MAX_CHAT_W } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { streamChat } from "@/lib/api/client";
 import { getHistory } from "@/lib/api/conversations";
 import { getPlant, listPlants, Plant } from "@/lib/api/plants";
 import { getBud } from "@/lib/api/buds";
+import { QK } from "@/lib/queryKeys";
 
 // ── types ───────────────────────────────────────────────────
 
@@ -25,8 +26,6 @@ interface Message {
 }
 
 // ── constants ───────────────────────────────────────────────
-
-const CHAT_W = 400;
 
 const QUICK_ASKS = [
   "오늘 뭘 먼저 해야 할까?",
@@ -63,13 +62,13 @@ const SKILLS_INFO = [
 ];
 
 const SKILL_INVALIDATIONS: Record<string, string[]> = {
-  create_plant:        ["plants", "stats"],
-  delete_plant:        ["plants", "buds", "stats"],
-  create_bud:          ["buds", "plants", "stats", "calendar"],
-  update_bud_status:   ["buds", "plants", "stats", "bud"],
+  create_plant:        ["plants", "stats", "briefing"],
+  delete_plant:        ["plants", "buds", "stats", "briefing"],
+  create_bud:          ["buds", "plants", "stats", "briefing", "calendar"],
+  update_bud_status:   ["buds", "plants", "stats", "briefing", "bud"],
   update_bud_progress: ["buds", "bud"],
-  harvest_bud:         ["buds", "plants", "stats", "bud"],
-  abandon_bud:         ["buds", "plants", "stats", "bud"],
+  harvest_bud:         ["buds", "plants", "stats", "briefing", "bud"],
+  abandon_bud:         ["buds", "plants", "stats", "briefing", "bud"],
   set_deadline:        ["buds", "bud", "calendar", "stats"],
 };
 
@@ -184,7 +183,7 @@ function Sep() {
 
 export default function ChatPanel() {
   const router = useRouter();
-  const { open, close, scope, openWith } = useChatStore();
+  const { open, close, scope, openWith, chatWidth, setChatWidth } = useChatStore();
   const { user } = useAuthStore();
   const qc = useQueryClient();
 
@@ -192,9 +191,35 @@ export default function ChatPanel() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [scopeInfo, setScopeInfo] = useState<{ plantName?: string; budTitle?: string }>({});
   const [showPalette, setShowPalette] = useState(false);
   const [paletteIdx, setPaletteIdx] = useState(0);
+
+  // Resolve breadcrumb labels from cache (instant — no extra network round-trips).
+  const plantScopeId = scope.kind === "plant" ? scope.id : undefined;
+  const budScopeId   = scope.kind === "bud"   ? scope.id : undefined;
+  const { data: _plantRes } = useQuery({
+    queryKey: QK.plant(plantScopeId ?? ""),
+    queryFn: () => getPlant(plantScopeId!),
+    enabled: !!plantScopeId,
+    staleTime: 5 * 60_000,
+  });
+  const { data: _budRes } = useQuery({
+    queryKey: QK.bud(budScopeId ?? ""),
+    queryFn: () => getBud(budScopeId!),
+    enabled: !!budScopeId,
+    staleTime: 5 * 60_000,
+  });
+  const _budPlantId = _budRes?.ok ? _budRes.data.bud.plant_id : undefined;
+  const { data: _budPlantRes } = useQuery({
+    queryKey: QK.plant(_budPlantId ?? ""),
+    queryFn: () => getPlant(_budPlantId!),
+    enabled: !!_budPlantId,
+    staleTime: 5 * 60_000,
+  });
+  const breadcrumbPlantName =
+    (_plantRes?.ok    ? _plantRes.data.name    : undefined) ??
+    (_budPlantRes?.ok ? _budPlantRes.data.name : undefined);
+  const breadcrumbBudTitle = _budRes?.ok ? _budRes.data.bud.title : undefined;
 
   const dirtySkills = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -202,6 +227,31 @@ export default function ChatPanel() {
   const prevScopeKey = useRef("");
 
   const scopeKey = `${scope.kind}:${scope.id ?? ""}`;
+
+  // ── resize handle ────────────────────────────────────────
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = chatWidth;
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function onMove(ev: MouseEvent) {
+      // dragging LEFT → bigger panel (right edge is fixed)
+      const delta = startX - ev.clientX;
+      const newW = Math.max(MIN_CHAT_W, Math.min(MAX_CHAT_W, startW + delta));
+      setChatWidth(newW);
+    }
+    function onUp() {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [chatWidth, setChatWidth]);
 
   const filteredCmds = COMMANDS.filter((c) =>
     input.startsWith("/") && c.cmd.startsWith(input.split(" ")[0])
@@ -232,22 +282,7 @@ export default function ChatPanel() {
     });
   }, [open, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Resolve breadcrumb names
-  useEffect(() => {
-    setScopeInfo({});
-    if (scope.kind === "plant" && scope.id) {
-      getPlant(scope.id).then((res) => res.ok && setScopeInfo({ plantName: res.data.name }));
-    } else if (scope.kind === "bud" && scope.id) {
-      getBud(scope.id).then(async (res) => {
-        if (!res.ok) return;
-        const pr = await getPlant(res.data.bud.plant_id);
-        setScopeInfo({
-          plantName: pr.ok ? pr.data.name : undefined,
-          budTitle: res.data.bud.title,
-        });
-      });
-    }
-  }, [scope.kind, scope.id]);
+  // Breadcrumb names are now resolved via useQuery above — no useEffect needed.
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 80);
@@ -385,26 +420,53 @@ export default function ChatPanel() {
 
   if (!open) return null;
 
-  const historyMsgs = messages.filter((m) => m.fromHistory);
-  const newMsgs = messages.filter((m) => !m.fromHistory);
 
   return (
     <aside
       className="animate-in-right"
       style={{
         position: "fixed", right: 0, top: 0, bottom: 0,
-        width: CHAT_W, zIndex: 40,
+        width: chatWidth, zIndex: 40,
         display: "flex", flexDirection: "column",
         background: "var(--bg-elevated)",
         borderLeft: "1px solid var(--border)",
         boxShadow: "var(--shadow-lg)",
       }}
     >
+      {/* ── Resize handle ── drag this left/right to change panel width */}
+      <div
+        onMouseDown={handleResizeStart}
+        title="드래그해서 크기 조절"
+        style={{
+          position: "absolute", left: 0, top: 0, bottom: 0, width: 5,
+          cursor: "col-resize", zIndex: 1,
+          background: "transparent",
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 40%, transparent)")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+      />
       {/* Header */}
       <header style={{ borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        <div style={{ padding: "12px 16px 8px" }}>
-          <Breadcrumb scopeKind={scope.kind} plantName={scopeInfo.plantName} budTitle={scopeInfo.budTitle} />
+        {/* Row 1 — session breadcrumb  +  온라인 badge  +  닫기 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px 8px" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Breadcrumb scopeKind={scope.kind} plantName={breadcrumbPlantName} budTitle={breadcrumbBudTitle} />
+          </div>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-muted)", flexShrink: 0 }}>
+            <span className="dot" style={{ background: "var(--positive)" }} />
+            온라인
+          </span>
+          <button
+            onClick={close}
+            className="btn btn-ghost btn-sm"
+            aria-label="닫기"
+            style={{ width: 26, height: 26, padding: 0, flexShrink: 0 }}
+          >
+            ✕
+          </button>
         </div>
+        {/* Row 2 — icon + title */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 16px 12px" }}>
           <div
             style={{
@@ -417,21 +479,7 @@ export default function ChatPanel() {
               <path d="M21 12a8 8 0 01-11.5 7.2L3 21l1.8-6.5A8 8 0 1121 12z" />
             </svg>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="t-h3" style={{ color: "var(--fg)" }}>AI 정원사</div>
-          </div>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-muted)" }}>
-            <span className="dot" style={{ background: "var(--positive)" }} />
-            온라인
-          </span>
-          <button
-            onClick={close}
-            className="btn btn-ghost btn-sm"
-            aria-label="닫기"
-            style={{ width: 26, height: 26, padding: 0 }}
-          >
-            ✕
-          </button>
+          <div className="t-h3" style={{ color: "var(--fg)" }}>AI 정원사</div>
         </div>
       </header>
 
@@ -539,14 +587,6 @@ export default function ChatPanel() {
                 </div>
               );
             })}
-
-            {historyMsgs.length > 0 && newMsgs.length > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0" }}>
-                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                <span className="t-caption" style={{ color: "var(--accent)" }}>새 대화</span>
-                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              </div>
-            )}
 
             <div ref={bottomRef} />
           </div>

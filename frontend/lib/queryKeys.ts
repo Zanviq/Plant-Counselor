@@ -25,4 +25,9 @@ export const QK = {
 
   // Notifications
   notifications: () => ["notifications"] as const,
+
+  // Conversation history
+  conversations: () => ["conversations", "list"] as const,
+  historyThread: (scope: string, scopeId?: string | null) =>
+    ["history", scope, scopeId ?? null] as const,
 };

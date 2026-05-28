@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { getCalendar, getSummary, getBriefing } from "@/lib/api/stats";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_COLOR_VAR, STATUS_LABEL, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { CalendarSkeleton, StatCardSkeleton } from "@/components/ui/Skeleton";
@@ -30,6 +31,7 @@ interface CalEvent {
 
 export default function CalendarPage() {
   const router = useRouter();
+  const qc = useQueryClient();
   const { openWith } = useChatStore();
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
@@ -39,9 +41,31 @@ export default function CalendarPage() {
   const from = ymd(year, month, 1);
   const to   = ymd(year, month, daysInMonth(year, month));
 
-  const { data: calRes,     isLoading: loadingCal } = useQuery({ queryKey: QK.calendar(year, month), queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000 });
-  const { data: briefRes }                           = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000 });
-  const { data: summaryRes }                         = useQuery({ queryKey: QK.summary(),  queryFn: getSummary });
+  const { accessToken } = useAuthStore();
+
+  // Prefetch adjacent months so prev/next navigation is instant.
+  useEffect(() => {
+    if (!accessToken) return;
+    const prevM = month === 0 ? 11 : month - 1;
+    const prevY = month === 0 ? year - 1 : year;
+    const nextM = month === 11 ? 0 : month + 1;
+    const nextY = month === 11 ? year + 1 : year;
+
+    qc.prefetchQuery({
+      queryKey: QK.calendar(prevY, prevM),
+      queryFn: () => getCalendar(ymd(prevY, prevM, 1), ymd(prevY, prevM, daysInMonth(prevY, prevM))),
+      staleTime: 5 * 60_000,
+    });
+    qc.prefetchQuery({
+      queryKey: QK.calendar(nextY, nextM),
+      queryFn: () => getCalendar(ymd(nextY, nextM, 1), ymd(nextY, nextM, daysInMonth(nextY, nextM))),
+      staleTime: 5 * 60_000,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, month, accessToken]);
+  const { data: calRes,     isLoading: loadingCal } = useQuery({ queryKey: QK.calendar(year, month), queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000, enabled: !!accessToken });
+  const { data: briefRes }                           = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000,    enabled: !!accessToken });
+  const { data: summaryRes }                         = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,                             enabled: !!accessToken });
 
   const events: Record<string, CalEvent[]> = calRes?.ok ? calRes.data.events : {};
   const summary = summaryRes?.ok ? summaryRes.data : null;

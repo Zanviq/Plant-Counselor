@@ -9,6 +9,21 @@ from app.services.conversation_service import ConversationService
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
+@router.get("/list")
+def list_conversations(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return all conversations for the current user with metadata.
+
+    Each item includes: id, scope, scope_id, message_count,
+    last_message (preview, ≤120 chars), last_role, updated_at, created_at.
+    Conversations with zero messages are excluded.
+    """
+    items = ConversationService(db).list_conversations(user.id)
+    return {"ok": True, "data": {"conversations": items}}
+
+
 @router.get("")
 def get_history(
     scope: str = "global",

@@ -11,6 +11,7 @@ import NotificationsPopover from "./NotificationsPopover";
 import { listPlants } from "@/lib/api/plants";
 import { listBuds } from "@/lib/api/buds";
 import { getSummary, getBriefing, getCalendar } from "@/lib/api/stats";
+import { listConversations } from "@/lib/api/conversations";
 import { QK } from "@/lib/queryKeys";
 
 // ── icons ───────────────────────────────────────────────────
@@ -55,6 +56,13 @@ function SettingsIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008.9 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 8.9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
+  </svg>
+);}
+
+function HistoryIcon() { return (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 8v4l2.5 2.5" />
+    <path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4" />
   </svg>
 );}
 
@@ -133,6 +141,13 @@ export default function Sidebar() {
     qc.prefetchQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   staleTime: 2 * 60_000 });
   }, [qc]);
 
+  // Prefetch conversation list on hover.
+  const prefetchHistory = useCallback(() => {
+    qc.prefetchQuery({ queryKey: QK.conversations(), queryFn: listConversations, staleTime: 60_000 });
+    qc.prefetchQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), staleTime: 2 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   staleTime: 2 * 60_000 });
+  }, [qc]);
+
   // Prefetch calendar + summary on hover.
   const prefetchCalendar = useCallback(() => {
     const today = new Date();
@@ -180,6 +195,7 @@ export default function Sidebar() {
         <NavLink href="/"        label="홈"    active={isActive("/", true)} onPrefetch={prefetchPlants}><HomeIcon /></NavLink>
         <NavLink href="/plants"  label="정원"  active={isActive("/plants")}  onPrefetch={prefetchPlants}><PlantsIcon /></NavLink>
         <NavLink href="/calendar" label="캘린더" active={isActive("/calendar")} onPrefetch={prefetchCalendar}><CalendarIcon /></NavLink>
+        <NavLink href="/history" label="대화 기록" active={isActive("/history")} onPrefetch={prefetchHistory}><HistoryIcon /></NavLink>
 
         <div style={{ width: 24, height: 1, background: "rgba(255,255,255,0.10)", margin: "8px 0" }} />
 

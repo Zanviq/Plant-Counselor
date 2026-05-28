@@ -2,18 +2,32 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useChatStore } from "@/lib/store/chatStore";
 import Sidebar from "@/components/layout/Sidebar";
 import ChatPanel from "@/components/chat/ChatPanel";
 import { refreshToken } from "@/lib/api/auth";
 import { apiGet, configureClient } from "@/lib/api/client";
+import { listPlants } from "@/lib/api/plants";
+import { listBuds } from "@/lib/api/buds";
+import { getSummary, getBriefing } from "@/lib/api/stats";
+import { QK } from "@/lib/queryKeys";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const { accessToken, user, setSession, clearSession } = useAuthStore();
-  const { open, openWith } = useChatStore();
+  const { open, openWith, chatWidth } = useChatStore();
   const initialized = useRef(false);
+
+  /** Warm the caches that every page needs — called once after a valid token is available. */
+  function prefetchAll() {
+    qc.prefetchQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(), staleTime: 2 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.buds(),     queryFn: () => listBuds(),   staleTime: 2 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.summary(),  queryFn: getSummary,         staleTime: 2 * 60_000 });
+    qc.prefetchQuery({ queryKey: QK.briefing(), queryFn: getBriefing,        staleTime: 5 * 60_000 });
+  }
 
   // Session restore: configure client + recover session on first mount.
   useEffect(() => {
@@ -36,8 +50,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Already fully hydrated — nothing to do.
-    if (accessToken && user) return;
+    // Already fully hydrated — kick off prefetch immediately and exit.
+    if (accessToken && user) {
+      prefetchAll();
+      return;
+    }
 
     (async () => {
       // Step 1: Refresh the access token (uses httpOnly refresh cookie).
@@ -49,6 +66,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
       const token = (res.data as { access_token: string }).access_token;
       useAuthStore.setState({ accessToken: token });
+
+      // Kick off cache warming in parallel with the profile fetch below.
+      prefetchAll();
 
       // Step 2 (conditional): Fetch user profile only when not already cached
       // in localStorage (via authStore.persist).  If the profile is available
@@ -68,6 +88,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
       setSession(token, meRes.data as unknown as Parameters<typeof setSession>[1]);
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, user, setSession, clearSession, router]);
 
   // Global space-key opens chat (when not in input).
@@ -83,7 +104,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [openWith]);
 
   const SIDEBAR_W = 64;
-  const CHAT_W = 380;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
@@ -92,7 +112,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         style={{
           minHeight: "100vh",
           marginLeft: SIDEBAR_W,
-          marginRight: open ? CHAT_W : 0,
+          marginRight: open ? chatWidth : 0,
           transition: "margin-right 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >

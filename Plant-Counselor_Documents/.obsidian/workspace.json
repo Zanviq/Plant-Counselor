@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "MVP_Documents/00_Overview.md",
+                "file": "해야할일.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "00_Overview"
+              "title": "해야할일"
             }
           }
         ],
@@ -200,14 +200,15 @@
   },
   "active": "9a1a16d6b711641d",
   "lastOpenFiles": [
-    "해야할일.md",
+    "MVP_Documents/02_UI_Pages_And_Components.md",
+    "MVP_Documents/04_AI_Chat_And_Skills.md",
     "MVP_Documents/06_API_Reference.md",
+    "MVP_Documents/00_Overview.md",
+    "해야할일.md",
     "MVP_Documents/04_AI_Chat_And_Skills.md.tmp.25104.a498696eeda2",
     "MVP_Documents/09_Summary.md",
     "MVP_Documents/09_Summary.md.tmp.25104.478d0cb75fea",
-    "MVP_Documents/04_AI_Chat_And_Skills.md",
     "MVP_Documents/01_Architecture.md",
-    "MVP_Documents/00_Overview.md",
     "Web_Documents/02_기능/상태_자동전이.md",
     "Web_Documents/02_기능/알림.md",
     "Web_Documents/01_페이지/공통_AI대화창.md",
@@ -232,7 +233,6 @@
     "Web_Documents/08_에셋/픽셀_에셋.md",
     "Web_Documents/07_디자인/화면_레이아웃/홈_레이아웃.md",
     "Web_Documents/07_디자인/화면_레이아웃/식물_정원_레이아웃.md",
-    "Web_Documents/07_디자인/화면_레이아웃/설정_레이아웃.md",
     "copy_design.py",
     "copy_skills.py",
     "Web_Documents/04_데이터/Bud.md.tmp.15396.820dd8e24d6c",

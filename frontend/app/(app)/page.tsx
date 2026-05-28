@@ -193,11 +193,13 @@ export default function HomePage() {
   const { openWith } = useChatStore();
   const { user } = useAuthStore();
 
+  const { accessToken } = useAuthStore();
   // Query keys from QK factory — shared with plants/page.tsx to hit the same cache.
-  const { data: sumRes,    isLoading: loadingSum }    = useQuery({ queryKey: QK.summary(),  queryFn: getSummary });
-  const { data: briefRes }                             = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000 });
-  const { data: plantsRes, isLoading: loadingPlants } = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants() });
-  const { data: budsRes }                             = useQuery({ queryKey: QK.buds(),     queryFn: () => listBuds() });
+  // `enabled` guard prevents unauthenticated 401s on cold start.
+  const { data: sumRes,    isLoading: loadingSum }    = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,          enabled: !!accessToken });
+  const { data: briefRes }                             = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000, enabled: !!accessToken });
+  const { data: plantsRes, isLoading: loadingPlants } = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(),  enabled: !!accessToken });
+  const { data: budsRes }                             = useQuery({ queryKey: QK.buds(),     queryFn: () => listBuds(),    enabled: !!accessToken });
 
   const summary  = sumRes?.ok    ? sumRes.data            : null;
   const briefing = briefRes?.ok  ? briefRes.data.briefing : "";

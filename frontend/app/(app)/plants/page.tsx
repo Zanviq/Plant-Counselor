@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { listPlants, Plant } from "@/lib/api/plants";
 import { listBuds, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
@@ -171,13 +172,14 @@ function ViewToggle({ current, onChange }: { current: ViewMode; onChange: (m: Vi
 export default function PlantsPage() {
   const router = useRouter();
   const { openWith } = useChatStore();
+  const { accessToken } = useAuthStore();
   const [view, setView] = useState<ViewMode>("garden");
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants() });
-  const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds() });
+  const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: !!accessToken });
+  const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: !!accessToken });
 
   const plants = plantsRes?.ok ? plantsRes.data.items : [];
   const allBuds = budsRes?.ok ? budsRes.data.items : [];

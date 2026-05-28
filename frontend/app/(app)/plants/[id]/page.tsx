@@ -6,6 +6,7 @@ import { useState } from "react";
 import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
 import { listBuds, getBud, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useAuthStore } from "@/lib/store/authStore";
 import {
   STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, BudStatus, isActive, isDone,
 } from "@/lib/status";
@@ -66,8 +67,8 @@ function BudRow({ bud, selected, onClick }: { bud: Bud; selected: boolean; onCli
 // ── Detail drawer ─────────────────────────────────────────────
 
 function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => void }) {
-  const { openWith } = useChatStore();
-  const { data } = useQuery({ queryKey: ["bud", budId], queryFn: () => getBud(budId) });
+  const { open: chatOpen, chatWidth, openWith } = useChatStore();
+  const { data } = useQuery({ queryKey: QK.bud(budId), queryFn: () => getBud(budId) });
   const bud = data?.ok ? data.data.bud : null;
   const history = data?.ok ? data.data.history : [];
   if (!bud) return null;
@@ -83,18 +84,31 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
       window.dispatchEvent(ev);
     }, 80);
   }
+  // When the chat panel is open the drawer shifts left to sit beside it.
+  const drawerRight = chatOpen ? chatWidth : 0;
+
   return (
     <>
+      {/* Backdrop — stops at the chat panel edge so it doesn't cover it */}
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, zIndex: 39, background: "var(--bg-overlay)", backdropFilter: "blur(3px)" }}
+        style={{
+          position: "fixed", top: 0, left: 0, bottom: 0,
+          right: chatOpen ? chatWidth : 0,
+          zIndex: 39,
+          background: "var(--bg-overlay)", backdropFilter: "blur(3px)",
+        }}
       />
       <aside
         className="animate-in-right"
         style={{
-          position: "fixed", right: 0, top: 0, bottom: 0, width: 400, zIndex: 40,
+          position: "fixed",
+          right: drawerRight,
+          top: 0, bottom: 0, width: 400,
+          zIndex: 45, // above ChatPanel (40) so it's never buried
           background: "var(--bg-elevated)", borderLeft: "1px solid var(--border)",
           display: "flex", flexDirection: "column",
+          transition: "right 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
         <header style={{ padding: "16px 18px", borderBottom: "1px solid var(--border)" }}>
@@ -215,6 +229,7 @@ export default function PlantDetailPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { openWith } = useChatStore();
+  const { accessToken } = useAuthStore();
   const [selectedBudId, setSelectedBudId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [confirming, setConfirming] = useState(false);
@@ -222,6 +237,7 @@ export default function PlantDetailPage() {
   const { data: plantRes, isLoading: loadingPlant } = useQuery({
     queryKey: QK.plant(id),
     queryFn: () => getPlant(id),
+    enabled: !!accessToken,
     // Populate immediately from the plants list cache if available —
     // avoids a blank header while the individual-plant request is in flight.
     initialData: () => {
@@ -236,6 +252,7 @@ export default function PlantDetailPage() {
   const { data: budsRes, isLoading: loadingBuds }  = useQuery({
     queryKey: QK.plantBuds(id),
     queryFn: () => listBuds({ plant_id: id }),
+    enabled: !!accessToken,
   });
 
   const plant = plantRes?.ok ? plantRes.data : null;

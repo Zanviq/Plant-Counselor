@@ -34,6 +34,9 @@ class ConversationService:
     ) -> list[ConversationMessage]:
         return self._repo.get_history(user_id, scope, scope_id, limit)
 
+    def list_conversations(self, user_id: str) -> list[dict]:
+        return self._repo.list_conversations_for_user(user_id)
+
     def search(
         self,
         user_id: str,

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from ulid import ULID
 
@@ -67,6 +67,86 @@ class ConversationRepository:
         )
         rows = list(self.db.scalars(stmt).all())
         return list(reversed(rows))
+
+    def list_conversations_for_user(self, user_id: str) -> list[dict]:
+        """Return all conversations for a user with message counts and last-message preview.
+
+        Executes 3 queries (conversations → counts → last messages) to avoid N+1.
+        Conversations with zero messages are omitted — they are phantom rows created
+        by get_or_create() and carry no history value.
+        """
+        # 1. All conversations for this user
+        convs_stmt = (
+            select(Conversation)
+            .where(Conversation.user_id == user_id)
+            .order_by(Conversation.updated_at.desc())
+        )
+        convs = list(self.db.scalars(convs_stmt).all())
+        if not convs:
+            return []
+
+        conv_ids = [c.id for c in convs]
+
+        # 2. Message count per conversation
+        count_stmt = (
+            select(
+                ConversationMessage.conversation_id,
+                func.count(ConversationMessage.id).label("cnt"),
+            )
+            .where(ConversationMessage.conversation_id.in_(conv_ids))
+            .group_by(ConversationMessage.conversation_id)
+        )
+        counts: dict[str, int] = {
+            row.conversation_id: row.cnt
+            for row in self.db.execute(count_stmt).all()
+        }
+
+        # 3. Last user/assistant message per conversation
+        #    Use a subquery for the max timestamp, then join to fetch the text.
+        max_at_sub = (
+            select(
+                ConversationMessage.conversation_id,
+                func.max(ConversationMessage.at).label("max_at"),
+            )
+            .where(
+                ConversationMessage.conversation_id.in_(conv_ids),
+                ConversationMessage.role.in_(["user", "assistant"]),
+            )
+            .group_by(ConversationMessage.conversation_id)
+            .subquery()
+        )
+        last_msgs_stmt = (
+            select(ConversationMessage)
+            .join(
+                max_at_sub,
+                (ConversationMessage.conversation_id == max_at_sub.c.conversation_id)
+                & (ConversationMessage.at == max_at_sub.c.max_at),
+            )
+            .where(ConversationMessage.role.in_(["user", "assistant"]))
+        )
+        last_msgs: dict[str, ConversationMessage] = {}
+        for msg in self.db.scalars(last_msgs_stmt).all():
+            last_msgs[msg.conversation_id] = msg
+
+        result = []
+        for conv in convs:
+            cnt = counts.get(conv.id, 0)
+            if cnt == 0:
+                continue  # skip phantom conversations with no messages
+            last = last_msgs.get(conv.id)
+            result.append(
+                {
+                    "id": conv.id,
+                    "scope": conv.scope,
+                    "scope_id": conv.scope_id,
+                    "message_count": cnt,
+                    "last_message": (last.text[:120] if last else None),
+                    "last_role": (last.role if last else None),
+                    "updated_at": conv.updated_at.isoformat(),
+                    "created_at": conv.created_at.isoformat(),
+                }
+            )
+        return result
 
     def search(
         self,

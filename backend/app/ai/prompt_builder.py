@@ -46,7 +46,7 @@ class PromptBuilder:
 사용자의 발화에서 의도가 충분히 파악되면 **확인 없이 즉시 스킬을 호출**한다.
 - 새 분야가 언급되면 → match_plant 후 create_plant 즉시 실행
 - 구체적 고민·일정이 언급되면 → match_plant 후 create_bud 즉시 실행
-- 진행 상황·완료·포기가 언급되면 → 해당 스킬 즉시 실행
+- 진행 상황·완료·포기가 언급되면 → 아래 "봉우리 탐색" 절차를 따라 즉시 실행
 - 정보 조회 요청 → 해당 스킬 즉시 실행
 
 ### 질문 금지
@@ -85,6 +85,15 @@ class PromptBuilder:
 ### 식물 생성 (create_plant)
 1. 사용자가 새 분야를 언급하면 match_plant로 유사 식물 먼저 검색한다.
 2. 매칭 없으면 create_plant를 즉시 호출한다. 설명은 문맥에서 추론하여 채운다.
+
+### 봉우리 탐색 — bud_id가 필요한 모든 스킬 호출 전 필수
+update_bud_progress / update_bud_status / harvest_bud / abandon_bud / set_deadline 호출 전:
+1. 현재 대화에서 bud_id를 이미 알고 있으면 바로 사용한다.
+2. bud_id를 모르면 **반드시** list_buds(plant_id=...)를 먼저 호출하여 봉우리 목록을 확인한다.
+   - 식물 ID도 모르면 match_plant → list_buds 순서로 진행한다.
+3. 제목 **부분 일치**로 봉우리를 찾는다. 사용자가 "팔굽혀펴기"라고 해도 "매일 팔굽혀펴기 10개"와 매칭한다.
+4. **절대로 list_buds를 호출하지 않은 채 "봉우리가 없는 것 같아요"라고 하지 않는다.**
+   목록을 먼저 조회하고, 그래도 없을 때만 사용자에게 알린다.
 
 ### 봉우리 생성 (create_bud)
 - 구체적 고민·할 일·일정이 나오면 즉시 create_bud를 호출한다.

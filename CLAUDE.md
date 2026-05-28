@@ -1,7 +1,7 @@
 # Plant Counselor — CLAUDE.md
 
 > **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-28 (세션 9)  
+> 최종 업데이트: 2026-05-29 (세션 10)  
 > 작성자: confidencecat (jaemi)
 
 ---
@@ -54,10 +54,10 @@
 | 계층 | 기술 |
 |------|------|
 | **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS v4, Zustand, TanStack Query v5 |
-| **Backend** | FastAPI, SQLAlchemy 2.x, Pydantic v2, APScheduler |
+| **Backend** | FastAPI, **supabase-py** (PostgREST HTTP), Pydantic v2, APScheduler |
 | **LLM** | Google Gemini 2.5 Flash (`google-genai` SDK) |
-| **DB** | Supabase PostgreSQL (psycopg2-binary) + Row Level Security |
-| **Auth** | Supabase Auth (Google OAuth) + python-jose JWT 검증 + Fernet (API 키 암호화) |
+| **DB** | Supabase PostgreSQL (psycopg2 제거 → **supabase-py HTTP**) + Row Level Security |
+| **Auth** | Supabase Auth (Google OAuth) + **ES256 JWKS** 검증 (HS256 fallback) + Fernet (API 키 암호화) |
 | **BaaS** | Supabase (프로젝트 ID: `mnqwrofidwotcsvsymnd`, region: ap-northeast-2) |
 | **ID** | ULID (python-ulid) |
 
@@ -136,11 +136,15 @@ pnpm dev                      # → http://localhost:3000
 ### 필수 환경변수 (backend/.env)
 
 ```dotenv
-# Supabase PostgreSQL 연결 (Dashboard → Settings → Database → Connection string)
-DATABASE_URL=postgresql+psycopg2://postgres:[비밀번호]@db.mnqwrofidwotcsvsymnd.supabase.co:5432/postgres
+# Supabase PostgreSQL 연결 (pooler 사용 — psycopg2 fallback이지만 실제로는 supabase-py HTTP 사용)
+DATABASE_URL=postgresql+psycopg2://postgres.PROJECT_REF:PASSWORD@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
 
-# Supabase JWT 서명 키 (Dashboard → Settings → API → JWT Secret)
-SUPABASE_JWT_SECRET=여기에-supabase-jwt-secret
+# Supabase JWT Legacy Secret (Dashboard → Settings → API → JWT Secret → Legacy)
+SUPABASE_JWT_SECRET=여기에-supabase-legacy-jwt-secret
+
+# Supabase 서비스 롤 키 (JWT secret에서 자동 생성 — 직접 입력 또는 아래 스크립트로 생성)
+# python -c "from jose import jwt; import time; print(jwt.encode({'iss':'supabase','ref':'PROJECT_REF','role':'service_role','iat':...,'exp':...}, JWT_SECRET, algorithm='HS256'))"
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...
 
 # Google AI Studio API 키
 LLM_API_KEY=AIzaSy...
@@ -150,6 +154,9 @@ KEY_ENCRYPTION_SECRET=여기에-32자-이상-랜덤-문자열
 
 CORS_ALLOW_ORIGIN=http://localhost:3000
 ```
+
+> **⚠ DB 연결 주의**: psycopg2 직접 연결은 IPv6 전용 / pooler ENOTFOUND 문제로 작동하지 않습니다.
+> 실제 DB 접근은 `supabase-py` PostgREST HTTP로 이루어집니다 (`SUPABASE_SERVICE_ROLE_KEY` 필수).
 
 ### Google OAuth 설정 (Supabase Dashboard에서 수동 설정 필요)
 
@@ -283,6 +290,9 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 | Supabase `onAuthStateChange` | 마운트 시 즉시 세션 로드 + 자동 갱신 (httpOnly 쿠키 불필요) | layout.tsx |
 | 스코프 변경 제안 → 배너(non-blocking) | 모달 대신 배너로 UX 흐름 방해 최소화 | ChatPanel.tsx |
 | `proxy.ts` 패스스루 (인증 로직 제거) | Next.js 16에서 middleware→proxy 이름 변경. 구 커스텀 인증(httpOnly cookie)용 로직이 Supabase 마이그레이션 후 남아 `/login`→`/` 리다이렉트 버그 유발. `@supabase/supabase-js`는 localStorage 사용 → 서버에서 쿠키 체크 불가 → 클라이언트 가드로만 처리 | frontend/proxy.ts |
+| supabase-py HTTP DB 접근 | Supabase pooler ENOTFOUND + 직접 연결 IPv6 전용 → psycopg2 연결 완전 불가. 대신 supabase-py로 PostgREST REST API 사용 (HTTPS, service_role_key로 RLS 우회) | backend/app/db/supa.py |
+| ES256 JWKS JWT 검증 | Supabase 신규 프로젝트는 ES256(ECDSA)으로 JWT 서명 → HS256 검증 100% 실패 → 401. JWKS 엔드포인트에서 EC 공개키 로드로 검증. HS256 fallback 유지 | backend/app/deps.py |
+| PlantOut model_validator | DB plants 테이블에 `stats` JSON 컬럼 없음. `harvested_count`, `rot_count`, `active_bud_count` 개별 컬럼을 `stats` dict로 자동 합성 | backend/app/schemas/plant.py |
 
 ---
 
@@ -308,8 +318,11 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - `frontend/CLAUDE.md`가 `@AGENTS.md`를 참조함 → Next.js 16 breaking changes 주의
 - 정원 뷰에서 잔디 레이어(`zIndex:1`)가 버튼을 가리지 않도록 식물 레이블/버튼이 `zIndex:10` 유지 필수
 - Supabase Google OAuth는 **Supabase Dashboard에서 수동 설정** 필요 (Section 5 참고)
-- `SUPABASE_JWT_SECRET`은 Supabase Dashboard → Settings → API → JWT Secret에서 복사
-- DB 비밀번호는 Dashboard → Settings → Database → Connection string에서 확인
+- `SUPABASE_JWT_SECRET`은 Supabase Dashboard → Settings → API → JWT Secret (Legacy)에서 복사
+- **백엔드는 psycopg2를 사용하지 않음** — supabase-py PostgREST HTTP로 DB 접근 (IPv6 전용 / 풀러 ENOTFOUND 문제 회피)
+- `SUPABASE_SERVICE_ROLE_KEY`는 JWT secret으로 생성됨 (backend/.env에 이미 포함) — 노출 금지
+- **백엔드 코드 변경 시 반드시 수동 재시작** (`reload=True` uvicorn 신뢰도 낮음)
+  - 권장: 모든 Python 프로세스 종료 → `__pycache__` 삭제 → `python run.py` 재시작
 
 ---
 
@@ -361,6 +374,49 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - 캘린더 인접 월 프리페치 (`useEffect[year, month]`)
 - 히스토리 트리 hover 프리페치
 - MVP 문서 전체 업데이트 (이번 세션)
+
+### 세션 10 (백엔드 인프라 완전 수리 + 로그인 플로우 수정, 2026-05-29)
+
+**1. 랜딩 페이지 버튼 네비게이션 최종 수정 (proxy.ts):**
+- 구 custom auth의 `proxy.ts`가 인증 사용자를 `/login` → `/`(랜딩)으로 리다이렉트하는 버그 수정
+- proxy.ts를 no-op pass-through로 재작성
+
+**2. 프론트엔드 Auth 타이밍 버그 3개 수정 (`(app)/layout.tsx`):**
+- Bug A: PKCE OAuth 콜백 중 `INITIAL_SESSION` null → `clearSession()` + `/login` 리다이렉트 → URL에 `code=` 있으면 스킵
+- Bug B: `if (cachedUser) return` 조기 종료 → `SIGNED_IN` 시 항상 `/me` 재갱신
+- Bug C: `/me` 500 에러 → `clearSession()` → 로그아웃. 이제 500은 세션 유지, 401만 로그아웃
+
+**3. JWT 알고리즘 수정 (deps.py):**
+- Supabase 신규 프로젝트는 **ES256** (ECDSA P-256) 서명 → 기존 HS256 검증 전부 401
+- JWKS 엔드포인트에서 EC 공개키 로드 → ES256 우선 검증, HS256 legacy fallback
+
+**4. DB 연결 완전 교체 (SQLAlchemy/psycopg2 → supabase-py):**
+- Supabase pooler: `ENOTFOUND tenant/user` (Supavisor에 테넌트 미등록)
+- DB 직접 연결: IPv6 전용 호스트, 머신에 IPv6 없음
+- **해결**: 전체 DB 레이어를 supabase-py PostgREST HTTP로 교체
+  - `backend/app/db/supa.py` 신규 — Supabase 클라이언트 싱글톤
+  - 6개 repository 전체 재작성 (SQLAlchemy Session → supabase-py Client)
+  - 7개 service 재작성 (db.commit()/db.refresh() 제거)
+  - 8개 router 재작성 (Session → Client 타입)
+  - `scheduler/jobs.py` 업데이트
+  - `supabase-py` 2.30.0 설치 (`pip install supabase`)
+  - `SUPABASE_SERVICE_ROLE_KEY` 환경변수 추가
+
+**5. supabase-py API 호환성 수정:**
+- `maybe_single()` → `.limit(1) + res.data[0]` (빈 결과 시 None 반환 문제)
+- `nulls_last=True` → `nullsfirst=False` (PostgrestFilterRequestBuilder 파라미터 오류)
+
+**6. PlantOut 스키마 수정 (`schemas/plant.py`):**
+- DB `plants` 테이블에 `stats` 컬럼 없음 → `model_validator`로 `harvested_count`, `rot_count`, `active_bud_count` 컬럼을 `stats` dict로 자동 합성
+- `BudOut` nullable 필드 optional 처리
+
+**7. uvicorn reload 신뢰성 문제 해결:**
+- `reload=True`로 실행 시 코드 변경이 메모리에 반영 안 되는 문제 빈번
+- **해결책**: 코드 변경 후 모든 Python 프로세스 종료 + `__pycache__` 삭제 + `python run.py` 재시작
+
+**8. DB 데이터 정리:**
+- 테스트 스크립트로 생성된 중복 식물/봉우리 삭제
+- archived 상태로 변경된 식물 active로 복원
 
 ### 세션 9 (랜딩 페이지 완성, 2026-05-28)
 
@@ -440,12 +496,13 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 
 ### 작업을 시작하기 전에
 
-1. **환경변수 확인**: `backend/.env`에 `DATABASE_URL`, `SUPABASE_JWT_SECRET`, `LLM_API_KEY` 모두 설정됐는지 확인
+1. **환경변수 확인**: `backend/.env`에 `DATABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `LLM_API_KEY` 모두 설정됐는지 확인
 2. **Google OAuth 설정**: Supabase Dashboard에서 Google provider가 활성화돼 있는지 확인 (Section 5 참고)
-3. **서버 실행** 확인: `python run.py` (venv 없이 전역 pip 설치 완료) + `pnpm dev`
-4. **기존 문서 읽기**:
-   - `Plant-Counselor_Documents/MVP_Documents/10_Complete_Implementation_State.md` — 최신 전체 상태
-   - `Plant-Counselor_Documents/MVP_Documents/04_AI_Chat_And_Skills.md` — AI 시스템 상세
+3. **서버 실행**: 반드시 `backend/` 디렉터리에서 `python run.py` 실행 (전역 pip 설치 완료)
+   - **⚠ 중요**: 코드 변경 후 반드시 수동 재시작 — `reload=True`는 신뢰 불가
+   - 재시작 방법: 모든 Python 프로세스 종료 → `__pycache__` 삭제 → `python run.py`
+4. **프론트엔드**: `pnpm dev` (Next.js 16)
+5. **DB 접근 방식**: supabase-py HTTP (psycopg2 직접 연결 사용 안 함)
 
 ### 새 기능 추가 시 체크리스트
 
@@ -475,6 +532,39 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - TypeScript: `"use client"` 최상단, Tailwind 대신 inline style (이 프로젝트 관행)
 - 컴포넌트: 하나의 파일에 관련 컴포넌트 모두 (PlantCard, GardenPlant 등을 page.tsx에)
 - DB 변경 없는 MVP 타협 허용: detail 필드에 시간 저장 등
+
+**백엔드 DB 접근 패턴 (supabase-py)**:
+```python
+# Repository 패턴 — supabase Client 사용
+from supabase import Client
+from types import SimpleNamespace
+
+def _row(d): return SimpleNamespace(**d) if d else None
+
+class MyRepo:
+    def __init__(self, db: Client): self.db = db
+    
+    def get(self, id): 
+        res = self.db.table("table").select("*").eq("id", id).limit(1).execute()
+        return _row(res.data[0]) if res.data else None  # ← maybe_single() 사용 금지
+    
+    def list(self, user_id):
+        res = self.db.table("table").select("*").eq("user_id", user_id).execute()
+        return [SimpleNamespace(**d) for d in res.data or []]
+    
+    def create(self, data: dict):
+        res = self.db.table("table").insert(data).execute()
+        return _row(res.data[0])
+    
+    def update(self, id, fields: dict):
+        res = self.db.table("table").update(fields).eq("id", id).execute()
+        return _row(res.data[0]) if res.data else None
+
+# Service 패턴 — db.commit() / db.refresh() 없음 (supabase-py auto-commits)
+class MyService:
+    def __init__(self, db: Client): self._repo = MyRepo(db)
+    def create(self, ...): return self._repo.create(...)  # 바로 반환
+```
 
 ---
 

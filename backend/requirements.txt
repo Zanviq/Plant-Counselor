@@ -9,33 +9,30 @@
 #
 # ※ pyproject.toml 이 단일 출처입니다.
 #   이 파일은 pyproject.toml 의 dependencies 를 그대로 옮긴 것입니다.
-#   버전을 변경할 때는 pyproject.toml 을 먼저 수정하고
-#   이 파일도 함께 동기화하세요.
 # ══════════════════════════════════════════════════════
 
 # ── Web framework ─────────────────────────────────────
 fastapi>=0.111.0
-uvicorn[standard]>=0.29.0      # ASGI 서버 (WebSocket·HTTP/2 포함)
+uvicorn[standard]>=0.29.0      # ASGI 서버
 
-# ── Database ──────────────────────────────────────────
-sqlalchemy>=2.0.0              # ORM (비동기 세션 사용)
-alembic>=1.13.0                # DB 마이그레이션 도구
+# ── Database (Supabase PostgreSQL) ────────────────────
+sqlalchemy>=2.0.0              # ORM
+psycopg2-binary>=2.9.0         # PostgreSQL 드라이버
 
-# ── Auth ──────────────────────────────────────────────
-python-jose[cryptography]>=3.3.0   # JWT 생성·검증
-passlib[argon2]>=1.7.4             # Argon2 비밀번호 해싱
+# ── Auth (Supabase JWT 검증) ───────────────────────────
+python-jose[cryptography]>=3.3.0   # HS256 JWT 검증
 
 # ── Config & env ──────────────────────────────────────
-python-dotenv>=1.0.0           # .env 파일 로드
-pydantic>=2.0.0                # 데이터 검증 (v2)
-pydantic-settings>=2.0.0       # Settings 클래스 (.env 자동 바인딩)
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
 
-# ── LLM (Google Gemini) ───────────────────────────────
-google-genai>=1.0.0            # Gemini 2.5 Flash API SDK
+# ── LLM (Google Gemini 2.5 Flash) ────────────────────
+google-genai>=1.0.0
 
 # ── Scheduling ────────────────────────────────────────
 apscheduler>=3.10.0            # 10분 주기 봉우리 자동 전이
 
 # ── Utilities ─────────────────────────────────────────
-python-ulid>=2.0.0             # ULID 기본키 생성 (정렬 가능 UUID)
-cryptography>=42.0.0           # Fernet 대칭 암호화 (사용자 API 키 보호)
+python-ulid>=2.0.0             # ULID 기본키 생성
+cryptography>=42.0.0           # Fernet 암호화 (사용자 API 키 보호)

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models.user import User
 from app.deps import get_db, require_user
-from app.schemas.user import ApiKeySet, PasswordChange, UserOut, UserUpdate
+from app.schemas.user import ApiKeySet, UserOut, UserUpdate
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -26,30 +26,14 @@ def update_me(
     return {"ok": True, "data": UserOut.model_validate(updated)}
 
 
-@router.post("/password")
-def change_password(
-    body: PasswordChange,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-):
-    svc = UserService(db)
-    ok = svc.change_password(user.id, body.old_password, body.new_password)
-    if not ok:
-        raise HTTPException(status_code=400, detail="비밀번호 변경 실패")
-    return {"ok": True, "data": {}}
-
-
 @router.delete("")
 def delete_account(
-    body: dict,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    confirm = body.get("confirm_nickname", "")
+    """Delete all user data. Sign out via Supabase on the frontend after this."""
     svc = UserService(db)
-    ok = svc.delete_account(user.id, confirm)
-    if not ok:
-        raise HTTPException(status_code=400, detail="계정 삭제 실패")
+    svc.delete_account(user.id)
     return {"ok": True, "data": {}}
 
 
@@ -61,4 +45,3 @@ def set_api_key(
 ):
     UserService(db).set_api_key(user.id, body.api_key)
     return {"ok": True, "data": {}}
-

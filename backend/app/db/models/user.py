@@ -1,27 +1,35 @@
 from __future__ import annotations
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, JSON, String, func
+from sqlalchemy import DateTime, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
 
 class User(Base):
-    __tablename__ = "users"
+    """User profile table.
 
+    The primary key is the Supabase Auth UUID (stored as text).
+    Password management is handled entirely by Supabase Auth (Google OAuth).
+    """
+
+    __tablename__ = "profiles"
+
+    # Supabase Auth UUID (from auth.users.id)
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    nickname: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String, nullable=False)
 
-    # 프로필
-    address: Mapped[str] = mapped_column(String, nullable=False, default="")
+    # Identity (from Google OAuth via Supabase trigger)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    nickname: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Preferences
     tone: Mapped[str] = mapped_column(String, nullable=False, default="counselor")
 
-    # API 키 (암호화 저장)
+    # API key (Fernet-encrypted Gemini key)
     encrypted_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # 정원 규칙 (JSON)
+    # Garden rules (JSON)
     garden_rules: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,
@@ -33,32 +41,23 @@ class User(Base):
         },
     )
 
-    # 외관 설정 (JSON)
+    # Appearance settings (JSON)
     appearance: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,
         default=lambda: {"theme": "auto", "animation": "subtle"},
     )
 
-    # 사운드 설정 (JSON)
-    sound: Mapped[dict] = mapped_column(
-        JSON,
-        nullable=False,
-        default=lambda: {"sfx": True, "bgm": False, "volume": 0.6},
-    )
+    # AI settings
+    ai_model: Mapped[str] = mapped_column(String, nullable=False, default="gemini-2.5-flash")
 
-    # AI 설정
-    ai_model: Mapped[str] = mapped_column(String, nullable=False, default="claude-opus-4-7")
-    ai_proactive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
-    # 타임스탬프
+    # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        server_default=func.now(),
         onupdate=func.now(),
     )
-

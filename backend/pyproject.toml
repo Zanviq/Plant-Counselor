@@ -1,24 +1,23 @@
 [project]
 name = "plant-counselor-backend"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
     # Web framework
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
-    # Database
+    # Database — Supabase PostgreSQL via SQLAlchemy
     "sqlalchemy>=2.0.0",
-    "alembic>=1.13.0",
-    # Auth
+    "psycopg2-binary>=2.9.0",
+    # Auth — Supabase JWT verification (HS256)
     "python-jose[cryptography]>=3.3.0",
-    "passlib[argon2]>=1.7.4",
     # Config & env
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    # LLM (Google Gemini)
+    # LLM (Google Gemini 2.5 Flash)
     "google-genai>=1.0.0",
-    # Scheduling
+    # Scheduling (wilting/rot auto-transition)
     "apscheduler>=3.10.0",
     # Utilities
     "python-ulid>=2.0.0",

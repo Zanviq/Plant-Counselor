@@ -1,7 +1,6 @@
 from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from ulid import ULID
 
 from app.db.models.user import User
 
@@ -14,17 +13,9 @@ class UserRepository:
         stmt = select(User).where(User.id == user_id)
         return self.db.scalar(stmt)
 
-    def get_by_nickname(self, nickname: str) -> User | None:
-        stmt = select(User).where(User.nickname == nickname)
-        return self.db.scalar(stmt)
-
-    def create(self, nickname: str, password_hash: str) -> User:
-        user = User(
-            id=str(ULID()),
-            nickname=nickname,
-            password_hash=password_hash,
-            address=nickname,  # 기본 address = nickname
-        )
+    def create_profile(self, user_id: str, email: str, nickname: str) -> User:
+        """Create a new profile from Supabase Auth user data."""
+        user = User(id=user_id, email=email, nickname=nickname)
         self.db.add(user)
         self.db.flush()
         return user
@@ -55,4 +46,3 @@ class UserRepository:
         if user is None:
             return None
         return user.encrypted_api_key
-

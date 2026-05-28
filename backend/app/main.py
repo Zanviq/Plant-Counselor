@@ -5,22 +5,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db.base import Base
-from app.db.session import engine
-from app.routers import auth, buds, chat, conversations, me, notifications, plants, stats
+from app.routers import buds, chat, conversations, me, notifications, plants, stats
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # Tables are managed by Supabase migrations — no create_all needed.
     from app.scheduler.jobs import setup_scheduler
-
     sched = setup_scheduler()
     yield
     sched.shutdown()
 
 
-app = FastAPI(title="Plant Counselor API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Plant Counselor API", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,7 +29,6 @@ app.add_middleware(
 
 PREFIX = "/api/v1"
 for _router in [
-    auth.router,
     me.router,
     plants.router,
     buds.router,
@@ -47,4 +43,3 @@ for _router in [
 @app.get("/health")
 def health():
     return {"status": "ok"}
-

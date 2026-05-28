@@ -1,7 +1,7 @@
 # Plant Counselor — CLAUDE.md
 
 > **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-28 (세션 8)  
+> 최종 업데이트: 2026-05-28 (세션 9)  
 > 작성자: confidencecat (jaemi)
 
 ---
@@ -24,7 +24,7 @@
 
 | 영역 | 상태 |
 |------|------|
-| 랜딩 페이지 (`/`) | ⚠️ 구현됨, 버튼 네비게이션 버그 미해결 (세션 8) |
+| 랜딩 페이지 (`/`) + 로그인 흐름 | ✅ 완성 (세션 9에서 버그 수정 + 재디자인) |
 | 인증 (Supabase Auth + Google OAuth) | ✅ 완성 (세션 7에서 마이그레이션) |
 | DB (Supabase PostgreSQL + RLS) | ✅ 완성 (세션 7에서 마이그레이션) |
 | 식물 CRUD | ✅ 완성 |
@@ -90,7 +90,9 @@ plant-counselor/
 │
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx                  ← 랜딩 페이지 "/" (⚠️ 버튼 버그 미해결)
+│   │   ├── page.tsx                  ← 랜딩 페이지 "/" (서버 컴포넌트, Link 네비 정상)
+│   │   ├── _components/
+│   │   │   └── AuthRedirect.tsx      ← 로그인 유저 → /home 리다이렉트 (클라이언트)
 │   │   ├── globals.css               ← 디자인 토큰 (크림/올리브 팔레트)
 │   │   ├── (app)/home/page.tsx       ← 대시보드 "/home" (구 "/" 홈)
 │   │   ├── (app)/plants/page.tsx     ← 정원 뷰 + 화살표 키 네비
@@ -285,17 +287,6 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 
 ## 8. 알려진 이슈 & 향후 작업
 
-### 8.0 미해결 버그 (다음 세션 최우선)
-
-- [ ] **랜딩 페이지 버튼 네비게이션 불작동**: `app/page.tsx`에서 `<Link href="/login">` 클릭 시 `/login`으로 이동 안 됨
-  - 시도한 방법: `router.push()` → `<Link>` 교체 (둘 다 실패)
-  - 의심 원인: `(app)/layout.tsx`의 `onAuthStateChange`가 `/` 라우트에 개입하거나, Next.js 빌드 캐시 문제
-  - 다음 세션 디버깅 방향:
-    1. 브라우저 콘솔 오류 확인
-    2. `(app)/layout.tsx`가 `/`에 개입하는지 확인 (`console.log` 삽입)
-    3. `.next` 캐시 삭제 후 `pnpm build && pnpm start`로 프로덕션 빌드 테스트
-    4. `app/page.tsx` 를 서버 컴포넌트로 전환 후 `redirect("/login")` 사용 고려
-
 ### 8.1 즉시 개선 가능 (소규모)
 
 - [ ] **봉우리 직접 수정 UI**: 상세 드로어에서 제목/detail 인라인 편집
@@ -370,20 +361,36 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - 히스토리 트리 hover 프리페치
 - MVP 문서 전체 업데이트 (이번 세션)
 
-### 세션 8 (환경 설정 완료 + 랜딩 페이지, 2026-05-28)
+### 세션 9 (랜딩 페이지 완성, 2026-05-28)
+
+**버튼 네비게이션 버그 수정:**
+- 원인: `"use client"` + `useEffect` 조합에서 React 하이드레이션 완료 전 클릭 차단
+- 해결: `app/page.tsx`를 **서버 컴포넌트로 전환** → `<Link>` = 순수 `<a>` 태그 = JS 없이 동작
+- `AuthRedirect.tsx` 신규 생성 (`app/_components/`) — 로그인 사용자 `/home` 리다이렉트 전담 클라이언트 컴포넌트
+- 프로덕션 빌드(`next build`) 검증 완료 — `/` 가 Static으로 생성됨
+
+**랜딩 페이지 디자인 전면 재작성:**
+- 이모지 완전 제거 → SVG 아이콘으로 교체 (IconChat, IconSeedling, IconCalendar, IconBell)
+- Nav: 로고 + 로그인 텍스트 링크 + "무료로 시작하기" 버튼
+- Hero: 강조색 하이라이트 제목, Google 아이콘 CTA, "더 알아보기" 앵커 스크롤
+- Features: 4개 기능 카드 (올리브 배경 아이콘 박스)
+- How it works: STEP 01-02-03 수직 구분선 레이아웃
+- Bottom CTA + Footer
+- 동일한 디자인 토큰 (`var(--accent)`, `var(--bg-subtle)` 등) 활용
+
+### 세션 8 (환경 설정 완료 + 랜딩 페이지 초안, 2026-05-28)
 
 **환경 설정 완료:**
 - `backend/.env` 설정: `DATABASE_URL` (Supabase pooler, URL-인코딩 `%5E`), `SUPABASE_JWT_SECRET` (Legacy JWT Secret)
 - venv 없이 전역 pip으로 패키지 설치 (`pip install -r requirements.txt`)
 - 백엔드 서버 정상 기동 확인
 
-**랜딩 페이지 구현 (미완성):**
-- `app/page.tsx` 신규 생성 — 비로그인 사용자용 서비스 소개 페이지 (Hero, Features, CTA)
+**랜딩 페이지 + 라우트 구조 변경:**
+- `app/page.tsx` 신규 생성 — 비로그인 사용자용 서비스 소개 페이지
 - `app/(app)/home/page.tsx` — 대시보드를 `/home` 라우트로 이동 (기존 `/`)
 - `app/(app)/page.tsx` 삭제 (루트 충돌 방지)
 - `login/page.tsx` — OAuth `redirectTo` + 이미 로그인 시 리다이렉트 대상 `/` → `/home`
 - `Sidebar.tsx` — 홈 링크 `/` → `/home`
-- **⚠️ 미해결**: 랜딩 페이지의 `<Link href="/login">` 버튼이 동작하지 않음
 
 ### 세션 7 (Supabase 마이그레이션 + 스코프 변경 제안, 2026-05-28)
 
@@ -428,8 +435,7 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 1. **환경변수 확인**: `backend/.env`에 `DATABASE_URL`, `SUPABASE_JWT_SECRET`, `LLM_API_KEY` 모두 설정됐는지 확인
 2. **Google OAuth 설정**: Supabase Dashboard에서 Google provider가 활성화돼 있는지 확인 (Section 5 참고)
 3. **서버 실행** 확인: `python run.py` (venv 없이 전역 pip 설치 완료) + `pnpm dev`
-4. **미해결 버그 먼저 확인**: 랜딩 페이지 버튼 네비게이션 (Section 8.0)
-5. **기존 문서 읽기**:
+4. **기존 문서 읽기**:
    - `Plant-Counselor_Documents/MVP_Documents/10_Complete_Implementation_State.md` — 최신 전체 상태
    - `Plant-Counselor_Documents/MVP_Documents/04_AI_Chat_And_Skills.md` — AI 시스템 상세
 

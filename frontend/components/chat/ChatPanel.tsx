@@ -127,6 +127,55 @@ function SkillsListCard() {
   );
 }
 
+// ── scope suggestion banner ─────────────────────────────────
+
+interface ScopeSuggestion {
+  targetScope: "plant" | "bud" | "global";
+  targetId?: string;
+  targetName: string;
+}
+
+function ScopeSuggestionBanner({
+  suggestion,
+  onConfirm,
+  onDismiss,
+}: {
+  suggestion: ScopeSuggestion;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="animate-in"
+      style={{
+        margin: "0 16px 10px",
+        padding: "10px 12px",
+        borderRadius: "var(--r-md)",
+        background: "color-mix(in srgb, var(--accent) 8%, var(--bg-subtle))",
+        border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+        display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 120 }}>
+        <span className="t-body-sm" style={{ color: "var(--fg)" }}>
+          <strong style={{ color: "var(--accent-fg)" }}>{suggestion.targetName}</strong>
+          {" "}식물에 관한 내용이에요. 대화 세션을 변경해 드릴까요?
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        <button className="btn btn-ghost btn-sm" onClick={onDismiss}>현재 유지</button>
+        <button
+          className="btn btn-sm"
+          onClick={onConfirm}
+          style={{ background: "var(--accent)", color: "var(--accent-contrast)", border: "none" }}
+        >
+          변경하기
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── breadcrumb ──────────────────────────────────────────────
 
 function Breadcrumb({ scopeKind, plantName, budTitle }: { scopeKind: string; plantName?: string; budTitle?: string }) {
@@ -193,6 +242,7 @@ export default function ChatPanel() {
   const [loading, setLoading] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [paletteIdx, setPaletteIdx] = useState(0);
+  const [scopeSuggestion, setScopeSuggestion] = useState<ScopeSuggestion | null>(null);
 
   // Resolve breadcrumb labels from cache (instant — no extra network round-trips).
   const plantScopeId = scope.kind === "plant" ? scope.id : undefined;
@@ -281,6 +331,11 @@ export default function ChatPanel() {
       setHistoryLoaded(true);
     });
   }, [open, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear scope suggestion when scope changes.
+  useEffect(() => {
+    setScopeSuggestion(null);
+  }, [scopeKey]);
 
   // Breadcrumb names are now resolved via useQuery above — no useEffect needed.
 
@@ -375,6 +430,7 @@ export default function ChatPanel() {
     setMessages((prev) => [...prev, userMsg, asstMsg]);
     setLoading(true);
 
+    setScopeSuggestion(null);
     dirtySkills.current.clear();
     let accumulated = "";
     streamChat(
@@ -384,7 +440,19 @@ export default function ChatPanel() {
           accumulated += chunk;
           setMessages((prev) => prev.map((m) => m.id === asstId ? { ...m, text: accumulated } : m));
         },
-        onToolResult: (name) => dirtySkills.current.add(name),
+        onToolResult: (name, result) => {
+          dirtySkills.current.add(name);
+          if (name === "suggest_scope_change") {
+            const r = result as { ok?: boolean; data?: Record<string, unknown> } | undefined;
+            if (r?.ok && r?.data?.suggest_scope_change) {
+              setScopeSuggestion({
+                targetScope: (r.data.target_scope as "plant" | "bud" | "global") ?? "plant",
+                targetId: r.data.target_id as string | undefined,
+                targetName: (r.data.target_name as string) ?? "",
+              });
+            }
+          }
+        },
         onDone: () => {
           setMessages((prev) => prev.map((m) =>
             m.id === asstId
@@ -592,6 +660,25 @@ export default function ChatPanel() {
           </div>
         )}
       </div>
+
+      {/* Scope suggestion banner */}
+      {scopeSuggestion && (
+        <ScopeSuggestionBanner
+          suggestion={scopeSuggestion}
+          onConfirm={() => {
+            const { targetScope, targetId } = scopeSuggestion;
+            if (targetScope === "plant") {
+              openWith({ kind: "plant", id: targetId });
+            } else if (targetScope === "bud") {
+              openWith({ kind: "bud", id: targetId });
+            } else {
+              openWith({ kind: "global" });
+            }
+            setScopeSuggestion(null);
+          }}
+          onDismiss={() => setScopeSuggestion(null)}
+        />
+      )}
 
       {/* Input */}
       <div style={{ padding: "12px 16px 14px", borderTop: "1px solid var(--border)", position: "relative", flexShrink: 0 }}>

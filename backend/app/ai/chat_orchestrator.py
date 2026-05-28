@@ -43,7 +43,18 @@ class ChatOrchestrator:
 
         stats = gs_svc.get_summary(user_id) if gs_svc else {}
         plants = plant_svc.list(user_id) if plant_svc else []
-        system = self.builder.build_system(ctx, current_screen, stats, plants)
+
+        # Resolve plant name for scope context (plant scope only)
+        scope_plant_name = ""
+        if scope == "plant" and scope_id and plants:
+            matching = [p for p in plants if p.id == scope_id]
+            if matching:
+                scope_plant_name = matching[0].name
+
+        system = self.builder.build_system(
+            ctx, current_screen, stats, plants,
+            scope=scope, scope_id=scope_id, scope_plant_name=scope_plant_name,
+        )
         rec.set_system(system)
 
         # 히스토리 조합

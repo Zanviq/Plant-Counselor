@@ -26,6 +26,7 @@ from app.ai.skills.list_plants import ListPlantsSkill
 from app.ai.skills.match_plant import MatchPlantSkill
 from app.ai.skills.search_conversation import SearchConversationSkill
 from app.ai.skills.set_deadline import SetDeadlineSkill
+from app.ai.skills.suggest_scope_change import SuggestScopeChangeSkill
 from app.ai.skills.think import ThinkSkill
 from app.ai.skills.update_bud_progress import UpdateBudProgressSkill
 from app.ai.skills.update_bud_status import UpdateBudStatusSkill
@@ -63,6 +64,7 @@ def _build_registry() -> SkillRegistry:
         GetStatisticsSkill,
         GetGardenBriefingSkill,
         SearchConversationSkill,
+        SuggestScopeChangeSkill,
     ):
         reg.register(skill_cls())
     return reg

@@ -9,6 +9,9 @@ class PromptBuilder:
         current_screen: str = "홈",
         stats: dict | None = None,
         plants: list | None = None,
+        scope: str = "global",
+        scope_id: str | None = None,
+        scope_plant_name: str = "",
     ) -> str:
         stats = stats or {}
         plant_list = plants or []
@@ -24,10 +27,20 @@ class PromptBuilder:
 
         today_str = _today()
 
+        # Build scope context line
+        if scope == "plant" and scope_plant_name and scope_id:
+            scope_line = f"\n현재 상담 식물: {scope_plant_name} (plant_id={scope_id})"
+        elif scope == "plant" and scope_id:
+            scope_line = f"\n현재 상담 식물 ID: {scope_id}"
+        elif scope == "bud" and scope_id:
+            scope_line = f"\n현재 상담 봉우리 ID: {scope_id}"
+        else:
+            scope_line = ""
+
         return f"""당신은 Plant Counselor의 AI 정원사입니다.
 사용자의 고민, 목표, 일정을 식물과 봉우리로 시각화하여 함께 가꿉니다.
 오늘 날짜: {today_str}
-현재 화면: {current_screen}
+현재 화면: {current_screen}{scope_line}
 
 ## 정원 현황
 - 활성 고민: {stats.get('active_concerns', 0)}개 | 활성 일정: {stats.get('active_schedules', 0)}개
@@ -112,6 +125,17 @@ update_bud_progress / update_bud_status / harvest_bud / abandon_bud / set_deadli
 - 정보 조회: list_plants, list_buds, get_garden_briefing, get_statistics
 - 진행 업데이트: update_bud_progress, update_bud_status
 - 완료: harvest_bud / 포기: abandon_bud / 마감일: set_deadline
+
+### 대화 스코프 불일치 감지
+현재 스코프가 특정 식물(plant) 또는 봉우리(bud)인 경우에만 적용한다.
+사용자 요청이 **현재 상담 식물과 다른 식물**에 관한 것이라면:
+1. 요청된 스킬(create_bud, update_bud_progress 등)을 먼저 정상 실행한다.
+2. 모든 스킬 실행 완료 후 suggest_scope_change를 **마지막에 한 번만** 호출한다.
+   - target_scope: "plant"
+   - target_id: 해당 식물의 plant_id (이미 알고 있으면)
+   - target_name: 해당 식물의 이름
+- global 또는 calendar 스코프에서는 suggest_scope_change를 절대 호출하지 않는다.
+- 현재 상담 식물과 동일한 식물에 관한 내용이면 호출하지 않는다.
 
 ## 응답 형식
 - 스킬 실행 후: 결과를 한두 문장으로 자연스럽게 알린다.

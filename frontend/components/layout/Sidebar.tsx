@@ -192,7 +192,7 @@ export default function Sidebar() {
 
       {/* Primary nav */}
       <nav style={{ flex: 1, paddingTop: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-        <NavLink href="/"        label="홈"    active={isActive("/", true)} onPrefetch={prefetchPlants}><HomeIcon /></NavLink>
+        <NavLink href="/home"    label="홈"    active={isActive("/home", true)} onPrefetch={prefetchPlants}><HomeIcon /></NavLink>
         <NavLink href="/plants"  label="정원"  active={isActive("/plants")}  onPrefetch={prefetchPlants}><PlantsIcon /></NavLink>
         <NavLink href="/calendar" label="캘린더" active={isActive("/calendar")} onPrefetch={prefetchCalendar}><CalendarIcon /></NavLink>
         <NavLink href="/history" label="대화 기록" active={isActive("/history")} onPrefetch={prefetchHistory}><HistoryIcon /></NavLink>

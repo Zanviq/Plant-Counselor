@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   // Already authenticated → skip to home
   useEffect(() => {
-    if (accessToken) router.replace("/");
+    if (accessToken) router.replace("/home");
   }, [accessToken, router]);
 
   async function handleGoogleLogin() {
@@ -22,7 +22,7 @@ export default function LoginPage() {
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/home`,
         queryParams: {
           access_type: "offline",
           prompt: "select_account",

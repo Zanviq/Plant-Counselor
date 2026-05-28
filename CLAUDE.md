@@ -282,6 +282,7 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 | DB 트리거 + fallback | `handle_new_auth_user()` 트리거로 자동 프로필 생성, 백엔드 fallback 포함 | deps.py |
 | Supabase `onAuthStateChange` | 마운트 시 즉시 세션 로드 + 자동 갱신 (httpOnly 쿠키 불필요) | layout.tsx |
 | 스코프 변경 제안 → 배너(non-blocking) | 모달 대신 배너로 UX 흐름 방해 최소화 | ChatPanel.tsx |
+| `proxy.ts` 패스스루 (인증 로직 제거) | Next.js 16에서 middleware→proxy 이름 변경. 구 커스텀 인증(httpOnly cookie)용 로직이 Supabase 마이그레이션 후 남아 `/login`→`/` 리다이렉트 버그 유발. `@supabase/supabase-js`는 localStorage 사용 → 서버에서 쿠키 체크 불가 → 클라이언트 가드로만 처리 | frontend/proxy.ts |
 
 ---
 
@@ -363,11 +364,18 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 
 ### 세션 9 (랜딩 페이지 완성, 2026-05-28)
 
-**버튼 네비게이션 버그 수정:**
-- 원인: `"use client"` + `useEffect` 조합에서 React 하이드레이션 완료 전 클릭 차단
-- 해결: `app/page.tsx`를 **서버 컴포넌트로 전환** → `<Link>` = 순수 `<a>` 태그 = JS 없이 동작
+**버튼 네비게이션 버그 수정 (진짜 원인 발견 및 해결):**
+- **진짜 원인**: `frontend/proxy.ts` — Next.js 16에서 `middleware.ts`가 `proxy.ts`로 이름 변경됨. 이 파일이 구 커스텀 인증(httpOnly 쿠키 `refresh_token`)용으로 작성됐는데, Supabase 마이그레이션 후 삭제되지 않아 문제 발생
+  - 인증된 사용자(`hasRefresh` 쿠키 있음)가 `/login` 접근 시 `/`(랜딩)으로 리다이렉트 — `/home`이 돼야 함
+  - Supabase는 `@supabase/supabase-js` 기본값으로 쿠키가 아닌 localStorage에 세션 저장 → 프록시가 쿠키를 체크하는 건 의미 없음
+- **해결**: `proxy.ts`를 패스스루(pass-through)로 재작성 — 클라이언트 사이드 인증 가드로 충분
+  - `(app)/layout.tsx` → 비인증 시 `/login` 리다이렉트
+  - `AuthRedirect.tsx` (랜딩) → 인증 시 `/home` 리다이렉트
+  - `login/page.tsx` → 이미 로그인 시 `/home` 리다이렉트
+
+**`app/page.tsx` 서버 컴포넌트로 전환 (세션 8에서 시작, 이번 세션 유지):**
+- `"use client"` 제거 → `<Link>` = 순수 `<a>` 태그
 - `AuthRedirect.tsx` 신규 생성 (`app/_components/`) — 로그인 사용자 `/home` 리다이렉트 전담 클라이언트 컴포넌트
-- 프로덕션 빌드(`next build`) 검증 완료 — `/` 가 Static으로 생성됨
 
 **랜딩 페이지 디자인 전면 재작성:**
 - 이모지 완전 제거 → SVG 아이콘으로 교체 (IconChat, IconSeedling, IconCalendar, IconBell)

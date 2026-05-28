@@ -43,10 +43,10 @@ class PlantRepository:
             .select("*")
             .eq("id", plant_id)
             .eq("user_id", user_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
-        return _row(res.data)
+        return _row(res.data[0]) if res.data else None
 
     def list(
         self,
@@ -59,7 +59,7 @@ class PlantRepository:
         if not include_dormant:
             q = q.eq("status", "active")
         if sort == "activity":
-            q = q.order("last_activity_at", desc=True, nulls_last=True).order("created_at", desc=True)
+            q = q.order("last_activity_at", desc=True, nullsfirst=False).order("created_at", desc=True)
         else:
             q = q.order("created_at", desc=True)
         q = q.limit(limit)

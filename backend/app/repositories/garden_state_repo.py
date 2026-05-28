@@ -14,9 +14,9 @@ class GardenStateRepository:
         self.db = db
 
     def get_or_create(self, user_id: str) -> SimpleNamespace:
-        res = self.db.table("garden_state").select("*").eq("user_id", user_id).maybe_single().execute()
+        res = self.db.table("garden_state").select("*").eq("user_id", user_id).limit(1).execute()
         if res.data:
-            return _row(res.data)
+            return _row(res.data[0])
         row = {"id": str(ULID()), "user_id": user_id}
         ins = self.db.table("garden_state").insert(row).execute()
         return _row(ins.data[0])

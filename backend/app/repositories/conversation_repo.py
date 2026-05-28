@@ -33,9 +33,9 @@ class ConversationRepository:
             q = q.is_("scope_id", "null")
         else:
             q = q.eq("scope_id", scope_id)
-        res = q.maybe_single().execute()
+        res = q.limit(1).execute()
         if res.data:
-            return _row(res.data)
+            return _row(res.data[0])
         row = {"id": str(ULID()), "user_id": user_id, "scope": scope, "scope_id": scope_id}
         ins = self.db.table("conversations").insert(row).execute()
         return _row(ins.data[0])

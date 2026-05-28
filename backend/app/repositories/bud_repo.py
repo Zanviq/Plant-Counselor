@@ -46,10 +46,10 @@ class BudRepository:
             .select("*")
             .eq("id", bud_id)
             .eq("user_id", user_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
-        return _row(res.data)
+        return _row(res.data[0]) if res.data else None
 
     def list(
         self,

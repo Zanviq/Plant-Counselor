@@ -77,29 +77,20 @@ class PlantRepository:
         return _row(res.data[0]) if res.data else None
 
     def increment_stat(self, user_id: str, plant_id: str, stat_key: str) -> None:
+        # stat_key is a direct integer column: harvested_count or rot_count
         plant = self.get(user_id, plant_id)
         if plant is None:
             return
-        stats = dict(plant.stats or {})
-        stats[stat_key] = stats.get(stat_key, 0) + 1
+        current = int(getattr(plant, stat_key, 0) or 0)
         self.db.table("plants").update({
-            "stats": stats,
+            stat_key: current + 1,
             "last_activity_at": datetime.utcnow().isoformat(),
         }).eq("id", plant_id).eq("user_id", user_id).execute()
 
     def update_active_bud_count(self, user_id: str, plant_id: str, count: int) -> None:
-        plant = self.get(user_id, plant_id)
-        if plant is None:
-            return
-        stats = dict(plant.stats or {})
-        stats["active_bud_count"] = count
-        self.db.table("plants").update({"stats": stats}).eq("id", plant_id).eq("user_id", user_id).execute()
+        self.db.table("plants").update({"active_bud_count": count}).eq("id", plant_id).eq("user_id", user_id).execute()
 
     def update_stats(self, user_id: str, plant_id: str, stats_update: dict) -> SimpleNamespace | None:
-        plant = self.get(user_id, plant_id)
-        if plant is None:
-            return None
-        stats = dict(plant.stats or {})
-        stats.update(stats_update)
-        res = self.db.table("plants").update({"stats": stats}).eq("id", plant_id).eq("user_id", user_id).execute()
+        # stats_update may contain harvested_count/rot_count/active_bud_count as direct columns
+        res = self.db.table("plants").update(stats_update).eq("id", plant_id).eq("user_id", user_id).execute()
         return _row(res.data[0]) if res.data else None

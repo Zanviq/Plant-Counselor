@@ -9,10 +9,10 @@ class BudHistoryOut(BaseModel):
 
     id: str
     bud_id: str
-    from_status: str
+    from_status: str = ""
     to_status: str
     at: datetime
-    reason: str
+    reason: str = ""
 
 
 class BudOut(BaseModel):
@@ -22,13 +22,13 @@ class BudOut(BaseModel):
     user_id: str
     plant_id: str
     title: str
-    detail: str
+    detail: str | None = None
     type: str
     status: str
-    progress: int
-    deadline: date | None
-    last_progress_at: datetime | None
-    disappeared_at: datetime | None
+    progress: int = 0
+    deadline: date | None = None
+    last_progress_at: datetime | None = None
+    disappeared_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -39,7 +39,6 @@ class BudWithHistory(BaseModel):
 
 
 class BudPatch(BaseModel):
-    """제목/설명만 직접 수정 가능"""
     title: str | None = None
     detail: str | None = None
 
@@ -47,4 +46,3 @@ class BudPatch(BaseModel):
 class BudListResponse(BaseModel):
     items: list[BudOut]
     next_cursor: str | None
-

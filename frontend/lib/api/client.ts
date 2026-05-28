@@ -7,12 +7,19 @@ export type ApiResult<T> = ApiOk<T> | ApiErr;
 let _getToken: (() => string | null) | null = null;
 let _refresh: (() => Promise<string | null>) | null = null;
 
+/**
+ * Configure the API client with Supabase session token accessors.
+ * Called once in layout.tsx after Supabase auth is ready.
+ *
+ * @param getToken  Synchronous — returns current Supabase access_token from Zustand store.
+ * @param refresh   Async — calls supabase.auth.refreshSession() and returns new token.
+ */
 export function configureClient(
   getToken: () => string | null,
-  refresh: () => Promise<string | null>
+  refresh?: () => Promise<string | null>
 ) {
   _getToken = getToken;
-  _refresh = refresh;
+  _refresh = refresh ?? null;
 }
 
 async function apiFetch<T>(
@@ -28,7 +35,7 @@ async function apiFetch<T>(
 
   let res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
 
-  // Auto-refresh on 401
+  // Auto-refresh on 401 (token may have just expired between Supabase refresh cycles)
   if (res.status === 401 && _refresh) {
     const newToken = await _refresh();
     if (newToken) {

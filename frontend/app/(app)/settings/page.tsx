@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useThemeStore, ThemeMode, AccentTheme } from "@/lib/store/themeStore";
-import { updateMe, setApiKey, logout } from "@/lib/api/auth";
-import { apiPost } from "@/lib/api/client";
+import { supabase } from "@/lib/supabase";
+import { apiPatch, apiPut, apiDelete } from "@/lib/api/client";
+import type { UserProfile } from "@/lib/store/authStore";
 
 const TABS = [
   { id: "account", label: "계정" },
@@ -36,16 +37,25 @@ const MODES: { key: ThemeMode; label: string; desc: string }[] = [
   { key: "system", label: "시스템",  desc: "OS 설정 따름" },
 ];
 
+// ── Helpers calling the backend /me API ──────────────────────────────────────
+
+async function updateMe(fields: Record<string, unknown>) {
+  return apiPatch<UserProfile>("/me", fields);
+}
+
+async function setApiKey(api_key: string) {
+  return apiPut<unknown>("/me/api-key", { api_key });
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { user, setSession, clearSession, accessToken } = useAuthStore();
+  const { user, accessToken, setSession, clearSession } = useAuthStore();
   const { mode, accent, setMode, setAccent } = useThemeStore();
 
   const [tab, setTab] = useState<TabId>("account");
   const [apiKeyVal, setApiKeyVal] = useState("");
-  const [oldPw, setOldPw] = useState("");
-  const [newPw, setNewPw] = useState("");
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -55,7 +65,7 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
-    await logout();
+    await supabase.auth.signOut();
     clearSession();
     qc.clear();
     router.replace("/login");
@@ -70,27 +80,34 @@ export default function SettingsPage() {
     else notify("저장 실패", false);
   }
 
-  async function handleChangePw() {
-    if (!oldPw || !newPw) return;
-    if (newPw.length < 4) { notify("새 비밀번호는 4자 이상이어야 합니다.", false); return; }
-    setSaving(true);
-    const res = await apiPost<unknown>("/me/password", { old_password: oldPw, new_password: newPw });
-    setSaving(false);
-    if (res.ok) { notify("비밀번호를 변경했습니다."); setOldPw(""); setNewPw(""); }
-    else notify("비밀번호 변경 실패", false);
-  }
-
   async function handleSetTone(tone: string) {
     if (!user || !accessToken) return;
     const res = await updateMe({ tone });
-    if (res.ok) setSession(accessToken, { ...user, tone });
+    if (res.ok) setSession(accessToken, { ...user, tone } as UserProfile);
   }
 
   async function handleSetRule(key: string, value: number) {
     if (!user || !accessToken) return;
     const rules = { ...(user.garden_rules as Record<string, number>), [key]: value };
     const res = await updateMe({ garden_rules: rules });
-    if (res.ok) setSession(accessToken, { ...user, garden_rules: rules });
+    if (res.ok) setSession(accessToken, { ...user, garden_rules: rules } as UserProfile);
+  }
+
+  async function handleDeleteAccount() {
+    if (!user) return;
+    const expected = user.email ?? user.nickname ?? "";
+    if (deleteConfirmInput !== expected) {
+      notify("입력값이 올바르지 않습니다.", false);
+      return;
+    }
+    setSaving(true);
+    const res = await apiDelete<unknown>("/me");
+    setSaving(false);
+    if (!res.ok) { notify("계정 삭제 실패", false); return; }
+    await supabase.auth.signOut();
+    clearSession();
+    qc.clear();
+    router.replace("/login");
   }
 
   return (
@@ -141,27 +158,37 @@ export default function SettingsPage() {
         <main className="animate-in">
           {tab === "account" && (
             <Section title="프로필">
-              <Row label="닉네임" sub="현재 로그인된 계정">
-                <span className="t-body" style={{ color: "var(--fg)", fontWeight: 600 }}>{user?.nickname ?? "—"}</span>
+              <Row label="이름" sub="Google 계정에서 가져옵니다">
+                <span className="t-body" style={{ color: "var(--fg)", fontWeight: 600 }}>{user?.nickname ?? user?.email ?? "—"}</span>
               </Row>
-
-              <SubSection title="비밀번호 변경">
-                <Row label="현재 비밀번호">
-                  <input type="password" className="input" value={oldPw} onChange={(e) => setOldPw(e.target.value)} style={{ maxWidth: 220 }} />
-                </Row>
-                <Row label="새 비밀번호" sub="4자 이상">
-                  <input type="password" className="input" value={newPw} onChange={(e) => setNewPw(e.target.value)} style={{ maxWidth: 220 }} />
-                </Row>
-                <div style={{ paddingTop: 8 }}>
-                  <button className="btn btn-primary btn-sm" onClick={handleChangePw} disabled={saving}>
-                    {saving ? "저장 중…" : "비밀번호 변경"}
-                  </button>
-                </div>
-              </SubSection>
+              <Row label="이메일" sub="Google 로그인 계정">
+                <span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>{user?.email ?? "—"}</span>
+              </Row>
 
               <SubSection title="세션">
                 <Row label="로그아웃" sub="현재 세션을 종료합니다">
                   <button className="btn btn-danger btn-sm" onClick={handleLogout}>로그아웃</button>
+                </Row>
+              </SubSection>
+
+              <SubSection title="계정 삭제">
+                <Row label="데이터 영구 삭제" sub="모든 식물, 봉우리, 대화 기록이 삭제됩니다">
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input
+                      className="input"
+                      value={deleteConfirmInput}
+                      onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                      placeholder={user?.email ?? user?.nickname ?? "이메일 입력"}
+                      style={{ width: 200, fontSize: 13 }}
+                    />
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={handleDeleteAccount}
+                      disabled={saving || !deleteConfirmInput}
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </Row>
               </SubSection>
             </Section>
@@ -249,7 +276,8 @@ export default function SettingsPage() {
 
           {tab === "about" && (
             <Section title="앱 정보">
-              <Row label="버전"     sub="현재 빌드"><span className="t-mono" style={{ color: "var(--fg-muted)" }}>v0.1.0</span></Row>
+              <Row label="버전"     sub="현재 빌드"><span className="t-mono" style={{ color: "var(--fg-muted)" }}>v0.2.0</span></Row>
+              <Row label="인증"     sub="로그인 방식"><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Google OAuth (Supabase Auth)</span></Row>
               <Row label="데이터"   sub="외부 전송 범위"><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Gemini API 호출에만</span></Row>
               <Row label="만든 곳"  sub=""><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Plant Counselor</span></Row>
             </Section>
@@ -260,7 +288,7 @@ export default function SettingsPage() {
   );
 }
 
-// ── primitives ────────────────────────────────────────────────
+// ── Primitives ─────────────────────────────────────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

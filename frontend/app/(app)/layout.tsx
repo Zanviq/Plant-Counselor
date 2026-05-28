@@ -7,12 +7,13 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useChatStore } from "@/lib/store/chatStore";
 import Sidebar from "@/components/layout/Sidebar";
 import ChatPanel from "@/components/chat/ChatPanel";
-import { refreshToken } from "@/lib/api/auth";
+import { supabase } from "@/lib/supabase";
 import { apiGet, configureClient } from "@/lib/api/client";
 import { listPlants } from "@/lib/api/plants";
 import { listBuds } from "@/lib/api/buds";
 import { getSummary, getBriefing } from "@/lib/api/stats";
 import { QK } from "@/lib/queryKeys";
+import type { UserProfile } from "@/lib/store/authStore";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -29,69 +30,63 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     qc.prefetchQuery({ queryKey: QK.briefing(), queryFn: getBriefing,        staleTime: 5 * 60_000 });
   }
 
-  // Session restore: configure client + recover session on first mount.
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
+    // Configure the API client to read the Supabase token from Zustand store
+    // (always up-to-date via onAuthStateChange below).
     configureClient(
       () => useAuthStore.getState().accessToken,
       async () => {
-        const res = await refreshToken();
-        if (!res.ok) {
-          useAuthStore.getState().clearSession();
-          return null;
+        // 401 fallback: ask Supabase to refresh the session
+        const { data } = await supabase.auth.refreshSession();
+        const newToken = data.session?.access_token ?? null;
+        if (newToken && data.session) {
+          const cur = useAuthStore.getState().user;
+          if (cur) useAuthStore.getState().setSession(newToken, cur);
+          else useAuthStore.setState({ accessToken: newToken });
         }
-        const token = (res.data as { access_token: string }).access_token;
-        const cur = useAuthStore.getState().user;
-        if (cur) useAuthStore.getState().setSession(token, cur);
-        else useAuthStore.setState({ accessToken: token });
-        return token;
+        return newToken;
       }
     );
 
-    // Already fully hydrated — kick off prefetch immediately and exit.
-    if (accessToken && user) {
-      prefetchAll();
-      return;
-    }
+    // Subscribe to Supabase auth state changes.
+    // This fires immediately with the current session (or null) on mount.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!session) {
+          clearSession();
+          router.replace("/login");
+          return;
+        }
 
-    (async () => {
-      // Step 1: Refresh the access token (uses httpOnly refresh cookie).
-      const res = await refreshToken();
-      if (!res.ok) {
-        clearSession();
-        router.replace("/login");
-        return;
+        const token = session.access_token;
+        // Keep the store token in sync (Supabase refreshes it automatically)
+        useAuthStore.setState({ accessToken: token });
+
+        // Kick off cache warming immediately (no waiting for profile fetch)
+        prefetchAll();
+
+        // Fetch backend profile if not yet loaded
+        const cachedUser = useAuthStore.getState().user;
+        if (cachedUser) return; // already have profile
+
+        const meRes = await apiGet<UserProfile>("/me");
+        if (!meRes.ok) {
+          clearSession();
+          router.replace("/login");
+          return;
+        }
+        setSession(token, meRes.data);
       }
-      const token = (res.data as { access_token: string }).access_token;
-      useAuthStore.setState({ accessToken: token });
+    );
 
-      // Kick off cache warming in parallel with the profile fetch below.
-      prefetchAll();
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      // Step 2 (conditional): Fetch user profile only when not already cached
-      // in localStorage (via authStore.persist).  If the profile is available
-      // we trust it for this session — a background refresh isn't needed because
-      // profile data changes only via intentional settings edits.
-      const cachedUser = useAuthStore.getState().user;
-      if (cachedUser) {
-        // Token refreshed, profile already available — we're done.
-        return;
-      }
-
-      const meRes = await apiGet<Record<string, unknown>>("/me");
-      if (!meRes.ok) {
-        clearSession();
-        router.replace("/login");
-        return;
-      }
-      setSession(token, meRes.data as unknown as Parameters<typeof setSession>[1]);
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, user, setSession, clearSession, router]);
-
-  // Global space-key opens chat (when not in input).
+  // Global space-key opens chat (when not in input)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement | null)?.tagName ?? "";
@@ -119,15 +114,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Floating chat FAB — visible only when chat is closed. */}
+      {/* Floating chat FAB — visible only when chat is closed */}
       {!open && (
         <button
           onClick={() => openWith()}
           aria-label="AI 정원사 열기"
           style={{
             position: "fixed",
-            top: 12,
-            right: 16,
+            top: 12, right: 16,
             zIndex: 30,
             width: 36, height: 36,
             borderRadius: "var(--r-md)",

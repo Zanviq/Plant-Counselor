@@ -1,7 +1,7 @@
 # Plant Counselor — CLAUDE.md
 
 > **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-27  
+> 최종 업데이트: 2026-05-28  
 > 작성자: confidencecat (jaemi)
 
 ---
@@ -38,6 +38,11 @@
 | 설정 (5탭, API 키 암호화) | ✅ 완성 |
 | 10분 주기 자동 전이 (APScheduler) | ✅ 완성 |
 | requirements.txt + README (venv 설명) | ✅ 완성 |
+| 대화 기록 브라우저 (/history) | ✅ 완성 |
+| ChatPanel 드래그 리사이즈 | ✅ 완성 |
+| BudDetailDrawer + ChatPanel 공존 | ✅ 완성 |
+| 페이지 네비게이션 딜레이 제거 (캐시 최적화) | ✅ 완성 |
+| AI 봉우리 탐색 버그 수정 (list_buds 강제) | ✅ 완성 |
 
 ---
 
@@ -295,12 +300,34 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - 캘린더 이벤트에 `plant_name`, `detail`, `type` 추가 (stats.py)
 - `CalEvent` 타입 확장 (stats.ts)
 
-### 세션 4 (문서화 + 버그 수정)
+### 세션 4 (문서화 + 버그 수정, 2026-05-27)
 - MVP 문서 10편 작성 (`Plant-Counselor_Documents/MVP_Documents/`)
 - `.gitignore` + `README.md` 작성 (root)
 - `requirements.txt` 생성, `pyproject.toml` 의존성 수정
 - **화살표 키 딜레이 버그 수정** (`setTimeout` → `useEffect` 분리)
 - `CLAUDE.md` 작성 (이 파일)
+
+### 세션 5 (UI 개선 + 히스토리, 2026-05-28)
+- BudDetailDrawer z-index 충돌 수정 — ChatPanel 열린 채로 드로어 사용 가능
+- ChatPanel 드래그 리사이즈 핸들 (min 280px ~ max 700px, localStorage persist)
+- 브레드크럼 행에 "온라인" 세션 표시 이동
+- 대화 기록 브라우저 (`/history`) 구현 — 2-패널, 계층 트리, 스레드 열람
+- 히스토리 트리 이모지 제거, 고정 높이 스크롤 수정
+- AI 봉우리 탐색 버그 수정 (prompt_builder.py + list_buds.py 강화)
+- ChatPanel "새 대화" 구분선 제거
+- 백엔드 `GET /conversations/list` 엔드포인트 추가
+- `QK.conversations()`, `QK.historyThread()` queryKey 추가
+- Sidebar에 대화 기록 링크 + hover 프리페치 추가
+
+### 세션 6 (성능 최적화, 2026-05-28)
+- 레이아웃 `prefetchAll()` — 토큰 확보 즉시 4개 쿼리 캐시 워밍
+- 전 페이지 `enabled: !!accessToken` 가드 적용
+- ChatPanel 브레드크럼 `useQuery` 기반으로 교체 (캐시 즉시 조회)
+- `SKILL_INVALIDATIONS`에 `"briefing"` 키 추가 (6개 뮤테이션 스킬)
+- BudDetailDrawer 쿼리 키 `QK.bud()` 정규화
+- 캘린더 인접 월 프리페치 (`useEffect[year, month]`)
+- 히스토리 트리 hover 프리페치
+- MVP 문서 전체 업데이트 (이번 세션)
 
 ---
 

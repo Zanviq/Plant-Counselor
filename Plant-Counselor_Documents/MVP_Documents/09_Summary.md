@@ -333,6 +333,13 @@ GET    /briefing/today      → {briefing: string}
 GET    /calendar            ?from=YYYY-MM-DD&to=YYYY-MM-DD → {events: {date: CalEvent[]}}
 ```
 
+### 대화 (인증 필요)
+```
+GET    /conversations/list  → {conversations: ConversationSummary[]}
+GET    /conversations       ?scope=&scope_id=&limit= → {messages[]}
+POST   /conversations/search {query, scope, scope_id, limit} → {messages[]}
+```
+
 ### 알림 (인증 필요)
 ```
 GET    /notifications       → {items: Notification[]}
@@ -361,6 +368,7 @@ GET    /health              → {status: "ok"}  (인증 불필요)
 | 정원 | /plants | **정원뷰**(캐러셀+스프라이트) ↔ **리스트뷰**(카드그리드), 검색/정렬 |
 | 식물 상세 | /plants/[id] | 헤더카드(통계+삭제), 봉우리 목록(필터), 봉우리 드로어(이력+액션) |
 | 캘린더 | /calendar | 월별 그리드, 오늘 일정, AI 제안, "일정 AI와 대화", "+ 일정 추가" |
+| 대화 기록 | /history | 2-패널 브라우저, 식물/봉우리 계층 트리, 스레드 열람, "이어가기" |
 | 설정 | /settings | 5탭(계정/AI/규칙/테마/정보) |
 
 ---

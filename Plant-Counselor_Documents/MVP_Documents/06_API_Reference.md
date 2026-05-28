@@ -52,12 +52,22 @@
 ### GET `/briefing/today` — 일일 브리핑 (캐시됨)
 
 ### GET `/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- 응답: `{events: {"YYYY-MM-DD": [{id,title,status},...]}}`
+- 응답: `{events: {"YYYY-MM-DD": [{id,title,status,type,detail,plant_name,plant_id},...]}}`
 - from/to 형식 오류 시 400, 366일 초과 시 400
+- `detail` 필드에 AI가 저장한 시간·장소 정보 포함
 
 ## 대화
 
+### GET `/conversations/list` ← 신규
+- 응답: `{conversations: ConversationSummary[]}`
+- `ConversationSummary`: `{id, scope, scope_id, message_count, last_message, last_role, updated_at, created_at}`
+- 메시지가 없는 빈 대화는 제외
+- 대화 기록 브라우저(`/history`)에서 사용
+
 ### GET `/conversations?scope=global&scope_id=&limit=20`
+- 해당 스코프의 메시지 목록 반환
+- `{messages: [{id, role, text, skill_call, at}]}`
+
 ### POST `/conversations/search` — `{query, scope, scope_id, limit}`
 
 ## 알림

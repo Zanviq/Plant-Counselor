@@ -79,7 +79,8 @@
 - **15개 스킬**: think, match_plant, create_plant, delete_plant, create_bud, update_bud_status, update_bud_progress, set_deadline, abandon_bud, harvest_bud, list_plants, list_buds, get_statistics, get_garden_briefing, search_conversation
 - **4가지 대화 스코프**: 전체(global), 식물(plant), 봉우리(bud), 캘린더(calendar)
 - **7가지 명령어**: /clear, /compact, /plants, /new, /settings, /skills, /use
-- **스킬 실행 후 자동 캐시 갱신**: 식물/봉우리/통계/캘린더 쿼리 자동 무효화
+- **스킬 실행 후 자동 캐시 갱신**: 식물/봉우리/통계/캘린더/브리핑 쿼리 자동 무효화
+- **드래그 리사이즈**: 채팅 패널 폭 조절 가능 (280~700px, 저장됨)
 - SSE 실시간 스트리밍 (토큰 단위)
 
 ### 3.5 캘린더 & 일정
@@ -88,6 +89,12 @@
 - 캘린더 전용 채팅 세션 ("일정 AI와 대화" 버튼)
 - AI 일일 브리핑 (캐시, 하루 1회 생성)
 - 일정 생성 시 AI가 식물 자동 매칭·생성 (질문 없이)
+- 인접 월 프리페치 (‹/› 클릭 즉시 응답)
+
+### 3.5.1 대화 기록 브라우저
+- 모든 대화를 global → calendar → 식물 → 봉우리 계층으로 탐색
+- 식물/봉우리 이름 해석, 키워드 검색, 스레드 내 검색
+- "이 대화 이어가기" → 해당 스코프로 채팅 재개
 
 ### 3.6 알림
 - 시들·썩음·마감 임박 자동 알림 (10분 주기 스케줄러)
@@ -157,11 +164,12 @@ plant-counselor/
 │   │   ├── globals.css                 ─ 디자인 토큰 + 컴포넌트 프리미티브
 │   │   ├── (auth)/login/page.tsx       ─ 로그인/가입
 │   │   └── (app)/
-│   │       ├── layout.tsx              ─ 사이드바 + ChatPanel + FAB
+│   │       ├── layout.tsx              ─ 사이드바 + ChatPanel + FAB + prefetchAll()
 │   │       ├── page.tsx                ─ 홈 (통계 + 식물 보드 + 시듦)
 │   │       ├── plants/page.tsx         ─ 정원 (그래픽/리스트 토글)
 │   │       ├── plants/[id]/page.tsx    ─ 식물 상세 + 봉우리 드로어
 │   │       ├── calendar/page.tsx       ─ 캘린더 + 일정 관리
+│   │       ├── history/page.tsx        ─ 대화 기록 브라우저 (2-패널)
 │   │       └── settings/page.tsx       ─ 설정 5탭
 │   ├── components/
 │   │   ├── chat/ChatPanel.tsx          ─ AI 채팅 패널 (SSE + 명령어)

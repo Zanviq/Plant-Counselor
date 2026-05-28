@@ -1,8 +1,8 @@
 # 10. 완성본 구현 상태 (최종 기준 문서)
 
-> **최종 업데이트**: 2026-05-27  
-> 이 문서는 MVP 개발 완료 시점의 전체 구현 상태를 기록합니다.  
-> 이전 세션들에서 누적된 변경사항을 모두 포함한 단일 기준 문서입니다.
+> **최종 업데이트**: 2026-05-28  
+> 이 문서는 가장 최근 구현 상태를 기록하는 단일 기준 문서입니다.  
+> 이전 세션에서 누적된 변경사항을 모두 포함합니다.
 
 ---
 
@@ -36,6 +36,7 @@
 - [x] 마감일(deadline) YYYY-MM-DD 저장 + 캘린더 연동
 - [x] detail 필드: 시간·장소 등 구체 정보 (캘린더 이벤트 카드에 표시)
 - [x] 상세 드로어: 메타 + 이력 타임라인 + 빠른 액션 (+20%/수확/포기)
+- [x] 드로어가 채팅 패널 옆으로 이동 (z:45, right: chatWidth 동기화)
 - [x] 수확(harvested) / 포기(rot) 처리
 
 ### ✅ AI 채팅 시스템
@@ -45,8 +46,24 @@
 - [x] 15개 스킬 전체 구현
 - [x] SSE 스트리밍 (token 이벤트, 단어 단위)
 - [x] 스킬 실행 후 TanStack Query 자동 캐시 무효화
+- [x] "briefing" 캐시 무효화 포함 (plant/bud 생성·상태변경·수확·포기 시)
 - [x] 7가지 채팅 명령어 (/clear, /compact, /plants, /new, /settings, /skills, /use)
 - [x] 대화 이력 DB 저장 + 스코프별 격리
+- [x] **봉우리 탐색 강제 규칙**: bud_id 필요 스킬 호출 전 반드시 list_buds 먼저
+- [x] 드래그 리사이즈 핸들 (min 280px ~ max 700px, 폭 persist)
+- [x] 브레드크럼 라벨 캐시 기반 즉시 표시 (useQuery로 교체)
+
+### ✅ 대화 기록 브라우저 (`/history`)
+- [x] 2-패널 레이아웃: 좌측 트리 + 우측 스레드 뷰
+- [x] 트리: global → calendar → 식물 → 봉우리 계층 구조
+- [x] 식물/봉우리 이름 해석 (scope_id → 실명 매핑)
+- [x] 사라진 봉우리 dimmed 표시
+- [x] 트리 내 키워드 검색 (필터)
+- [x] 스레드 내 메시지 검색
+- [x] "이 대화 이어가기" → 채팅 패널 + 해당 페이지로 이동
+- [x] hover 프리페치 (마우스 오버 시 스레드 데이터 미리 로드)
+- [x] 고정 높이 레이아웃 (overflow scroll, 박스 팽창 없음)
+- [x] 사이드바 "대화 기록" 링크 + hover 프리페치
 
 ### ✅ 캘린더 & 일정
 - [x] 월별 그리드 + 이벤트 도트(최대 3개) + 클릭 시 목록 펼침
@@ -57,6 +74,7 @@
 - [x] "오늘", "내일" → 자동 날짜 변환
 - [x] 오늘 일정 패널 (우측)
 - [x] AI 일정 제안 (daily briefing 기반)
+- [x] 인접 월 프리페치 (‹/› 클릭 시 즉시 응답)
 
 ### ✅ 픽셀아트 정원
 - [x] 식물 스프라이트: 140×240px (곡선 줄기 + 둥근 잎 + 화분)
@@ -91,6 +109,14 @@
 - [x] 정원 규칙: wilting_days / rot_disappear_days / deadline_warn_days (NumberStepper)
 - [x] 테마 시각적 카드 프리뷰
 
+### ✅ 성능 최적화
+- [x] 레이아웃 레벨 프리페치: 토큰 확보 즉시 plants/buds/summary/briefing 캐시 워밍
+- [x] `enabled: !!accessToken` 가드: 모든 페이지 쿼리에 적용 (콜드 스타트 401 제거)
+- [x] QK 팩토리 정규화: 모든 페이지에서 동일 캐시 키 사용
+- [x] Sidebar hover 프리페치: 링크 위에 마우스 올리면 해당 페이지 데이터 미리 로드
+- [x] initialData 패턴: 식물 상세 페이지가 list 캐시에서 즉시 헤더 렌더
+- [x] 캘린더 인접 월 프리페치
+
 ### ✅ 개발 환경
 - [x] pyproject.toml + requirements.txt (google-genai SDK 의존성 올바르게 수정)
 - [x] .env.example + 상세 README.md (venv 설정 설명 포함)
@@ -110,7 +136,7 @@ plant-counselor/
 │   │   │   ├── chat_orchestrator.py  # ReAct 루프 (MAX_STEPS=10)
 │   │   │   ├── llm_client.py         # Gemini 2.5 Flash API 래퍼
 │   │   │   ├── log_recorder.py       # 채팅 로그 JSON 저장
-│   │   │   ├── prompt_builder.py     # 시스템 프롬프트 7섹션 조립
+│   │   │   ├── prompt_builder.py     # 시스템 프롬프트 (봉우리 탐색 규칙 포함)
 │   │   │   ├── skill_base.py         # SkillBase + SkillContext + SkillResult
 │   │   │   ├── skill_registry.py     # 스킬 등록 + build_catalog()
 │   │   │   └── skills/               # 15개 스킬 (각 파일)
@@ -125,115 +151,101 @@ plant-counselor/
 │   │   │       ├── harvest_bud.py
 │   │   │       ├── abandon_bud.py
 │   │   │       ├── list_plants.py
-│   │   │       ├── list_buds.py
+│   │   │       ├── list_buds.py      # description에 "bud_id 필요 시 먼저 호출" 명시
 │   │   │       ├── get_statistics.py
 │   │   │       ├── get_garden_briefing.py
 │   │   │       └── search_conversation.py
 │   │   │
 │   │   ├── auth/
-│   │   │   └── jwt.py                # create_access_token, verify_token
+│   │   │   └── jwt.py
 │   │   │
 │   │   ├── db/
-│   │   │   ├── base.py               # DeclarativeBase
-│   │   │   ├── session.py            # engine + SessionLocal
+│   │   │   ├── base.py
+│   │   │   ├── session.py
 │   │   │   └── models/
-│   │   │       ├── user.py           # User (ULID PK, Argon2, JSON garden_rules)
-│   │   │       ├── plant.py          # Plant (status, stats JSON)
-│   │   │       ├── bud.py            # Bud + BudHistory (7 상태, progress, detail)
-│   │   │       ├── conversation.py   # Conversation + ConversationMessage
-│   │   │       ├── notification.py   # Notification (kind, payload, acked_at)
-│   │   │       └── garden_state.py   # GardenState (summary_cache, briefing)
+│   │   │       ├── user.py
+│   │   │       ├── plant.py
+│   │   │       ├── bud.py
+│   │   │       ├── conversation.py
+│   │   │       ├── notification.py
+│   │   │       └── garden_state.py
 │   │   │
-│   │   ├── repositories/             # DB CRUD 레이어 (6개)
-│   │   ├── services/                 # 비즈니스 로직 (6개)
-│   │   │   ├── plant_service.py      # find_matches(), create(), list()
-│   │   │   ├── bud_service.py        # create(), update_progress (자동 전이)
-│   │   │   ├── conversation_service.py  # get_history(), append()
-│   │   │   ├── garden_state_service.py  # refresh_summary(), get_daily_briefing()
-│   │   │   ├── transition_service.py    # scan_all() → 시들/썩음 자동 전이
-│   │   │   └── user_service.py       # get_api_key(), set_api_key (Fernet)
+│   │   ├── repositories/
+│   │   │   └── conversation_repo.py  # list_conversations_for_user() 추가
 │   │   │
-│   │   ├── schemas/                  # Pydantic v2 스키마 (4개)
-│   │   ├── routers/                  # FastAPI 라우터 (8개)
-│   │   │   ├── auth.py               # /auth/signup, /login, /refresh, /logout
-│   │   │   ├── me.py                 # /me (GET/PATCH/DELETE), /me/password, /me/api-key
-│   │   │   ├── plants.py             # CRUD /plants, /plants/{id}
-│   │   │   ├── buds.py               # /buds, /buds/{id}
-│   │   │   ├── stats.py              # /stats/summary, /briefing/today, /calendar
-│   │   │   ├── chat.py               # POST /chat/message → SSE
-│   │   │   ├── conversations.py      # /conversations (이력 조회)
-│   │   │   └── notifications.py      # /notifications, /ack
+│   │   ├── services/
+│   │   │   ├── plant_service.py
+│   │   │   ├── bud_service.py
+│   │   │   ├── conversation_service.py
+│   │   │   ├── garden_state_service.py
+│   │   │   ├── transition_service.py
+│   │   │   └── user_service.py
 │   │   │
-│   │   ├── scheduler/
-│   │   │   └── jobs.py               # APScheduler 10분 interval
+│   │   ├── schemas/
+│   │   ├── routers/
+│   │   │   ├── auth.py
+│   │   │   ├── me.py
+│   │   │   ├── plants.py
+│   │   │   ├── buds.py
+│   │   │   ├── stats.py
+│   │   │   ├── chat.py
+│   │   │   ├── conversations.py      # GET /conversations/list 추가
+│   │   │   └── notifications.py
 │   │   │
-│   │   ├── config.py                 # pydantic-settings → .env 바인딩
-│   │   ├── deps.py                   # get_db, require_user (FastAPI 의존성)
-│   │   └── main.py                   # FastAPI app, CORS, 라우터 등록
+│   │   ├── scheduler/jobs.py
+│   │   ├── config.py
+│   │   ├── deps.py
+│   │   └── main.py
 │   │
-│   ├── pyproject.toml                # 의존성 선언 (google-genai, fastapi 등)
-│   ├── requirements.txt              # pyproject.toml 미러 (pip 직접 설치용)
-│   ├── .env.example                  # 환경변수 템플릿
-│   └── run.py                        # uvicorn 진입점
+│   ├── pyproject.toml
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── run.py
 │
 ├── frontend/
 │   ├── app/
 │   │   ├── layout.tsx                # root: html, body, theme-init Script
 │   │   ├── providers.tsx             # QueryClientProvider, AuthGate
 │   │   ├── globals.css               # 디자인 토큰 (cream/olive 팔레트)
-│   │   ├── (auth)/login/page.tsx     # 가입/로그인
+│   │   ├── (auth)/login/page.tsx
 │   │   └── (app)/
-│   │       ├── layout.tsx            # Sidebar + ChatPanel overlay
-│   │       ├── page.tsx              # 홈 (브리핑, 통계, 식물 보드, 시들 봉우리)
+│   │       ├── layout.tsx            # Sidebar + ChatPanel + FAB + prefetchAll()
+│   │       ├── page.tsx              # 홈 (enabled guard 적용)
 │   │       ├── plants/
 │   │       │   ├── page.tsx          # 정원(캐러셀+스프라이트) / 리스트 뷰
-│   │       │   └── [id]/page.tsx     # 식물 상세 + BudDetailDrawer
-│   │       ├── calendar/page.tsx     # 캘린더 + 일정 AI 채팅
-│   │       └── settings/page.tsx     # 5탭 설정
+│   │       │   └── [id]/page.tsx     # 식물 상세 + BudDetailDrawer (z:45)
+│   │       ├── calendar/page.tsx     # 캘린더 + 인접 월 프리페치
+│   │       ├── history/page.tsx      # 대화 기록 브라우저 (2-패널)
+│   │       └── settings/page.tsx
 │   │
 │   ├── components/
-│   │   ├── chat/ChatPanel.tsx        # SSE 스트리밍, 명령어, 스코프 breadcrumb
+│   │   ├── chat/ChatPanel.tsx        # 드래그 리사이즈, useQuery 브레드크럼, SKILL_INVALIDATIONS
 │   │   └── layout/
-│   │       ├── Sidebar.tsx           # 다크 올리브 사이드바 + 알림 배지
+│   │       ├── Sidebar.tsx           # 다크 올리브 + "대화 기록" 링크 + hover 프리페치
 │   │       └── NotificationsPopover.tsx
 │   │
 │   ├── lib/
-│   │   ├── api/                      # fetch 래퍼 (8개)
-│   │   │   ├── client.ts             # configureClient, apiFetch (401 자동 갱신)
-│   │   │   ├── auth.ts, me.ts        # 인증 API
-│   │   │   ├── plants.ts, buds.ts    # 식물/봉우리 API
-│   │   │   ├── stats.ts              # CalEvent 인터페이스 (id,title,status,type,detail,plant_name,plant_id)
-│   │   │   ├── conversations.ts      # 대화 이력
-│   │   │   └── notifications.ts      # 알림
+│   │   ├── api/
+│   │   │   ├── client.ts
+│   │   │   ├── auth.ts, me.ts
+│   │   │   ├── plants.ts, buds.ts
+│   │   │   ├── stats.ts
+│   │   │   ├── conversations.ts      # listConversations(), getHistory(), searchConversation()
+│   │   │   └── notifications.ts
 │   │   │
+│   │   ├── queryKeys.ts              # QK 팩토리 (conversations, historyThread 추가)
 │   │   ├── store/
-│   │   │   ├── authStore.ts          # user, token, setSession, logout
-│   │   │   ├── chatStore.ts          # open, scope{kind,id}, openWith(), close()
-│   │   │   └── themeStore.ts         # mode, accent, setMode(), setAccent()
+│   │   │   ├── authStore.ts
+│   │   │   ├── chatStore.ts          # chatWidth + setChatWidth persist
+│   │   │   └── themeStore.ts
 │   │   │
-│   │   └── status.ts                 # STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus()
+│   │   └── status.ts
 │   │
-│   ├── public/sprites/               # 픽셀아트 스프라이트 (PNG)
-│   │   ├── plant.png                 # 140×240px (줄기+잎+화분 합성)
-│   │   ├── sky.png, grass.png        # 배경
-│   │   ├── bud_seed.png              # 20×28
-│   │   ├── bud_sprout.png            # 36×28
-│   │   ├── bud_flower.png            # 36×32
-│   │   ├── bud_fruit.png             # 28×32
-│   │   ├── bud_wilted.png            # 28×24
-│   │   └── bud_harvested.png         # 28×20
-│   │
-│   └── package.json                  # next16, react19, zustand, tanstack-query
+│   └── public/sprites/               # 픽셀아트 스프라이트 PNG
 │
-├── assets/sprites/                   # 스프라이트 원본 (생성기 출력)
-├── scripts/
-│   └── generate_pixel_sprites.py     # Pillow 기반 스프라이트 생성기 (v5)
-├── ref_images/                       # 디자인 레퍼런스 이미지 (홈/정원/캘린더 UI 컨셉)
-├── Plant-Counselor_Documents/
-│   └── MVP_Documents/                # 이 문서 포함 10편
-├── README.md                         # 빠른 시작 + venv 설명 + requirements.txt 설명
-├── .gitignore                        # secrets, venv, node_modules, .claude 제외
-└── backend/requirements.txt
+├── scripts/generate_pixel_sprites.py
+├── CLAUDE.md
+└── README.md
 ```
 
 ---
@@ -256,7 +268,7 @@ for step in range(MAX_STEPS):
         yield "event: tool_call"
         skill_result = registry.dispatch(name, input, ctx)
         yield "event: tool_result"
-        working_history += [assistant(tool_use), user(tool_result)]  # 다음 스텝에서 LLM이 결과를 봄
+        working_history += [assistant(tool_use), user(tool_result)]
         continue
 
     break  # 텍스트 응답 → 종료
@@ -290,8 +302,9 @@ if not response_text:  # MAX_STEPS 소진
 1. **즉시 실행** — 의도 파악 시 확인 없이 스킬 호출
 2. **질문 금지** — "~할까요?" 절대 금지, 문맥에서 추론
 3. **일정 자동 분류** — "밥먹기"→일상, "면접"→취업, "오늘"→ISO 날짜
-4. **캘린더 스코프** — list_buds(type=schedule) 로 일정 조회
-5. **빈 응답 금지** — 스킬 or 텍스트 중 하나는 반드시
+4. **봉우리 탐색 필수** — bud_id 필요 스킬 호출 전 반드시 list_buds 먼저 호출
+5. **캘린더 스코프** — list_buds(type=schedule)로 일정 조회
+6. **빈 응답 금지** — 스킬 or 텍스트 중 하나는 반드시
 
 ### 4.4 대화 스코프
 
@@ -308,31 +321,178 @@ DB unique 제약: `(user_id, scope, scope_id)` → 같은 식물에서 여러 �
 
 ```typescript
 const SKILL_INVALIDATIONS = {
-  create_plant:        ["plants", "stats"],
-  delete_plant:        ["plants", "buds", "stats"],
-  create_bud:          ["buds", "plants", "stats", "calendar"],
-  update_bud_status:   ["buds", "plants", "stats", "bud"],
+  create_plant:        ["plants", "stats", "briefing"],
+  delete_plant:        ["plants", "buds", "stats", "briefing"],
+  create_bud:          ["buds", "plants", "stats", "briefing", "calendar"],
+  update_bud_status:   ["buds", "plants", "stats", "briefing", "bud"],
   update_bud_progress: ["buds", "bud"],
-  harvest_bud:         ["buds", "plants", "stats", "bud"],
-  abandon_bud:         ["buds", "plants", "stats", "bud"],
+  harvest_bud:         ["buds", "plants", "stats", "briefing", "bud"],
+  abandon_bud:         ["buds", "plants", "stats", "briefing", "bud"],
   set_deadline:        ["buds", "bud", "calendar", "stats"],
 };
 ```
 
+`"briefing"` 키 추가: 식물/봉우리 상태가 변하면 홈 화면 AI 브리핑 자동 재로드.
+
 ---
 
-## 5. 픽셀아트 스프라이트 시스템
+## 5. 성능 최적화 설계
 
-### 5.1 생성기 (`scripts/generate_pixel_sprites.py`)
+### 5.1 레이아웃 프리페치 (`app/(app)/layout.tsx`)
+
+```typescript
+function prefetchAll() {
+  qc.prefetchQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(), staleTime: 2 * 60_000 });
+  qc.prefetchQuery({ queryKey: QK.buds(),     queryFn: () => listBuds(),   staleTime: 2 * 60_000 });
+  qc.prefetchQuery({ queryKey: QK.summary(),  queryFn: getSummary,         staleTime: 2 * 60_000 });
+  qc.prefetchQuery({ queryKey: QK.briefing(), queryFn: getBriefing,        staleTime: 5 * 60_000 });
+}
+// 토큰 확보 직후 호출 (콜드 스타트 & 이미 로그인된 상태 양쪽)
+```
+
+### 5.2 enabled 가드 패턴
+
+```typescript
+// 모든 페이지 쿼리에 적용
+const { accessToken } = useAuthStore();
+useQuery({ ..., enabled: !!accessToken });
+// 효과: 토큰 없을 때 쿼리 실행 안 함 → 401 → 재시도 이중 요청 제거
+```
+
+### 5.3 QK 팩토리 (queryKeys.ts)
+
+```typescript
+export const QK = {
+  plants:       () => ["plants", {}] as const,
+  plant:        (id: string) => ["plant", id] as const,
+  buds:         () => ["buds", {}] as const,
+  plantBuds:    (plantId: string) => ["buds", { plant_id: plantId }] as const,
+  bud:          (id: string) => ["bud", id] as const,
+  summary:      () => ["stats", "summary"] as const,
+  briefing:     () => ["briefing", "today"] as const,
+  calendar:     (year: number, month: number) => ["calendar", year, month] as const,
+  notifications:() => ["notifications"] as const,
+  conversations:() => ["conversations", "list"] as const,
+  historyThread:(scope: string, scopeId?: string | null) =>
+    ["history", scope, scopeId ?? null] as const,
+};
+```
+
+### 5.4 initialData 패턴 (캐시 워밍 후 즉시 표시)
+
+```typescript
+// plants/[id]/page.tsx — 목록 캐시에서 즉시 헤더 렌더
+const { data: plantRes } = useQuery({
+  queryKey: QK.plant(id),
+  queryFn: () => getPlant(id),
+  initialData: () => {
+    const list = qc.getQueryData<ApiResult<{ items: Plant[] }>>(QK.plants());
+    if (list?.ok) {
+      const hit = list.data.items.find(p => p.id === id);
+      if (hit) return { ok: true as const, data: hit };
+    }
+    return undefined;
+  },
+});
+```
+
+---
+
+## 6. ChatPanel 드래그 리사이즈
+
+```typescript
+// chatStore.ts
+export const DEFAULT_CHAT_W = 400;
+export const MIN_CHAT_W = 280;
+export const MAX_CHAT_W = 700;
+
+// persist: chatWidth만 localStorage에 저장
+{ name: "pc-chat", partialize: (state) => ({ chatWidth: state.chatWidth }) }
+
+// ChatPanel.tsx — handleResizeStart
+const startX = e.clientX; const startW = chatWidth;
+document.body.style.cursor = "col-resize";
+// 왼쪽으로 드래그할수록 패널 넓어짐
+const delta = startX - ev.clientX;
+const newW = Math.max(MIN_CHAT_W, Math.min(MAX_CHAT_W, startW + delta));
+setChatWidth(newW);
+```
+
+---
+
+## 7. BudDetailDrawer & ChatPanel 겹침 해결
+
+```typescript
+// BudDetailDrawer는 ChatPanel이 열릴 때 왼쪽으로 밀림
+const drawerRight = chatOpen ? chatWidth : 0;
+
+// aside 스타일
+{
+  position: "fixed",
+  right: drawerRight,           // chatWidth만큼 왼쪽으로 이동
+  zIndex: 45,                   // ChatPanel(40)보다 위
+  transition: "right 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
+}
+
+// 백드롭도 ChatPanel 가리지 않도록
+{
+  right: chatOpen ? chatWidth : 0,  // 백드롭 오른쪽 경계 = ChatPanel 왼쪽 경계
+  zIndex: 39,
+}
+```
+
+---
+
+## 8. 대화 기록 브라우저 (`/history`)
+
+### 8.1 데이터 흐름
+
+```
+GET /api/v1/conversations/list
+  → ConversationSummary[] (scope, scope_id, message_count, last_message, updated_at)
+  → buildTree(convs, plants, buds)  ← plants/buds는 캐시에서 즉시
+  → TreeItem[]  (global → calendar → 식물 → 봉우리 계층)
+  → 선택된 item → GET /conversations?scope=&scope_id= → 메시지 목록
+```
+
+### 8.2 백엔드 (`GET /conversations/list`)
+
+```python
+# conversation_repo.py — list_conversations_for_user()
+# 3-way 조인: conversations + message count + last message
+# 빈 대화(0 messages) 필터 제거
+```
+
+### 8.3 프론트 레이아웃
+
+```
+height: 100vh — 전체 뷰포트 점유
+flex: 1 + minHeight: 0  — 내부 스크롤 보장 (overflow: hidden)
+
+┌─ 좌측 트리 (280px) ─┬─ 우측 스레드 뷰 ──────────────┐
+│ [검색 인풋]          │ [ScopeTag: 식물명 > 봉우리명]  │
+│ ──────────────────  │ [스레드 내 검색]               │
+│ 전체 대화            │ ──────────────────────────    │
+│ 캘린더               │ [MessageBubble] ×N            │
+│ > 식물명             │ (flex:1, overflowY:auto)       │
+│   > 봉우리명 (dimmed)│ ──────────────────────────    │
+│   > 봉우리명 2       │ [이 대화 이어가기 →]           │
+└─────────────────────┴────────────────────────────────┘
+```
+
+---
+
+## 9. 픽셀아트 스프라이트 시스템
+
+### 9.1 생성기 (`scripts/generate_pixel_sprites.py`)
 
 - Python Pillow 기반, 프로그래매틱 드로잉
-- `auto_crop(img)` → `img.getbbox()`로 투명 여백 제거
-- `make_plant()` → 줄기 곡선(curve_points) + 둥근 잎(filled_ellipse) + 화분
+- `auto_crop(img)` → 투명 여백 제거
+- `make_plant()` → 줄기 곡선 + 둥근 잎 + 화분
 - 슬롯 좌표 6개: 가지 끝 → crop offset 보정 → `manifest.json` 저장
-- 봉우리 스프라이트: 줄기 없이 각 요소만 (seed/sprout/flower/fruit/wilted/harvested)
 - 재생성: `python scripts/generate_pixel_sprites.py && cp assets/sprites/* frontend/public/sprites/`
 
-### 5.2 정원 뷰 레이아웃 (plants/page.tsx)
+### 9.2 정원 뷰 레이아웃
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -342,16 +502,16 @@ const SKILL_INVALIDATIONS = {
 │  │  48px 80px 100px)                 │       │
 │  │  [식물 A]  [식물 B]  [식물 C]    │       │
 │  │    이름      이름      이름       │       │
-│  │  [상세][상담]                     │       │
+│  │  [상세][상담] (zIndex:10)         │       │
 │  └───────────────────────────────── ┘       │
 │  [잔디+흙: position:absolute, bottom:0,      │
 │   zIndex:1, pointerEvents:none, height:52px] │
 └─────────────────────────────────────────────┘
 ```
 
-**핵심**: 잔디/흙이 `zIndex:1`, 식물 레이블/버튼이 `zIndex:10` → 버튼이 잔디 위에 표시됨
+**핵심**: 잔디/흙 `zIndex:1`, 식물 레이블/버튼 `zIndex:10` → 버튼이 잔디 위에 표시됨
 
-### 5.3 봉우리 슬롯 좌표
+### 9.3 봉우리 슬롯 좌표
 
 ```typescript
 const SLOTS = [
@@ -360,14 +520,13 @@ const SLOTS = [
   { x: 32, y: 108 }, { x: 104, y: 108 } // 하단 가지 끝
 ];
 // 배치: left = slot.x * scale - meta.ax * scale (center anchor)
-//       top  = slot.y * scale - meta.ay * scale
 ```
 
 ---
 
-## 6. 디자인 시스템 (globals.css)
+## 10. 디자인 시스템 (globals.css)
 
-### 6.1 팔레트
+### 10.1 팔레트
 
 | 토큰 | Light | Dark | 용도 |
 |------|-------|------|------|
@@ -378,81 +537,60 @@ const SLOTS = [
 | `--bg-elevated` | #FFFFFF | #252820 | 카드 배경 |
 | `--border` | rgba(0,0,0,0.08) | rgba(255,255,255,0.08) | 테두리 |
 
-### 6.2 주요 CSS 클래스
+### 10.2 주요 CSS 클래스
 
 | 클래스 | 용도 |
 |--------|------|
-| `.card` | 카드 컨테이너 (배경, 테두리, 그림자) |
-| `.card-hover` | hover 시 약한 lift 효과 |
+| `.card` | 카드 컨테이너 |
+| `.card-hover` | hover lift 효과 |
 | `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-ghost` | 버튼 변형 |
 | `.btn-sm`, `.btn-lg` | 버튼 크기 |
 | `.input` | 인풋 스타일 |
 | `.t-display`, `.t-h1`~`.t-h3`, `.t-body`, `.t-caption` | 타이포그래피 |
 | `.animate-in`, `.stagger` | 등장 애니메이션 |
 | `.pill-*` | 상태 pill 배지 |
-| `.bud-tooltip` | 봉우리 hover 툴팁 (opacity 0→1) |
+| `.bud-tooltip` | 봉우리 hover 툴팁 |
 
 ---
 
-## 7. 최근 세션에서 수정된 사항 (2026-05-27)
+## 11. 세션별 주요 변경 이력
 
-### 7.1 방향키 네비게이션 버그 수정 (plants/page.tsx)
+### 세션 1–3 (초기 MVP)
+- FastAPI 백엔드 전체 (8 라우터, 15 스킬, ReAct 루프)
+- Next.js 프론트엔드 (인증, 홈, 식물, 설정, 캘린더)
+- 픽셀아트 정원, 캐러셀, 봉우리 슬롯
+- 크림/올리브 팔레트 디자인
 
-**문제**: `setTimeout(50)` 딜레이 + stale closure로 인한 스크롤 에러
+### 세션 4 (문서화 + 버그 수정, 2026-05-27)
+- 방향키 딜레이 버그 수정 (setTimeout → useEffect 분리)
+- requirements.txt, README.md 정비
+- CLAUDE.md 작성
 
-**수정 전**:
-```typescript
-const navigate = useCallback((dir) => {
-  setSelectedIdx(prev => {
-    const next = Math.max(0, Math.min(filtered.length - 1, prev + dir));
-    setTimeout(() => {
-      children[next].scrollIntoView(...)  // stale 클로저 + 50ms 딜레이
-    }, 50);
-    return next;
-  });
-}, [filtered.length]);
-```
+### 세션 5 (UI 개선 + 히스토리, 2026-05-28)
+- BudDetailDrawer z-index 충돌 수정 (ChatPanel 동시 열기 가능)
+- ChatPanel 드래그 리사이즈 핸들 (280~700px, persist)
+- 브레드크럼 행에 "온라인" 세션 표시 이동
+- 대화 기록 브라우저 (`/history`) 2-패널 전체 구현
+- 히스토리 트리 이모지 제거, 고정 높이 스크롤 수정
+- AI 봉우리 탐색 버그 수정 (prompt rules + list_buds description)
+- ChatPanel "새 대화" 구분선 제거
+- SKILL_INVALIDATIONS에 "briefing" 추가
+- BudDetailDrawer 쿼리 키 `QK.bud()` 정규화
+- 백엔드 GET /conversations/list 엔드포인트 추가
 
-**수정 후**:
-```typescript
-// navigate: 상태만 업데이트
-const navigate = useCallback((dir) => {
-  setSelectedIdx(prev => Math.max(0, Math.min(filtered.length - 1, prev + dir)));
-}, [filtered.length]);
-
-// 별도 effect: React 재렌더 완료 후 스크롤 (DOM 준비 보장, setTimeout 불필요)
-useEffect(() => {
-  if (view !== "garden") return;
-  const el = scrollRef.current?.children[selectedIdx] as HTMLElement;
-  el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-}, [selectedIdx, view]);
-
-// selectedIdxRef: 키보드 핸들러의 Enter 스코프에서 stale closure 방지
-const selectedIdxRef = useRef(selectedIdx);
-useEffect(() => { selectedIdxRef.current = selectedIdx; }, [selectedIdx]);
-```
-
-### 7.2 pyproject.toml 의존성 수정
-
-- `anthropic` 제거 (코드에서 미사용)
-- `google-genai>=1.0.0` 추가 (실제 사용 중인 Gemini SDK)
-
-### 7.3 requirements.txt 추가
-
-- `pip install -r requirements.txt` 방식 지원
-- 각 패키지 한국어 주석 포함
-
-### 7.4 README.md 대폭 확장
-
-- `.venv` 생성/활성화 상세 설명 (Windows/Mac/Linux)
-- `pip install -e .` vs `pip install -r requirements.txt` 차이 설명
-- 의존성 구조 테이블 추가
+### 세션 6 (성능 최적화, 2026-05-28)
+- 레이아웃 레벨 prefetchAll() 구현
+- 모든 페이지 `enabled: !!accessToken` 가드 적용
+- ChatPanel 브레드크럼 useQuery로 교체 (캐시 즉시 조회)
+- 캘린더 인접 월 프리페치
+- 히스토리 트리 hover 프리페치
+- QK.bud() 사용으로 쿼리 키 완전 정규화
 
 ---
 
-## 8. 환경 구성
+## 12. 환경 구성
 
-### 8.1 백엔드 (backend/.env)
+### 12.1 백엔드 (backend/.env)
 
 ```dotenv
 DATABASE_URL=sqlite:///./plant_counselor.db
@@ -464,7 +602,7 @@ KEY_ENCRYPTION_SECRET=<32자 이상 랜덤 문자열>
 CORS_ALLOW_ORIGIN=http://localhost:3000
 ```
 
-### 8.2 실행 순서
+### 12.2 실행 순서
 
 ```bash
 # 1. 백엔드
@@ -489,7 +627,7 @@ cp assets/sprites/* frontend/public/sprites/
 
 ---
 
-## 9. 미완성 / 향후 개선 사항
+## 13. 미완성 / 향후 개선 사항
 
 ### 즉시 가능한 개선
 
@@ -498,7 +636,6 @@ cp assets/sprites/* frontend/public/sprites/
 | detail 시간 파싱 | 문자열 그대로 저장 | "오후 1시" → HH:MM 정규화 |
 | 봉우리 직접 수정 | 드로어에서 제목/메모 편집 없음 | PATCH /buds/{id} 폼 추가 |
 | 식물 편집 | 이름/설명 편집 UI 없음 | 상세 페이지 inline 편집 |
-| 검색 범위 | 리스트뷰만 검색 | 정원뷰에도 필터 연동 |
 | 봉우리 정렬 | 생성순 고정 | 마감순 / 진행률순 토글 |
 
 ### 중기 개선
@@ -513,7 +650,7 @@ cp assets/sprites/* frontend/public/sprites/
 
 ---
 
-## 10. 기술 결정 요약
+## 14. 기술 결정 요약
 
 | 결정 | 이유 |
 |------|------|
@@ -525,6 +662,10 @@ cp assets/sprites/* frontend/public/sprites/
 | Anthropic IR → Gemini 변환 | 향후 Claude/OpenAI 전환 시 어댑터만 교체 |
 | ReAct 자체 구현 | LangChain 등 외부 의존 최소화 |
 | TanStack Query invalidation | 스킬 실행 후 자동 UI 갱신 |
+| QK 팩토리 패턴 | 모든 페이지에서 동일 캐시 키 보장 |
+| enabled: !!accessToken | 콜드 스타트 401 재시도 이중 요청 제거 |
+| 레이아웃 prefetchAll | 인증 직후 핵심 데이터 사전 로드 → 페이지 이동 딜레이 제거 |
 | detail 필드에 시간 저장 | DB 마이그레이션 없이 시간 정보 표현 (MVP 타협) |
 | 크림/올리브 팔레트 | ref_images 기반 — 따뜻한 정원 분위기 |
 | setTimeout 제거 | state update + DOM effect 분리 → useEffect 사용 |
+| chatWidth persist | 사용자가 조정한 채팅 패널 폭 새로고침 후에도 유지 |

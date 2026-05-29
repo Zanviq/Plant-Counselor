@@ -308,3 +308,117 @@ def get_notification_history(limit: int = 100, admin=Depends(require_admin), db:
         .execute()
     )
     return {"ok": True, "data": {"items": res.data or []}}
+
+
+# ── Controller ────────────────────────────────────────────────────────────────
+
+import app.runtime_settings as rs
+
+
+@router.get("/controller/settings")
+def get_controller_settings(admin=Depends(require_admin)):
+    """Return all runtime settings with their current values and defaults."""
+    current = rs.get_all()
+    result = {
+        k: {
+            "value": current.get(k, rs.DEFAULTS[k]),
+            "default": rs.DEFAULTS[k],
+            "modified": current.get(k) != rs.DEFAULTS[k],
+        }
+        for k in rs.DEFAULTS
+    }
+    return {"ok": True, "data": {"settings": result, "available_models": rs.AVAILABLE_MODELS}}
+
+
+class SettingsUpdate(BaseModel):
+    updates: dict[str, Any]
+    persist: bool = False  # save to disk snapshot
+
+
+@router.patch("/controller/settings")
+def update_controller_settings(body: SettingsUpdate, admin=Depends(require_admin)):
+    """Update one or more runtime settings."""
+    skipped = rs.set_many(body.updates)
+    if body.persist:
+        rs.save_snapshot()
+    return {"ok": True, "data": {"skipped": skipped, "persisted": body.persist}}
+
+
+@router.post("/controller/settings/reset")
+def reset_controller_settings(admin=Depends(require_admin)):
+    """Reset all runtime settings to defaults."""
+    rs.reset_all()
+    return {"ok": True, "data": {}}
+
+
+class SqlQuery(BaseModel):
+    query: str
+    max_rows: int = 200
+
+
+@router.post("/controller/sql")
+def execute_sql(body: SqlQuery, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Execute arbitrary SQL via the exec_admin_query RPC function."""
+    if not body.query.strip():
+        raise HTTPException(400, "SQL 쿼리를 입력해주세요.")
+    try:
+        res = db.rpc("exec_admin_query", {"sql_query": body.query}).execute()
+        result = res.data
+        if isinstance(result, dict) and "error" in result:
+            return {"ok": False, "error": {"code": result.get("detail", "sql_error"), "message": result["error"]}}
+        rows = result.get("rows", []) if isinstance(result, dict) else []
+        kind = result.get("type", "select") if isinstance(result, dict) else "select"
+        affected = result.get("affected", 0) if isinstance(result, dict) else 0
+        return {
+            "ok": True,
+            "data": {
+                "rows": rows[:body.max_rows] if rows else [],
+                "total": len(rows) if rows else 0,
+                "type": kind,
+                "affected": affected,
+                "truncated": len(rows) > body.max_rows if rows else False,
+            },
+        }
+    except Exception as e:
+        return {"ok": False, "error": {"code": "exec_error", "message": str(e)}}
+
+
+@router.post("/controller/scheduler/trigger")
+def trigger_scheduler(admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Manually trigger the transition scan job."""
+    from app.services.transition_service import TransitionService
+    try:
+        TransitionService().scan_all(db)
+        return {"ok": True, "data": {"message": "전환 스캔 완료"}}
+    except Exception as e:
+        raise HTTPException(500, f"스캔 실패: {e}")
+
+
+class UserModelUpdate(BaseModel):
+    ai_model: str
+
+
+@router.patch("/controller/users/{user_id}/model")
+def set_user_model(user_id: str, body: UserModelUpdate, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Override the AI model for a specific user."""
+    if body.ai_model not in rs.AVAILABLE_MODELS:
+        raise HTTPException(400, f"지원하지 않는 모델: {body.ai_model}")
+    res = db.table("profiles").update({"ai_model": body.ai_model}).eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+    return {"ok": True, "data": res.data[0]}
+
+
+@router.get("/controller/tables")
+def list_tables(admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """List all public tables with row counts."""
+    tables = ["profiles", "plants", "buds", "bud_history", "garden_state",
+              "conversations", "conversation_messages", "notifications"]
+    result = []
+    for t in tables:
+        try:
+            res = db.table(t).select("id", count="exact").limit(1).execute()
+            result.append({"table": t, "row_count": res.count or 0})
+        except Exception:
+            result.append({"table": t, "row_count": None, "error": "unavailable"})
+    return {"ok": True, "data": {"tables": result}}

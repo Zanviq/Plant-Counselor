@@ -3,8 +3,9 @@ import json
 
 from app.ai.log_recorder import LogRecorder
 from app.ai.skill_base import SkillContext
+import app.runtime_settings as rs
 
-MAX_STEPS = 10
+MAX_STEPS = 10  # fallback; actual value read from runtime_settings each run
 
 
 class ChatOrchestrator:
@@ -78,7 +79,8 @@ class ChatOrchestrator:
         last_tool_use = None
 
         # ── ReAct ループ ──────────────────────────────────────────────
-        for step in range(MAX_STEPS):
+        _max_steps = rs.get("llm_max_steps", MAX_STEPS)
+        for step in range(_max_steps):
             rec.log_llm_call(step + 1, working_history, len(catalog))
             rec.log_event(f"llm_call_{step + 1}", f"tools={len(catalog)}")
 

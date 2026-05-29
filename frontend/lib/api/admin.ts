@@ -112,3 +112,56 @@ export const sendNotification = (userIds: string[], message: string, kind = "adm
 
 export const getNotificationHistory = () =>
   apiGet<{ items: unknown[] }>("/admin/notifications/history");
+
+// ── Controller API ─────────────────────────────────────────────────────────
+
+export interface RuntimeSetting {
+  value: unknown;
+  default: unknown;
+  modified: boolean;
+}
+
+export interface ControllerSettings {
+  settings: Record<string, RuntimeSetting>;
+  available_models: string[];
+}
+
+export interface SqlResult {
+  rows: Record<string, unknown>[];
+  total: number;
+  type: "select" | "dml";
+  affected: number;
+  truncated: boolean;
+}
+
+export interface TableInfo {
+  table: string;
+  row_count: number | null;
+  error?: string;
+}
+
+export const getControllerSettings = () =>
+  apiGet<ControllerSettings>("/admin/controller/settings");
+
+export const updateControllerSettings = (
+  updates: Record<string, unknown>,
+  persist = false
+) => apiPatch<{ skipped: string[]; persisted: boolean }>(
+  "/admin/controller/settings",
+  { updates, persist }
+);
+
+export const resetControllerSettings = () =>
+  apiPost<Record<string, never>>("/admin/controller/settings/reset", {});
+
+export const executeSql = (query: string, maxRows = 200) =>
+  apiPost<SqlResult>("/admin/controller/sql", { query, max_rows: maxRows });
+
+export const triggerScheduler = () =>
+  apiPost<{ message: string }>("/admin/controller/scheduler/trigger", {});
+
+export const setUserModel = (userId: string, aiModel: string) =>
+  apiPatch<AdminUser>(`/admin/controller/users/${userId}/model`, { ai_model: aiModel });
+
+export const listTables = () =>
+  apiGet<{ tables: TableInfo[] }>("/admin/controller/tables");

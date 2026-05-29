@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getControllerSettings, updateControllerSettings, resetControllerSettings,
@@ -231,35 +231,121 @@ function SqlExecutor() {
 
 // ── Time Travel ───────────────────────────────────────────────────────────────
 
+/** Format a Date as "YYYY-MM-DD HH:MM:SS" in UTC. */
+function fmtUtc(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
+    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`
+  );
+}
+
+function Clock({
+  label, date, accent, sub,
+}: { label: string; date: Date; accent?: boolean; sub?: string }) {
+  const timeStr = fmtUtc(date);
+  const [datePart, timePart] = timeStr.split(" ");
+  return (
+    <div style={{
+      flex: 1, borderRadius: 12, padding: "18px 22px",
+      background: accent ? "rgba(245,158,11,0.07)" : "rgba(255,255,255,0.04)",
+      border: `1px solid ${accent ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.08)"}`,
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: accent ? "#f59e0b" : "rgba(255,255,255,0.4)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: "monospace", color: accent ? "#fbbf24" : "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 4 }}>
+        {datePart}
+      </div>
+      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 28, color: accent ? "#fbbf24" : "#fff", letterSpacing: "0.04em" }}>
+        {timePart}
+      </div>
+      {sub && (
+        <div style={{ marginTop: 6, fontSize: 11, color: accent ? "rgba(251,191,36,0.6)" : "rgba(255,255,255,0.3)" }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TimeTravelSection() {
   const { accessToken } = useAuthStore();
-  const qc = useQueryClient();
+
+  // Offset stored locally so both clocks can tick smoothly without constant API calls
+  const [offsetSeconds, setOffsetSeconds] = useState(0);
+  // Live tick — updates every second
+  const [now, setNow] = useState(() => new Date());
+  const [scanLog, setScanLog] = useState<{ time: string; ok: boolean; msg: string } | null>(null);
   const [customDays, setCustomDays] = useState("");
   const [customHours, setCustomHours] = useState("");
 
-  const { data: res, isLoading } = useQuery({
-    queryKey: ["admin", "controller", "time"],
+  // Bootstrap offset from API once
+  const { data: initRes } = useQuery({
+    queryKey: ["admin", "controller", "time", "init"],
     queryFn: getVirtualTime,
     enabled: !!accessToken,
-    refetchInterval: 5000,
+    staleTime: Infinity,
   });
+  useEffect(() => {
+    if (initRes?.ok) setOffsetSeconds(initRes.data.offset_seconds);
+  }, [initRes]);
 
-  const timeMut = useMutation({
-    mutationFn: setTimeOffset,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "controller", "time"] }),
-  });
+  // Tick every second
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
-  const vt = res?.ok ? res.data : null;
-  const isShifted = vt && vt.offset_seconds !== 0;
+  const realDate = now;
+  const virtualDate = new Date(now.getTime() + offsetSeconds * 1000);
+  const isShifted = offsetSeconds !== 0;
+
+  // Format offset for display
+  const offsetDays = offsetSeconds / 86400;
+  const offsetLabel = (() => {
+    const abs = Math.abs(offsetSeconds);
+    const sign = offsetSeconds >= 0 ? "+" : "-";
+    if (abs >= 86400) return `${sign}${Math.floor(abs / 86400)}일 ${Math.floor((abs % 86400) / 3600)}시간`;
+    if (abs >= 3600)  return `${sign}${Math.floor(abs / 3600)}시간 ${Math.floor((abs % 3600) / 60)}분`;
+    if (abs >= 60)    return `${sign}${Math.floor(abs / 60)}분`;
+    return `${sign}${abs}초`;
+  })();
+
+  // Mutation: shift time (always relative) + auto-trigger scan
+  const shifting = useRef(false);
+  async function shift(body: { add_days?: number; add_hours?: number; reset?: boolean }) {
+    if (shifting.current) return;
+    shifting.current = true;
+    try {
+      const res = await setTimeOffset(body);
+      if (res.ok) {
+        setOffsetSeconds(res.data.offset_seconds);
+        // Auto-run transition scan with the new virtual time
+        const scanRes = await triggerScheduler();
+        const scanTime = fmtUtc(new Date());
+        setScanLog({
+          time: scanTime,
+          ok: scanRes.ok,
+          msg: scanRes.ok
+            ? `전환 스캔 완료 (${new Date(Date.now() + res.data.offset_seconds * 1000).toISOString().slice(0, 10)} 기준)`
+            : "스캔 실패",
+        });
+      }
+    } finally {
+      shifting.current = false;
+    }
+  }
 
   const QUICK = [
+    { label: "+1시간", add_hours: 1 },
+    { label: "+6시간", add_hours: 6 },
     { label: "+1일", add_days: 1 },
     { label: "+3일", add_days: 3 },
     { label: "+7일", add_days: 7 },
     { label: "+14일", add_days: 14 },
     { label: "+30일", add_days: 30 },
     { label: "-1일", add_days: -1 },
-    { label: "-3일", add_days: -3 },
     { label: "-7일", add_days: -7 },
   ];
 
@@ -268,61 +354,57 @@ function TimeTravelSection() {
       ...card,
       border: isShifted ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(255,255,255,0.08)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <SectionTitle>⏱ 서버 시간 이동 (데모용)</SectionTitle>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>⏱ 서버 시간 이동</div>
         {isShifted && (
-          <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "2px 8px", borderRadius: 999, marginBottom: 14 }}>
-            시간 오프셋 활성
+          <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "2px 8px", borderRadius: 999, fontWeight: 600 }}>
+            오프셋 활성: {offsetLabel}
           </span>
         )}
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginLeft: "auto" }}>UTC 기준</span>
       </div>
 
-      {/* Current times */}
-      {isLoading ? (
-        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>로딩 중...</p>
-      ) : vt ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-          <div style={{ background: isShifted ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
-            <div style={{ fontSize: 10, color: isShifted ? "#f59e0b" : "rgba(255,255,255,0.4)", marginBottom: 4 }}>
-              가상 서버 시간
-            </div>
-            <div style={{ fontSize: 13, fontFamily: "monospace", color: isShifted ? "#fbbf24" : "#fff", fontWeight: 600 }}>
-              {vt.virtual_now.slice(0, 19).replace("T", " ")}
-            </div>
-          </div>
-          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>실제 시간 (UTC)</div>
-            <div style={{ fontSize: 13, fontFamily: "monospace", color: "rgba(255,255,255,0.6)" }}>
-              {vt.real_now.slice(0, 19).replace("T", " ")}
-            </div>
-          </div>
-          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>오프셋</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: isShifted ? "#f59e0b" : "rgba(255,255,255,0.4)" }}>
-              {vt.offset_days > 0 ? "+" : ""}{vt.offset_days}일
-              {vt.offset_seconds !== 0 && (
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginLeft: 6 }}>
-                  ({vt.offset_seconds > 0 ? "+" : ""}{vt.offset_seconds}초)
-                </span>
-              )}
-            </div>
-          </div>
+      {/* Dual clock */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        <Clock label="실제 서버 시간" date={realDate} />
+
+        {/* Arrow */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+          {isShifted ? (
+            <>
+              <div style={{ fontSize: 20, color: "#f59e0b" }}>→</div>
+              <div style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700, textAlign: "center", whiteSpace: "nowrap" }}>
+                {offsetLabel}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 18, color: "rgba(255,255,255,0.15)" }}>→</div>
+          )}
         </div>
-      ) : null}
+
+        <Clock
+          label="가상 서버 시간 (AI 인식)"
+          date={virtualDate}
+          accent={isShifted}
+          sub={isShifted ? `실제 시간으로부터 ${offsetLabel} 이동됨` : "실제 시간과 동일"}
+        />
+      </div>
 
       {/* Quick buttons */}
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>빠른 이동</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8, fontWeight: 600 }}>
+          빠른 이동 <span style={{ fontWeight: 400, opacity: 0.6 }}>(현재 가상 시간에서 추가)</span>
+        </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {QUICK.map(({ label, add_days }) => (
+          {QUICK.map(({ label, add_days, add_hours }) => (
             <button
               key={label}
-              onClick={() => timeMut.mutate({ add_days })}
-              disabled={timeMut.isPending}
+              onClick={() => shift(add_days !== undefined ? { add_days } : { add_hours })}
               style={{
                 padding: "6px 12px", borderRadius: 6, border: "none",
-                background: add_days > 0 ? "rgba(96,165,250,0.12)" : "rgba(239,68,68,0.1)",
-                color: add_days > 0 ? "#60a5fa" : "#f87171",
+                background: (add_days ?? add_hours ?? 0) > 0 ? "rgba(96,165,250,0.12)" : "rgba(239,68,68,0.1)",
+                color: (add_days ?? add_hours ?? 0) > 0 ? "#60a5fa" : "#f87171",
                 fontSize: 12, fontWeight: 600, cursor: "pointer",
               }}
             >
@@ -333,53 +415,65 @@ function TimeTravelSection() {
       </div>
 
       {/* Custom input */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>직접 입력</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>직접 추가</span>
         <input
           value={customDays}
           onChange={(e) => setCustomDays(e.target.value)}
-          placeholder="일 수 (예: 5.5)"
-          type="number"
-          step="0.5"
-          style={{ ...input, width: 130 }}
+          placeholder="일 (예: 5.5)"
+          type="number" step="0.5"
+          style={{ ...input, width: 110 }}
         />
         <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>일</span>
         <input
           value={customHours}
           onChange={(e) => setCustomHours(e.target.value)}
-          placeholder="시간 (예: 12)"
-          type="number"
-          step="1"
-          style={{ ...input, width: 130 }}
+          placeholder="시간"
+          type="number" step="1"
+          style={{ ...input, width: 90 }}
         />
         <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>시간</span>
         <button
           onClick={() => {
             const d = parseFloat(customDays) || 0;
             const h = parseFloat(customHours) || 0;
-            if (d || h) {
-              timeMut.mutate({ add_days: d || undefined, add_hours: h || undefined });
-              setCustomDays(""); setCustomHours("");
-            }
+            if (d || h) { shift({ add_days: d || undefined, add_hours: h || undefined }); setCustomDays(""); setCustomHours(""); }
           }}
           style={btn("primary")}
         >
-          적용
+          추가 적용
+        </button>
+        <button
+          onClick={() => shift({ reset: true })}
+          disabled={!isShifted}
+          style={{ ...btn("danger"), opacity: isShifted ? 1 : 0.35 }}
+        >
+          리셋 (실제 시간으로)
         </button>
       </div>
 
-      {/* Scan + Reset row */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <button
-          onClick={() => timeMut.mutate({ reset: true })}
-          disabled={!isShifted || timeMut.isPending}
-          style={{ ...btn("danger"), opacity: isShifted ? 1 : 0.4 }}
-        >
-          실제 시간으로 리셋
-        </button>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-          시간 이동 후 "▶ 전환 스캔 즉시 실행"을 눌러 시들음/썩음 전환을 즉시 적용하세요.
-        </span>
+      {/* Auto-scan result */}
+      {scanLog && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 14px", borderRadius: 8,
+          background: scanLog.ok ? "rgba(52,211,153,0.08)" : "rgba(239,68,68,0.08)",
+          border: `1px solid ${scanLog.ok ? "rgba(52,211,153,0.2)" : "rgba(239,68,68,0.2)"}`,
+          fontSize: 12,
+        }}>
+          <span style={{ color: scanLog.ok ? "#34d399" : "#f87171", fontWeight: 700 }}>
+            {scanLog.ok ? "✓" : "✗"} 자동 스캔
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.6)" }}>{scanLog.msg}</span>
+          <span style={{ color: "rgba(255,255,255,0.3)", marginLeft: "auto", fontFamily: "monospace", fontSize: 11 }}>{scanLog.time}</span>
+          <button onClick={() => setScanLog(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", padding: 0 }}>✕</button>
+        </div>
+      )}
+
+      {/* Info note */}
+      <div style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.25)", lineHeight: 1.6 }}>
+        시간은 실제 시간에서 연속적으로 흐릅니다. 이동은 현재 가상 시간에 누적됩니다.
+        시간 이동 시 자동으로 전환 스캔이 실행되어 시들음·썩음·마감 경고를 즉시 처리합니다.
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 # Plant Counselor — CLAUDE.md
 
 > **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-29 (세션 10)  
+> 최종 업데이트: 2026-05-29 (세션 11)  
 > 작성자: confidencecat (jaemi)
 
 ---
@@ -46,6 +46,10 @@
 | BudDetailDrawer + ChatPanel 공존 | ✅ 완성 |
 | 페이지 네비게이션 딜레이 제거 (캐시 최적화) | ✅ 완성 |
 | AI 봉우리 탐색 버그 수정 (list_buds 강제) | ✅ 완성 |
+| **관리자 패널** (`/admin/*`, 역할 시스템) | ✅ 완성 (세션 11) |
+| **컨트롤러** (`/admin/controller`, 런타임 설정) | ✅ 완성 (세션 11) |
+| **데이터 관리** (`/admin/data`, 개별 삭제) | ✅ 완성 (세션 11) |
+| **타임 트래블** (데모용 서버 시간 이동) | ✅ 완성 (세션 11) |
 
 ---
 
@@ -70,43 +74,50 @@ plant-counselor/
 ├── backend/
 │   ├── app/
 │   │   ├── ai/
-│   │   │   ├── chat_orchestrator.py  ← ReAct 루프 (MAX_STEPS=10)
-│   │   │   ├── llm_client.py         ← Gemini API 래퍼
-│   │   │   ├── prompt_builder.py     ← 시스템 프롬프트 (행동 규칙 포함)
+│   │   │   ├── chat_orchestrator.py  ← ReAct 루프 (MAX_STEPS runtime_settings에서 읽음)
+│   │   │   ├── llm_client.py         ← Gemini API 래퍼 (DEFAULT_MODEL 런타임 교체 가능)
+│   │   │   ├── prompt_builder.py     ← 시스템 프롬프트 + rs.today() (타임 트래블 연동)
 │   │   │   ├── skill_registry.py     ← 스킬 등록 + catalog
-│   │   │   └── skills/               ← 16개 스킬 각 파일 (suggest_scope_change 포함)
-│   │   ├── db/models/                ← 8개 ORM 모델
-│   │   ├── routers/                  ← 8개 FastAPI 라우터
+│   │   │   └── skills/               ← 16개 스킬 각 파일
+│   │   ├── db/
+│   │   │   ├── models/               ← SQLAlchemy ORM 모델 (타입 정의용, DB 접근은 supabase-py)
+│   │   │   └── supa.py               ← Supabase PostgREST 클라이언트 싱글톤
+│   │   ├── routers/
+│   │   │   ├── admin.py              ← 관리자 API (require_admin 보호)
 │   │   │   ├── chat.py               ← POST /chat/message (SSE)
-│   │   │   └── stats.py              ← /calendar (plant_name, detail 포함)
+│   │   │   └── stats.py              ← /calendar
 │   │   ├── services/
-│   │   │   ├── bud_service.py        ← 진행률 자동 전이 로직
-│   │   │   └── transition_service.py ← 시들/썩음 자동 전이
+│   │   │   ├── transition_service.py ← 시들/썩음 자동 전이 (rs.now() 타임 트래블)
+│   │   │   └── user_service.py       ← 회원탈퇴: 전체 데이터 cascade 삭제
+│   │   ├── runtime_settings.py       ← 런타임 변수 저장소 (타임 오프셋, 모델, 스텝 등)
 │   │   ├── config.py                 ← pydantic-settings
 │   │   └── main.py                   ← FastAPI app
-│   ├── pyproject.toml                ← 의존성 (google-genai, fastapi 등)
-│   ├── requirements.txt              ← pip install -r 용
+│   ├── run.py                        ← uvicorn (reload_excludes: *.json, logs/**)
 │   └── .env.example                  ← 환경변수 템플릿
 │
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx                  ← 랜딩 페이지 "/" (서버 컴포넌트, Link 네비 정상)
-│   │   ├── _components/
-│   │   │   └── AuthRedirect.tsx      ← 로그인 유저 → /home 리다이렉트 (클라이언트)
-│   │   ├── globals.css               ← 디자인 토큰 (크림/올리브 팔레트)
-│   │   ├── (app)/home/page.tsx       ← 대시보드 "/home" (구 "/" 홈)
-│   │   ├── (app)/plants/page.tsx     ← 정원 뷰 + 화살표 키 네비
-│   │   ├── (app)/calendar/page.tsx   ← 캘린더 + 일정 AI 채팅
+│   │   ├── layout.tsx                ← 루트 레이아웃 (테마 inline script)
+│   │   ├── providers.tsx             ← QueryClient (staleTime:30s, refetchOnFocus:true)
+│   │   ├── page.tsx                  ← 랜딩 페이지 "/"
+│   │   ├── admin/                    ← 관리자 패널 (role=admin만 접근)
+│   │   │   ├── layout.tsx            ← 관리자 사이드바 + 접근 제어
+│   │   │   ├── page.tsx              ← 대시보드 (통계 + 최근 AI 세션)
+│   │   │   ├── users/page.tsx        ← 사용자 관리 + 역할 변경
+│   │   │   ├── users/[id]/page.tsx   ← 사용자 상세
+│   │   │   ├── logs/page.tsx         ← AI 로그 브라우저
+│   │   │   ├── notifications/page.tsx← 알림 발송
+│   │   │   ├── data/page.tsx         ← 데이터 관리 (개별 삭제)
+│   │   │   └── controller/page.tsx   ← 런타임 설정 + SQL + 타임 트래블
+│   │   ├── (app)/home/page.tsx       ← 대시보드 "/home"
+│   │   ├── (app)/plants/page.tsx     ← 정원 뷰
+│   │   ├── (app)/calendar/page.tsx   ← 캘린더
 │   │   └── (app)/settings/page.tsx   ← 5탭 설정
-│   ├── components/
-│   │   ├── chat/ChatPanel.tsx        ← SSE, 명령어, 스코프 breadcrumb
-│   │   └── layout/Sidebar.tsx        ← 다크 올리브 사이드바 (홈 링크: /home)
 │   ├── lib/
-│   │   ├── api/stats.ts              ← CalEvent 타입 (plant_name, detail 포함)
-│   │   └── store/chatStore.ts        ← ChatScope.kind: "global"|"plant"|"bud"|"calendar"
+│   │   ├── api/admin.ts              ← 관리자 API 클라이언트 (전체 타입 포함)
+│   │   └── api/client.ts             ← fetch wrapper (네트워크 에러 try-catch 포함)
 │   └── public/sprites/               ← 픽셀아트 PNG 파일들
 │
-├── scripts/generate_pixel_sprites.py ← Pillow 스프라이트 생성기
 ├── CLAUDE.md                         ← 이 파일
 └── README.md                         ← 빠른 시작 가이드
 ```
@@ -293,6 +304,13 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 | supabase-py HTTP DB 접근 | Supabase pooler ENOTFOUND + 직접 연결 IPv6 전용 → psycopg2 연결 완전 불가. 대신 supabase-py로 PostgREST REST API 사용 (HTTPS, service_role_key로 RLS 우회) | backend/app/db/supa.py |
 | ES256 JWKS JWT 검증 | Supabase 신규 프로젝트는 ES256(ECDSA)으로 JWT 서명 → HS256 검증 100% 실패 → 401. JWKS 엔드포인트에서 EC 공개키 로드로 검증. HS256 fallback 유지 | backend/app/deps.py |
 | PlantOut model_validator | DB plants 테이블에 `stats` JSON 컬럼 없음. `harvested_count`, `rot_count`, `active_bud_count` 개별 컬럼을 `stats` dict로 자동 합성 | backend/app/schemas/plant.py |
+| admin role in profiles | `profiles.role TEXT DEFAULT 'user' CHECK (IN 'user','admin')` — zanviq.dev@gmail.com이 admin. `require_admin` 의존성으로 모든 `/admin/*` API 보호 | backend/app/deps.py |
+| runtime_settings.py | 인메모리 설정 저장소. 타임 오프셋·LLM 모델·MAX_STEPS 등 런타임 변경 가능. JSON 스냅샷으로 재시작 후에도 유지 가능 | backend/app/runtime_settings.py |
+| 타임 트래블 오프셋 | `rs.now() = datetime.utcnow() + timedelta(offset_seconds)` — 오프셋은 고정 델타, 시간은 계속 흐름. transition_service와 prompt_builder가 rs.now()/today() 사용 | backend/app/runtime_settings.py |
+| exec_admin_query RPC | `CREATE FUNCTION exec_admin_query(sql_query text) RETURNS json` — 관리자 SQL 실행기용 Postgres 함수. SECURITY DEFINER으로 실행 | Supabase DB |
+| apiFetch 네트워크 에러 | `fetch()`는 HTTP 에러는 Response로, 네트워크 단절은 TypeError를 throw. 두 경우 모두 try-catch로 감싸 ApiResult error 반환 | frontend/lib/api/client.ts |
+| uvicorn reload_excludes | `*.json`, `logs/**` 제외 → 런타임 설정 저장·채팅 로그 생성 시 서버 재로드 방지 | backend/run.py |
+| 회원탈퇴 cascade 삭제 | bulk delete by user_id (loop+limit 방식 대신). plants 삭제 → buds+bud_history CASCADE. conversations 삭제 → conversation_messages CASCADE. AI 로그 파일 + Supabase Auth 삭제 포함 | backend/app/services/user_service.py |
 
 ---
 
@@ -323,6 +341,13 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - `SUPABASE_SERVICE_ROLE_KEY`는 JWT secret으로 생성됨 (backend/.env에 이미 포함) — 노출 금지
 - **백엔드 코드 변경 시 반드시 수동 재시작** (`reload=True` uvicorn 신뢰도 낮음)
   - 권장: 모든 Python 프로세스 종료 → `__pycache__` 삭제 → `python run.py` 재시작
+  - `reload_excludes`로 `*.json`, `logs/**` 제외 설정됨 (런타임 설정·로그 저장 시 재로드 방지)
+- **대화 기록(DB) vs AI 로그 파일 구분**:
+  - 대화 기록 = `conversations` + `conversation_messages` 테이블 → `/history` 페이지에 표시
+  - AI 로그 파일 = `backend/logs/chat/*.json` → 관리자 AI 로그 페이지에 표시
+  - 두 저장소는 완전히 별개: AI 로그 삭제가 대화 기록에 영향 없음
+- **관리자 계정**: `zanviq.dev@gmail.com` — 로그인 시 `/admin`으로 자동 리다이렉트
+- **타임 트래블**: 컨트롤러 페이지에서 서버 시간 이동 가능 (데모/테스트용). 이동 후 자동 전환 스캔 실행됨
 
 ---
 
@@ -374,6 +399,49 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - 캘린더 인접 월 프리페치 (`useEffect[year, month]`)
 - 히스토리 트리 hover 프리페치
 - MVP 문서 전체 업데이트 (이번 세션)
+
+### 세션 11 (관리자 패널 + 컨트롤러 + 데이터 관리, 2026-05-29)
+
+**1. 관리자 역할 시스템:**
+- `profiles.role TEXT DEFAULT 'user'` DB 마이그레이션. `zanviq.dev@gmail.com` → admin 시드
+- `require_admin` FastAPI 의존성 — admin 아닌 사용자 403 반환
+- `UserProfile` 타입에 `role` 추가. 로그인 후 `role === "admin"` → `/admin` 리다이렉트
+- `admin/layout.tsx` — 비관리자 접근 시 `/home` 리다이렉트 (프론트엔드 이중 보호)
+
+**2. 관리자 패널 6개 페이지 (`/admin/*`):**
+- `/admin` — 대시보드 (통계: 사용자·식물·봉우리·AI세션·토큰 추정)
+- `/admin/users` — 사용자 테이블 + 역할 변경 (admin ↔ user) + 브로드캐스트 알림
+- `/admin/users/[id]` — 사용자 상세 + 개별 알림 + AI 로그 링크
+- `/admin/logs` — AI 채팅 로그 브라우저 (슬라이드 패널: 시스템 프롬프트/LLM호출/스킬/이벤트)
+- `/admin/notifications` — 알림 발송 (전체·선택, 유형: 일반/공지/경고) + 발송 내역
+- `/admin/data` — 데이터 관리 (개별 삭제 + 재확인 모달)
+
+**3. 컨트롤러 페이지 (`/admin/controller`):**
+- **런타임 설정**: `llm_default_model`, `llm_max_steps`, `scheduler_interval_minutes`,
+  `default_wilting_days`, `default_rot_disappear_days` 등 10개 변수 인라인 수정
+- **사용자별 AI 모델 오버라이드**: 각 사용자마다 다른 Gemini 모델 지정
+- **SQL 실행기**: 임의 SQL 직접 실행 (SELECT/DML/DDL) + 결과 테이블, Ctrl+Enter 단축키
+- **타임 트래블**: 빠른 이동 버튼 + 직접 입력 + 리셋. 양쪽 시계(실제/가상) 1초 tick
+  - 시간 변경 후 자동 전환 스캔 실행 (시들음·썩음·마감 경고 즉시 반영)
+- **스케줄러 즉시 실행**: 수동 전환 스캔 트리거
+
+**4. 데이터 관리 (`/admin/data`):**
+- 전체 일괄: 대화 기록 전체 삭제(DB) / AI 로그 파일만 삭제 (명확히 구분)
+- 사용자별 확장 카드 (클릭 펼침) + 3개 탭:
+  - **대화 기록**: 각 conversation 개별 삭제 + 전체 삭제
+  - **식물**: 각 식물 개별 삭제 (봉우리·기록 cascade)
+  - **봉우리**: 각 봉우리 개별 삭제 (기록 cascade)
+- 모든 삭제 작업 재확인 모달 필수
+
+**5. 회원탈퇴 완전 수정 (`user_service.py`):**
+- 기존 버그: loop+limit=50, archived 식물 미삭제, 로그 파일 미삭제, auth.users 미삭제
+- 수정: bulk delete by user_id (전체 상태 포함) + cascade 활용 + 로그 파일 삭제 + Supabase Auth 삭제
+
+**6. 안정성 수정:**
+- `app/layout.tsx`: `<Script beforeInteractive>` → `<script dangerouslySetInnerHTML>` (React 19 경고 수정)
+- `providers.tsx`: `staleTime` 2분→30초, `refetchOnWindowFocus` false→true (실시간 반영)
+- `client.ts`: `apiFetch` 모든 fetch() + _refresh() try-catch 래핑 (네트워크 TypeError 처리)
+- `run.py`: `reload_excludes: [*.json, logs/**]` — 런타임 설정 저장·로그 생성 시 재로드 방지
 
 ### 세션 10 (백엔드 인프라 완전 수리 + 로그인 플로우 수정, 2026-05-29)
 

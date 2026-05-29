@@ -22,6 +22,15 @@ def get_history(scope: str = "global", scope_id: str | None = None, limit: int =
     return {"ok": True, "data": {"messages": data}}
 
 
+@router.delete("")
+def delete_conversation(scope: str = "global", scope_id: str | None = None,
+                        user=Depends(require_user), db: Client = Depends(get_db)):
+    """Permanently delete the current user's conversation for this scope
+    (and all of its messages via CASCADE)."""
+    deleted = ConversationService(db).delete_conversation(user.id, scope, scope_id)
+    return {"ok": True, "data": {"deleted": deleted}}
+
+
 @router.post("/search")
 def search(body: dict, user=Depends(require_user), db: Client = Depends(get_db)):
     query = body.get("query", "")

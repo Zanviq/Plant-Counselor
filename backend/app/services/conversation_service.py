@@ -23,6 +23,9 @@ class ConversationService:
     def list_conversations(self, user_id: str) -> list[dict]:
         return self._repo.list_conversations_for_user(user_id)
 
+    def delete_conversation(self, user_id: str, scope: str, scope_id: str | None) -> int:
+        return self._repo.delete_by_scope(user_id, scope, scope_id)
+
     def search(self, user_id: str, query: str, scope: str, scope_id: str | None,
                limit: int = 10) -> list[SimpleNamespace]:
         return self._repo.search(user_id, query, scope, scope_id, limit)

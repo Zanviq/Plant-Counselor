@@ -1,4 +1,4 @@
-import { apiGet, apiPost, ApiResult } from "./client";
+import { apiGet, apiPost, apiDelete, ApiResult } from "./client";
 
 export interface ConvMessage {
   id: string;
@@ -38,6 +38,15 @@ export function getHistory(
   const params = new URLSearchParams({ scope, limit: String(limit) });
   if (scopeId) params.set("scope_id", scopeId);
   return apiGet<ConvHistory>(`/conversations?${params}`);
+}
+
+export function deleteConversation(
+  scope = "global",
+  scopeId?: string
+): Promise<ApiResult<{ deleted: number }>> {
+  const params = new URLSearchParams({ scope });
+  if (scopeId) params.set("scope_id", scopeId);
+  return apiDelete<{ deleted: number }>(`/conversations?${params}`);
 }
 
 export function searchConversation(

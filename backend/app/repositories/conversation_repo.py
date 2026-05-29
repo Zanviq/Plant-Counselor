@@ -127,6 +127,22 @@ class ConversationRepository:
             })
         return result
 
+    def delete_by_scope(self, user_id: str, scope: str, scope_id: str | None) -> int:
+        """Delete the conversation for (user, scope, scope_id) and all its
+        messages (CASCADE). Returns the number of conversations removed."""
+        q = (
+            self.db.table("conversations")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("scope", scope)
+        )
+        if scope_id is None:
+            q = q.is_("scope_id", "null")
+        else:
+            q = q.eq("scope_id", scope_id)
+        res = q.execute()
+        return len(res.data or [])
+
     def search(
         self,
         user_id: str,

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useChatStore, MIN_CHAT_W, MAX_CHAT_W } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { streamChat } from "@/lib/api/client";
-import { getHistory } from "@/lib/api/conversations";
+import { getHistory, deleteConversation } from "@/lib/api/conversations";
 import { getPlant, listPlants, Plant } from "@/lib/api/plants";
 import { getBud } from "@/lib/api/buds";
 import { QK } from "@/lib/queryKeys";
@@ -34,7 +34,8 @@ const QUICK_ASKS = [
 ];
 
 const COMMANDS = [
-  { cmd: "/clear",    label: "기록 삭제", desc: "현재 대화창의 화면 기록을 비웁니다" },
+  { cmd: "/clear",    label: "화면 지우기", desc: "화면의 대화 내용만 비웁니다 (기록은 유지)" },
+  { cmd: "/delete",   label: "기록 완전 삭제", desc: "현재 세션의 대화 기록을 영구 삭제합니다" },
   { cmd: "/compact",  label: "대화 요약", desc: "지금까지 대화를 핵심만 요약합니다" },
   { cmd: "/plants",   label: "식물 보기", desc: "내 식물 목록을 표시합니다" },
   { cmd: "/new",      label: "새 봉우리", desc: "AI 안내로 봉우리를 만듭니다" },
@@ -373,6 +374,24 @@ export default function ChatPanel() {
       setHistoryLoaded(true);
       return;
     }
+    if (cmd === "/delete") {
+      const confirmed = window.confirm(
+        "현재 세션의 대화 기록을 완전히 삭제할까요?\n저장된 기록과 메시지가 영구 삭제되며 되돌릴 수 없습니다."
+      );
+      if (!confirmed) return;
+      const r = await deleteConversation(scope.kind, scope.id);
+      setHistoryLoaded(true);
+      qc.invalidateQueries({ queryKey: QK.conversations() });
+      setMessages([{
+        id: `cmd-delete-${Date.now()}`,
+        role: "system",
+        kind: "cmd_result",
+        text: r.ok
+          ? "이 세션의 대화 기록을 완전히 삭제했어요."
+          : `삭제 중 오류가 발생했어요: ${r.error.message}`,
+      }]);
+      return;
+    }
     if (cmd === "/settings") {
       close();
       router.push("/settings");
@@ -422,7 +441,7 @@ export default function ChatPanel() {
       sendText(`${skillName} 스킬을 지금 바로 실행해줘. 필요한 파라미터가 있으면 나에게 물어봐줘.`);
       return;
     }
-  }, [messages, close, router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages, close, router, scope, qc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── send / stream ────────────────────────────────────────
 

@@ -57,6 +57,7 @@ const SKILLS_INFO = [
   { name: "harvest_bud",          desc: "봉우리 수확" },
   { name: "list_plants",          desc: "식물 목록 조회" },
   { name: "list_buds",            desc: "봉우리 목록 조회" },
+  { name: "list_calendar_events", desc: "일반 일정(캘린더) 조회" },
   { name: "get_statistics",       desc: "통계 데이터 조회" },
   { name: "get_garden_briefing",  desc: "정원 브리핑 생성" },
   { name: "search_conversation",  desc: "대화 검색" },

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
 import { listBuds, getBud, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -231,11 +231,20 @@ export default function PlantDetailPage() {
   const { openWith, scope } = useChatStore();
   const { accessToken } = useAuthStore();
 
-  // Follow the chat session: if it switches to a *different* plant (e.g. via the
-  // "세션 변경" banner), navigate to that plant's detail page.
+  // Follow the chat session ONLY when it actually *changes* to a different plant
+  // (e.g. via the "세션 변경" banner) — not when browsing to another plant's detail
+  // while an old plant chat is still open. We track the last session id and act
+  // only on a genuine transition, so manual navigation is never hijacked.
+  const lastScopePlantId = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (scope.kind === "plant" && scope.id && scope.id !== id) {
-      router.push(`/plants/${scope.id}`);
+    const curId = scope.kind === "plant" ? scope.id ?? null : null;
+    if (lastScopePlantId.current === undefined) {
+      lastScopePlantId.current = curId;  // initialize on mount, don't navigate
+      return;
+    }
+    if (curId !== lastScopePlantId.current) {
+      lastScopePlantId.current = curId;
+      if (curId && curId !== id) router.push(`/plants/${curId}`);
     }
   }, [scope.kind, scope.id, id, router]);
   const [selectedBudId, setSelectedBudId] = useState<string | null>(null);

@@ -232,8 +232,17 @@ class BackupService:
         return summary
 
     def _restore_rpc_rows(self, table: str, new_rows: list[dict], summary: dict) -> None:
-        """Insert rows into an RPC-backed table via exec_admin_query, row by row."""
+        """Insert rows into an RPC-backed table via exec_admin_query, row by row.
+
+        Values are escaped via _lit/_val. Column identifiers come from the backup
+        file's JSON keys, so they are validated against a strict snake_case
+        allowlist before interpolation — a tampered backup with a crafted column
+        name cannot inject SQL (the row is rejected and counted as failed).
+        """
+        import re
         from app.repositories.calendar_event_repo import _lit
+
+        _IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
 
         def _val(v: Any) -> str:
             if v is None:
@@ -246,6 +255,9 @@ class BackupService:
 
         for row in new_rows:
             cols = list(row.keys())
+            if not cols or not all(_IDENT.match(c) for c in cols):
+                summary["failed"] += 1
+                continue
             vals = ", ".join(_val(row[c]) for c in cols)
             col_sql = ", ".join(cols)
             sql = f"insert into {table} ({col_sql}) values ({vals})"

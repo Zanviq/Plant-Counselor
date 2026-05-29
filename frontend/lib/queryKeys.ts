@@ -23,8 +23,9 @@ export const QK = {
   briefing: () => ["briefing", "today"] as const,
   calendar: (year: number, month: number) => ["calendar", year, month] as const,
 
-  // Notifications
+  // Notifications — unread (badge) vs full history
   notifications: () => ["notifications"] as const,
+  notificationsAll: () => ["notifications", "all"] as const,
 
   // Conversation history
   conversations: () => ["conversations", "list"] as const,

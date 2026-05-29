@@ -166,8 +166,10 @@ export default function Sidebar() {
     queryKey: QK.notifications(),
     queryFn: () => listNotifications(),
     enabled: !!accessToken,
-    staleTime: 30_000,    // short stale time so badge stays fresh
-    refetchInterval: 60_000,
+    staleTime: 10_000,
+    // Poll every 15s so admin-sent notifications appear without a manual refresh.
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
   });
   const notifCount = notifRes?.ok ? notifRes.data.items.length : 0;
 

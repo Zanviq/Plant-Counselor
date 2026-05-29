@@ -34,6 +34,18 @@ class NotificationRepository:
         )
         return _rows(res.data or [])
 
+    def list_all(self, user_id: str, limit: int = 100) -> list[SimpleNamespace]:
+        """All notifications (read + unread), newest first — for the history view."""
+        res = (
+            self.db.table("notifications")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return _rows(res.data or [])
+
     def ack(self, user_id: str, notification_id: str) -> bool:
         res = (
             self.db.table("notifications")
@@ -43,3 +55,14 @@ class NotificationRepository:
             .execute()
         )
         return bool(res.data)
+
+    def ack_all(self, user_id: str) -> int:
+        """Mark every unread notification for this user as read. Returns count."""
+        res = (
+            self.db.table("notifications")
+            .update({"acked_at": datetime.utcnow().isoformat()})
+            .eq("user_id", user_id)
+            .is_("acked_at", "null")
+            .execute()
+        )
+        return len(res.data or [])

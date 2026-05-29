@@ -93,6 +93,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           return;
         }
         setSession(token, meRes.data);
+
+        // Admin users are redirected to the admin panel immediately after login.
+        if (meRes.data.role === "admin" && event === "SIGNED_IN") {
+          router.replace("/admin");
+          return;
+        }
       }
     );
 

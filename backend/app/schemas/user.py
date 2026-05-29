@@ -11,6 +11,7 @@ class UserOut(BaseModel):
     id: str
     email: str | None = None
     nickname: str | None = None
+    role: str = "user"
     tone: str
     ai_model: str
     garden_rules: dict[str, Any]

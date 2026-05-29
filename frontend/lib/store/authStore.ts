@@ -9,6 +9,7 @@ export interface UserProfile {
   id: string;
   email: string | null;
   nickname: string | null;
+  role: "user" | "admin";
   tone: string;
   ai_model: string;
   garden_rules: Record<string, unknown>;

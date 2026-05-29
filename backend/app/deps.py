@@ -96,3 +96,16 @@ def require_user(
         user = repo.create_profile(user_id, email, nickname)
 
     return user
+
+
+_ADMIN_EXC = HTTPException(
+    status_code=status.HTTP_403_FORBIDDEN,
+    detail="관리자 권한이 필요합니다.",
+)
+
+
+def require_admin(user: SimpleNamespace = Depends(require_user)) -> SimpleNamespace:
+    """require_user + admin role check. Returns the admin user or raises 403."""
+    if getattr(user, "role", "user") != "admin":
+        raise _ADMIN_EXC
+    return user

@@ -8,12 +8,15 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // 2 minutes: plant/bud data doesn't change on its own within this window.
-        // Individual queries can override this with a smaller staleTime.
-        staleTime: 2 * 60_000,
+        // 30s staleTime: mutations invalidate immediately, but background-idle
+        // data is considered fresh for 30s to avoid redundant fetches on mount.
+        staleTime: 30_000,
         gcTime: 10 * 60_000,
         retry: 1,
-        refetchOnWindowFocus: false,
+        // Refetch when user returns to window — ensures cross-page consistency
+        // when admin modifies data or AI skills run on another tab.
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
       },
     },
   });

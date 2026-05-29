@@ -18,6 +18,7 @@ function AdminNav() {
     { href: "/admin/users", label: "사용자 관리", icon: "👥" },
     { href: "/admin/logs", label: "AI 로그", icon: "📋" },
     { href: "/admin/notifications", label: "알림 발송", icon: "🔔" },
+    { href: "/admin/data", label: "데이터 관리", icon: "🗑" },
     { href: "/admin/controller", label: "컨트롤러", icon: "🎛" },
   ];
 

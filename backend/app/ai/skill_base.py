@@ -20,6 +20,7 @@ class SkillContext:
     bud_service: Any = None
     garden_state_service: Any = None
     conversation_service: Any = None
+    calendar_service: Any = None
 
 
 class SkillBase(ABC):

@@ -10,6 +10,7 @@ from app.ai.prompt_builder import PromptBuilder
 from app.ai.skill_registry import SkillRegistry
 from app.ai.skills.abandon_bud import AbandonBudSkill
 from app.ai.skills.create_bud import CreateBudSkill
+from app.ai.skills.create_calendar_event import CreateCalendarEventSkill
 from app.ai.skills.create_plant import CreatePlantSkill
 from app.ai.skills.delete_plant import DeletePlantSkill
 from app.ai.skills.get_garden_briefing import GetGardenBriefingSkill
@@ -28,6 +29,7 @@ from app.config import settings
 from app.deps import get_db, require_user
 from app.schemas.conversation import ChatRequest
 from app.services.bud_service import BudService
+from app.services.calendar_service import CalendarService
 from app.services.conversation_service import ConversationService
 from app.services.garden_state_service import GardenStateService
 from app.services.plant_service import PlantService
@@ -44,6 +46,7 @@ def _build_registry() -> SkillRegistry:
         SetDeadlineSkill, AbandonBudSkill, HarvestBudSkill,
         ListPlantsSkill, ListBudsSkill, GetStatisticsSkill,
         GetGardenBriefingSkill, SearchConversationSkill, SuggestScopeChangeSkill,
+        CreateCalendarEventSkill,
     ):
         reg.register(skill_cls())
     return reg
@@ -75,6 +78,7 @@ def chat_message(req: ChatRequest, user=Depends(require_user), db: Client = Depe
         "bud": BudService(db),
         "garden_state": GardenStateService(db),
         "conversation": ConversationService(db),
+        "calendar": CalendarService(db),
     }
     orchestrator = ChatOrchestrator(llm, _REGISTRY, _PROMPT_BUILDER, services)
 

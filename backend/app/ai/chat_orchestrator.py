@@ -32,6 +32,7 @@ class ChatOrchestrator:
         bud_svc = self.services.get("bud")
         gs_svc = self.services.get("garden_state")
         conv_svc = self.services.get("conversation")
+        cal_svc = self.services.get("calendar")
 
         ctx = SkillContext(
             user_id=user_id,
@@ -40,6 +41,7 @@ class ChatOrchestrator:
             bud_service=bud_svc,
             garden_state_service=gs_svc,
             conversation_service=conv_svc,
+            calendar_service=cal_svc,
         )
 
         stats = gs_svc.get_summary(user_id) if gs_svc else {}

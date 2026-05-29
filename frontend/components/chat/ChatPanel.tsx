@@ -49,6 +49,7 @@ const SKILLS_INFO = [
   { name: "create_plant",         desc: "새 식물(분야) 생성" },
   { name: "delete_plant",         desc: "식물 삭제" },
   { name: "create_bud",           desc: "봉우리(고민/일정) 추가" },
+  { name: "create_calendar_event", desc: "캘린더 단순 일정 추가 (봉우리 없이)" },
   { name: "update_bud_status",    desc: "봉우리 상태 변경" },
   { name: "update_bud_progress",  desc: "봉우리 진행률 변경" },
   { name: "set_deadline",         desc: "마감일 설정" },
@@ -62,9 +63,10 @@ const SKILLS_INFO = [
 ];
 
 const SKILL_INVALIDATIONS: Record<string, string[]> = {
-  create_plant:        ["plants", "stats", "briefing"],
-  delete_plant:        ["plants", "buds", "stats", "briefing"],
-  create_bud:          ["buds", "plants", "stats", "briefing", "calendar"],
+  create_plant:          ["plants", "stats", "briefing"],
+  delete_plant:          ["plants", "buds", "stats", "briefing"],
+  create_bud:            ["buds", "plants", "stats", "briefing", "calendar"],
+  create_calendar_event: ["calendar"],
   update_bud_status:   ["buds", "plants", "stats", "briefing", "bud"],
   update_bud_progress: ["buds", "bud"],
   harvest_bud:         ["buds", "plants", "stats", "briefing", "bud"],

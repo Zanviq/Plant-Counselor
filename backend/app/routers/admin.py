@@ -422,3 +422,59 @@ def list_tables(admin=Depends(require_admin), db: Client = Depends(get_db)):
         except Exception:
             result.append({"table": t, "row_count": None, "error": "unavailable"})
     return {"ok": True, "data": {"tables": result}}
+
+
+# ── Time Travel ───────────────────────────────────────────────────────────────
+
+@router.get("/controller/time")
+def get_virtual_time(admin=Depends(require_admin)):
+    """Return the current virtual server time (real time + offset)."""
+    from datetime import datetime
+    virt = rs.now()
+    real = datetime.utcnow()
+    offset_s = rs.time_offset_seconds()
+    return {
+        "ok": True,
+        "data": {
+            "virtual_now": virt.isoformat(),
+            "real_now": real.isoformat(),
+            "offset_seconds": offset_s,
+            "offset_days": round(offset_s / 86400, 2),
+            "offset_hours": round(offset_s / 3600, 2),
+        },
+    }
+
+
+class TimeOffsetBody(BaseModel):
+    offset_seconds: int | None = None   # absolute override
+    add_days: float | None = None       # relative: add N days
+    add_hours: float | None = None      # relative: add N hours
+    reset: bool = False                 # reset to real time
+
+
+@router.patch("/controller/time")
+def set_virtual_time(body: TimeOffsetBody, admin=Depends(require_admin)):
+    """Set the server time offset for demo/testing."""
+    current = rs.time_offset_seconds()
+
+    if body.reset:
+        rs.set("time_offset_seconds", 0)
+    elif body.offset_seconds is not None:
+        rs.set("time_offset_seconds", body.offset_seconds)
+    else:
+        delta = 0
+        if body.add_days is not None:
+            delta += int(body.add_days * 86400)
+        if body.add_hours is not None:
+            delta += int(body.add_hours * 3600)
+        rs.set("time_offset_seconds", current + delta)
+
+    from datetime import datetime
+    return {
+        "ok": True,
+        "data": {
+            "virtual_now": rs.now().isoformat(),
+            "offset_seconds": rs.time_offset_seconds(),
+            "offset_days": round(rs.time_offset_seconds() / 86400, 2),
+        },
+    }

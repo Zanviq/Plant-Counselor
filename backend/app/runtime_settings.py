@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,9 @@ DEFAULTS: dict[str, Any] = {
     # System
     "system_log_level": "INFO",
     "system_max_log_files": 500,
+
+    # Time travel (demo only) — offset in seconds added to all datetime checks
+    "time_offset_seconds": 0,
 }
 
 # Available Gemini models (listed for UI)
@@ -110,6 +114,23 @@ def load_snapshot() -> None:
         logger.info("Runtime settings loaded from snapshot.")
     except Exception as e:
         logger.warning("Could not load runtime settings snapshot: %s", e)
+
+
+# ── Time helpers ─────────────────────────────────────────────────────────────
+
+def now() -> datetime:
+    """Return the current UTC datetime, adjusted by the time offset."""
+    offset = _store.get("time_offset_seconds", 0) or 0
+    return datetime.utcnow() + timedelta(seconds=int(offset))
+
+
+def today() -> date:
+    """Return the current date, adjusted by the time offset."""
+    return now().date()
+
+
+def time_offset_seconds() -> int:
+    return int(_store.get("time_offset_seconds", 0) or 0)
 
 
 # Load snapshot on module import

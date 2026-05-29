@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getControllerSettings, updateControllerSettings, resetControllerSettings,
   executeSql, triggerScheduler, setUserModel, listTables, listAdminUsers,
+  getVirtualTime, setTimeOffset,
   type RuntimeSetting, type SqlResult,
 } from "@/lib/api/admin";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -228,6 +229,162 @@ function SqlExecutor() {
   );
 }
 
+// ── Time Travel ───────────────────────────────────────────────────────────────
+
+function TimeTravelSection() {
+  const { accessToken } = useAuthStore();
+  const qc = useQueryClient();
+  const [customDays, setCustomDays] = useState("");
+  const [customHours, setCustomHours] = useState("");
+
+  const { data: res, isLoading } = useQuery({
+    queryKey: ["admin", "controller", "time"],
+    queryFn: getVirtualTime,
+    enabled: !!accessToken,
+    refetchInterval: 5000,
+  });
+
+  const timeMut = useMutation({
+    mutationFn: setTimeOffset,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "controller", "time"] }),
+  });
+
+  const vt = res?.ok ? res.data : null;
+  const isShifted = vt && vt.offset_seconds !== 0;
+
+  const QUICK = [
+    { label: "+1일", add_days: 1 },
+    { label: "+3일", add_days: 3 },
+    { label: "+7일", add_days: 7 },
+    { label: "+14일", add_days: 14 },
+    { label: "+30일", add_days: 30 },
+    { label: "-1일", add_days: -1 },
+    { label: "-3일", add_days: -3 },
+    { label: "-7일", add_days: -7 },
+  ];
+
+  return (
+    <div style={{
+      ...card,
+      border: isShifted ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(255,255,255,0.08)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <SectionTitle>⏱ 서버 시간 이동 (데모용)</SectionTitle>
+        {isShifted && (
+          <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "2px 8px", borderRadius: 999, marginBottom: 14 }}>
+            시간 오프셋 활성
+          </span>
+        )}
+      </div>
+
+      {/* Current times */}
+      {isLoading ? (
+        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>로딩 중...</p>
+      ) : vt ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <div style={{ background: isShifted ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
+            <div style={{ fontSize: 10, color: isShifted ? "#f59e0b" : "rgba(255,255,255,0.4)", marginBottom: 4 }}>
+              가상 서버 시간
+            </div>
+            <div style={{ fontSize: 13, fontFamily: "monospace", color: isShifted ? "#fbbf24" : "#fff", fontWeight: 600 }}>
+              {vt.virtual_now.slice(0, 19).replace("T", " ")}
+            </div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>실제 시간 (UTC)</div>
+            <div style={{ fontSize: 13, fontFamily: "monospace", color: "rgba(255,255,255,0.6)" }}>
+              {vt.real_now.slice(0, 19).replace("T", " ")}
+            </div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>오프셋</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: isShifted ? "#f59e0b" : "rgba(255,255,255,0.4)" }}>
+              {vt.offset_days > 0 ? "+" : ""}{vt.offset_days}일
+              {vt.offset_seconds !== 0 && (
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginLeft: 6 }}>
+                  ({vt.offset_seconds > 0 ? "+" : ""}{vt.offset_seconds}초)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Quick buttons */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>빠른 이동</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {QUICK.map(({ label, add_days }) => (
+            <button
+              key={label}
+              onClick={() => timeMut.mutate({ add_days })}
+              disabled={timeMut.isPending}
+              style={{
+                padding: "6px 12px", borderRadius: 6, border: "none",
+                background: add_days > 0 ? "rgba(96,165,250,0.12)" : "rgba(239,68,68,0.1)",
+                color: add_days > 0 ? "#60a5fa" : "#f87171",
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom input */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", whiteSpace: "nowrap" }}>직접 입력</div>
+        <input
+          value={customDays}
+          onChange={(e) => setCustomDays(e.target.value)}
+          placeholder="일 수 (예: 5.5)"
+          type="number"
+          step="0.5"
+          style={{ ...input, width: 130 }}
+        />
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>일</span>
+        <input
+          value={customHours}
+          onChange={(e) => setCustomHours(e.target.value)}
+          placeholder="시간 (예: 12)"
+          type="number"
+          step="1"
+          style={{ ...input, width: 130 }}
+        />
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>시간</span>
+        <button
+          onClick={() => {
+            const d = parseFloat(customDays) || 0;
+            const h = parseFloat(customHours) || 0;
+            if (d || h) {
+              timeMut.mutate({ add_days: d || undefined, add_hours: h || undefined });
+              setCustomDays(""); setCustomHours("");
+            }
+          }}
+          style={btn("primary")}
+        >
+          적용
+        </button>
+      </div>
+
+      {/* Scan + Reset row */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <button
+          onClick={() => timeMut.mutate({ reset: true })}
+          disabled={!isShifted || timeMut.isPending}
+          style={{ ...btn("danger"), opacity: isShifted ? 1 : 0.4 }}
+        >
+          실제 시간으로 리셋
+        </button>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+          시간 이동 후 "▶ 전환 스캔 즉시 실행"을 눌러 시들음/썩음 전환을 즉시 적용하세요.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Table Overview ────────────────────────────────────────────────────────────
 
 function TableOverview() {
@@ -396,6 +553,9 @@ export default function AdminControllerPage() {
           </button>
         </div>
       </header>
+
+      {/* Time travel */}
+      <TimeTravelSection />
 
       {/* Table overview */}
       <TableOverview />

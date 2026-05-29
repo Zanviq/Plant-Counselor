@@ -2,10 +2,11 @@
 wilting → rot transitions and deadline warning notifications.
 """
 from __future__ import annotations
-from datetime import datetime, timedelta, date
+from datetime import timedelta
 
 from supabase import Client
 
+import app.runtime_settings as rs
 from app.repositories.bud_repo import BudRepository
 from app.repositories.notification_repo import NotificationRepository
 
@@ -18,15 +19,16 @@ class TransitionService:
 
     def scan_user(self, db: Client, user_id: str, garden_rules: dict | None = None) -> None:
         rules = garden_rules or {}
-        wilting_days: int = rules.get("wilting_days", 7)
-        rot_disappear_days: int = rules.get("rot_disappear_days", 14)
-        deadline_warn_days: int = rules.get("deadline_warn_days", 3)
-        auto_transition: bool = rules.get("auto_transition", True)
+        wilting_days: int = rules.get("wilting_days", rs.get("default_wilting_days", 7))
+        rot_disappear_days: int = rules.get("rot_disappear_days", rs.get("default_rot_disappear_days", 14))
+        deadline_warn_days: int = rules.get("deadline_warn_days", rs.get("default_deadline_warn_days", 3))
+        auto_transition: bool = rules.get("auto_transition", rs.get("default_auto_transition", True))
 
         bud_repo = BudRepository(db)
         notif_repo = NotificationRepository(db)
-        now = datetime.utcnow()
-        today = date.today()
+        # Use the time-travel-aware now/today
+        now = rs.now()
+        today = rs.today()
 
         if auto_transition:
             wilting_cutoff = (now - timedelta(days=wilting_days)).isoformat()

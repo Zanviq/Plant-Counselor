@@ -144,5 +144,5 @@ update_bud_progress / update_bud_status / harvest_bud / abandon_bud / set_deadli
 
 
 def _today() -> str:
-    from datetime import date
-    return date.today().isoformat()
+    import app.runtime_settings as rs
+    return rs.today().isoformat()

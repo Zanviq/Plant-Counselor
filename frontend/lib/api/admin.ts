@@ -165,3 +165,26 @@ export const setUserModel = (userId: string, aiModel: string) =>
 
 export const listTables = () =>
   apiGet<{ tables: TableInfo[] }>("/admin/controller/tables");
+
+// ── Time Travel ────────────────────────────────────────────────────────────
+
+export interface VirtualTime {
+  virtual_now: string;
+  real_now: string;
+  offset_seconds: number;
+  offset_days: number;
+  offset_hours: number;
+}
+
+export const getVirtualTime = () =>
+  apiGet<VirtualTime>("/admin/controller/time");
+
+export const setTimeOffset = (body: {
+  offset_seconds?: number;
+  add_days?: number;
+  add_hours?: number;
+  reset?: boolean;
+}) => apiPatch<{ virtual_now: string; offset_seconds: number; offset_days: number }>(
+  "/admin/controller/time",
+  body
+);

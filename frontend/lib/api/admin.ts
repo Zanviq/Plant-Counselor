@@ -208,3 +208,55 @@ export const deleteAllLogFiles = () =>
 
 export const adminDeleteUserAccount = (userId: string) =>
   apiDelete<PurgeResult>(`/admin/controller/users/${userId}/account`);
+
+// ── Granular data items ────────────────────────────────────────────────────
+
+export interface ConversationItem {
+  id: string;
+  user_id: string;
+  scope: string;
+  scope_id: string | null;
+  message_count: number;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface PlantItem {
+  id: string;
+  user_id: string;
+  name: string;
+  status: string;
+  species: string;
+  bud_count: number;
+  created_at: string;
+}
+
+export interface BudItem {
+  id: string;
+  user_id: string;
+  plant_id: string;
+  title: string;
+  status: string;
+  type: string;
+  progress: number;
+  deadline: string | null;
+  created_at: string;
+}
+
+export const getUserConversations = (userId: string) =>
+  apiGet<{ items: ConversationItem[] }>(`/admin/data/users/${userId}/conversations`);
+
+export const deleteConversation = (conversationId: string) =>
+  apiDelete<{ deleted_id: string }>(`/admin/data/conversations/${conversationId}`);
+
+export const getUserPlants = (userId: string) =>
+  apiGet<{ items: PlantItem[] }>(`/admin/data/users/${userId}/plants`);
+
+export const deletePlant = (plantId: string) =>
+  apiDelete<{ deleted_id: string }>(`/admin/data/plants/${plantId}`);
+
+export const getUserBuds = (userId: string) =>
+  apiGet<{ items: BudItem[] }>(`/admin/data/users/${userId}/buds`);
+
+export const deleteBud = (budId: string) =>
+  apiDelete<{ deleted_id: string }>(`/admin/data/buds/${budId}`);

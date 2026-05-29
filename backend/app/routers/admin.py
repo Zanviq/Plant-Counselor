@@ -567,3 +567,63 @@ def admin_delete_user_account(user_id: str, admin=Depends(require_admin), db: Cl
     from app.services.user_service import UserService
     deleted = UserService(db).delete_account(user_id)
     return {"ok": True, "data": {"deleted": deleted}}
+
+
+# ── Granular / single-item deletion ──────────────────────────────────────────
+
+@router.get("/data/users/{user_id}/conversations")
+def get_user_conversations(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """List all conversations for a user with message count."""
+    convs = db.table("conversations").select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
+    result = []
+    for c in (convs.data or []):
+        msg_res = db.table("conversation_messages").select("id", count="exact").eq("conversation_id", c["id"]).execute()
+        result.append({**c, "message_count": msg_res.count or 0})
+    return {"ok": True, "data": {"items": result}}
+
+
+@router.delete("/data/conversations/{conversation_id}")
+def delete_conversation(conversation_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete a single conversation and all its messages (CASCADE)."""
+    res = db.table("conversations").delete().eq("id", conversation_id).execute()
+    if not res.data:
+        raise HTTPException(404, "대화를 찾을 수 없습니다.")
+    return {"ok": True, "data": {"deleted_id": conversation_id}}
+
+
+@router.get("/data/users/{user_id}/plants")
+def get_user_plants(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """List all plants (including archived) for a user."""
+    res = db.table("plants").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    # Attach bud counts
+    result = []
+    for p in (res.data or []):
+        bud_res = db.table("buds").select("id", count="exact").eq("plant_id", p["id"]).execute()
+        result.append({**p, "bud_count": bud_res.count or 0})
+    return {"ok": True, "data": {"items": result}}
+
+
+@router.delete("/data/plants/{plant_id}")
+def delete_plant(plant_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete a plant and all its buds + history (CASCADE)."""
+    # buds.plant_id → plants CASCADE
+    res = db.table("plants").delete().eq("id", plant_id).execute()
+    if not res.data:
+        raise HTTPException(404, "식물을 찾을 수 없습니다.")
+    return {"ok": True, "data": {"deleted_id": plant_id}}
+
+
+@router.get("/data/users/{user_id}/buds")
+def get_user_buds(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """List all buds for a user."""
+    res = db.table("buds").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return {"ok": True, "data": {"items": res.data or []}}
+
+
+@router.delete("/data/buds/{bud_id}")
+def delete_bud(bud_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete a single bud and its history (CASCADE)."""
+    res = db.table("buds").delete().eq("id", bud_id).execute()
+    if not res.data:
+        raise HTTPException(404, "봉우리를 찾을 수 없습니다.")
+    return {"ok": True, "data": {"deleted_id": bud_id}}

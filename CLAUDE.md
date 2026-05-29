@@ -1,7 +1,7 @@
 # Plant Counselor — CLAUDE.md
 
 > **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-29 (세션 11)  
+> 최종 업데이트: 2026-05-30 (세션 12)  
 > 작성자: confidencecat (jaemi)
 
 ---
@@ -352,6 +352,87 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 ---
 
 ## 9. 세션별 작업 이력
+
+### 세션 12 (코드 리뷰·리팩토링 + 캘린더 일정 + 세션 권한 + 알림 개선, 2026-05-30)
+
+**1. 전면 코드 리뷰 + 리팩토링 (`0e2a364`):**
+- SQLAlchemy 잔재 완전 제거: `db/session.py`, `db/base.py`, `db/models/*` 삭제
+  (실제 DB 접근은 supabase-py HTTP만 사용)
+- 미사용 코드 제거: plant_service 5개·plant_repo 3개·bud_service·garden_state_service
+  메서드, llm_client setter, schema 5개 클래스, 미사용 import 다수
+- N+1 쿼리 3건 제거 (admin list_users / get_user_conversations / get_user_plants → bulk)
+- chat.py 모델 선택 버그 수정 (`user_model or global_model`)
+- search/find_matches LIKE 와일드카드 이스케이프, UserOut NULL model_validator
+- 31개 파일, 순 -427 라인
+
+**2. 보안: admin SQL 실행기 감사 로깅 (`4be4f9c`)** — `/controller/sql` 호출 시
+   admin user_id + 쿼리 logger.warning 기록 (기능은 유지, SELECT 제한 안 함)
+
+**3. README 전면 재작성 (`a780873`)** — Supabase/16스킬/관리자 패널 반영
+
+**4. layout.tsx next/script 경고 수정 (`2913789`)** — React 19 raw script 경고 →
+   `<Script beforeInteractive>`, `<body>` 배치
+
+**5. 데이터 백업/복원 (`52636c9`):** `/admin/data` 페이지에 백업 기능.
+   - `backup_service.py`: 전체 테이블 ZIP 압축 (meta.json + data.json), 복원 시
+     동일 PK는 건너뜀(덮어쓰기 방지), FK 순서 복원
+   - `migrations/001_calendar_events.sql` 이전에 만든 백업 인프라
+   - 엔드포인트: POST /admin/backup, GET /admin/backups, .../restore, .../download, DELETE
+
+**6. 알림 상세/기록 + 실시간 (`f889f5c`):**
+   - 백엔드 list_all/ack_all + `GET /notifications?include_read` + `POST /notifications/ack-all`
+   - 팝오버: "안 읽음"/"전체 기록" 탭, 클릭 시 상세 확장, 관리자 메시지 본문 렌더링
+     (기존엔 admin_message 종류만 뜨고 내용 안 보였음)
+   - Sidebar 배지 폴링 60s → 15s (관리자 발송 후 수동 새로고침 불필요)
+
+**7. 캘린더 직접 추가 + 독립 일정 (`da161bf`):**
+   - **새 테이블 `calendar_events`** (봉우리와 별개의 순수 일정). Supabase가 마이그레이션
+     도구 외부 DDL을 PostgREST에 노출하지 않아 **`exec_admin_query` RPC로 접근**
+     (`calendar_event_repo.py`, _lit() 이스케이프로 주입 방지)
+   - `/calendar`가 봉우리 deadline + calendar_events 병합, `source: "bud"|"event"`
+   - 캘린더 페이지 "일정 추가" 모달 (제목/날짜/관련 식물 선택)
+   - 스킬 `create_calendar_event`, 프롬프트에 봉우리 vs 일반 일정 판단 규칙
+
+**8. LLM 503 재시도 (`fc54603`)** — Gemini 과부하 시 지수 백오프 3회 재시도 + 친절한 메시지
+
+**9. AI 일반 일정 조회 (`d2431ce`)** — `list_calendar_events` 스킬. 프롬프트에서
+   "식물 일정(list_buds) + 일반 일정(list_calendar_events)"을 모두 조회해 구분 설명
+
+**10. `/delete` 명령어 (`dbbdf58`)** — 현재 세션 대화 기록 DB 완전 삭제.
+    `DELETE /conversations?scope=&scope_id=`, /clear는 화면만 비움으로 라벨 변경
+
+**11. 타임존 KST + 브리핑 staleness (`b01aace`):**
+    - `app_timezone_offset_hours`(기본 9=KST) 추가. `rs.now()/today()`가 KST 기준 →
+      프론트(로컬 KST)가 저장한 날짜와 "오늘"이 일치 (이전엔 UTC라 하루 어긋남)
+    - 브리핑을 매 호출 재생성 (하루 캐시 staleness 제거)
+
+**12. 세션 권한 + 입력 이관 + 캘린더 수정/삭제 (`c5ca03a`):**
+    - `app/ai/permissions.py`: 세션별 수정·삭제 권한 (can_modify_bud / can_delete_plant /
+      can_modify_calendar_event / guard_bud). SkillContext에 scope/scope_id 주입
+    - 권한: global=전체 / plant·bud=자기 것만 / calendar=일반 일정만 (봉우리는 생성·조회만)
+    - 변이 스킬 6종에 가드, 권한 밖이면 forbidden 거부
+    - `update_calendar_event` / `delete_calendar_event` 스킬 신규
+    - 세션 변경 배너 "변경하기" → 직전 질문을 새 세션 입력창에 이관(prefill),
+      엔터만 누르면 올바른 세션에서 실행 (chatStore pendingPrefill/pendingSend)
+    - 캘린더 "AI 일정 제안" 버튼 → 실제 AI 호출 (pendingSend)
+
+**13. bud 세션 컨텍스트 (`a37c4f4`)** — bud 스코프 프롬프트에 현재 봉우리의 식물명+제목
+    포함 → AI가 off-topic 감지해 세션 변경 제안 가능 (이전엔 bud_id만 알아서 감지 못함)
+
+**14. 메인 화면 ↔ 세션 동기화 + 다크모드 수정 (`94b618f`, `e6ce24e`):**
+    - 세션이 식물로 바뀌면 정원 캐러셀 선택 / 상세 페이지면 그 식물 상세로 이동
+      (실제 세션 *전환*일 때만 — ref로 변화 감지, 수동 탐색은 가로채지 않음)
+    - 페이지→세션: 홈·정원→global, 캘린더→calendar (chatStore.setScope)
+    - 다크모드 정원 식물 이름이 밝은 하늘 배경에 묻히던 버그 → 테마 독립 어두운색 + halo
+
+**현재 스킬 수: 20개** (think, match_plant, create_plant, delete_plant, create_bud,
+update_bud_status, update_bud_progress, set_deadline, abandon_bud, harvest_bud,
+list_plants, list_buds, get_statistics, get_garden_briefing, search_conversation,
+suggest_scope_change, create_calendar_event, list_calendar_events,
+update_calendar_event, delete_calendar_event)
+
+**데모/테스트 문서: `Plant-Counselor_Documents/DEMO_GUIDE.md`** (세션 12에서 작성 —
+모든 기능의 파트별 테스트 시나리오 + 동작 원리)
 
 ### 세션 1 (초기 구현)
 - FastAPI 백엔드 전체 구현 (8 라우터, 15 스킬, ReAct 루프)

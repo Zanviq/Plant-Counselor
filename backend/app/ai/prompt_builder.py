@@ -12,6 +12,7 @@ class PromptBuilder:
         scope: str = "global",
         scope_id: str | None = None,
         scope_plant_name: str = "",
+        scope_bud_title: str = "",
     ) -> str:
         stats = stats or {}
         plant_list = plants or []
@@ -27,11 +28,17 @@ class PromptBuilder:
 
         today_str = _today()
 
-        # Build scope context line
+        # Build scope context line — tells the AI what the current session is about
+        # so it can detect off-topic requests and offer to switch sessions.
         if scope == "plant" and scope_plant_name and scope_id:
             scope_line = f"\n현재 상담 식물: {scope_plant_name} (plant_id={scope_id})"
         elif scope == "plant" and scope_id:
             scope_line = f"\n현재 상담 식물 ID: {scope_id}"
+        elif scope == "bud" and scope_id and scope_plant_name and scope_bud_title:
+            scope_line = (f"\n현재 상담 세션: '{scope_plant_name}' 식물의 봉우리 "
+                          f"'{scope_bud_title}' (bud_id={scope_id})")
+        elif scope == "bud" and scope_id and scope_bud_title:
+            scope_line = f"\n현재 상담 봉우리: '{scope_bud_title}' (bud_id={scope_id})"
         elif scope == "bud" and scope_id:
             scope_line = f"\n현재 상담 봉우리 ID: {scope_id}"
         else:
@@ -165,17 +172,21 @@ update_bud_progress / update_bud_status / harvest_bud / abandon_bud / set_deadli
     봉우리의 수정·삭제(update_bud_status/progress, harvest_bud, abandon_bud,
     set_deadline, delete_plant)는 **거부**된다. 필요하면 해당 식물 세션 변경을 제안한다.
 
-### 대화 세션 불일치 → 세션 변경 제안 (식물/봉우리 세션 전용)
-현재 스코프가 특정 식물(plant) 또는 봉우리(bud)인데, 사용자 요청이 **현재 식물과
-다른 주제/식물**에 관한 것이라면 — 그 작업을 **이 세션에서 실행하지 않는다**:
-1. match_plant로 그 주제와 관련된 식물이 이미 있는지 탐색한다.
-2. 관련 식물을 찾으면 suggest_scope_change를 호출해 세션 변경을 제안한다.
+### 대화 세션 불일치 → 세션 변경 제안 (식물/봉우리 세션 전용) — 매우 중요
+현재 스코프가 특정 식물(plant) 또는 봉우리(bud)이다. 위 "현재 상담 식물/세션"이
+이 세션의 주제다. 사용자 요청이 **그 주제와 다른 분야**에 관한 것이라면 (예: 연애
+세션에서 운동·근육통 이야기) — 그 작업을 **이 세션에서 절대 실행하지 않는다**:
+1. match_plant로 그 다른 주제와 관련된 식물이 이미 있는지 탐색한다.
+2. 관련 식물을 찾으면 **create_bud/create_plant 등을 호출하지 말고**
+   suggest_scope_change만 호출해 세션 변경을 제안한다.
    - target_scope: "plant", target_id: 그 식물의 plant_id, target_name: 그 식물 이름
    - 사용자가 세션을 옮기면 직전 질문이 입력창에 그대로 옮겨져, 올바른 세션에서
-     다시 실행된다. 그러니 여기서는 생성·수정을 하지 말고 제안만 한다.
-3. 관련 식물이 없으면, 한 문장으로 새 식물을 만들지 물어보거나 현재 맥락에서 안내한다.
+     다시 실행된다. 그러니 여기서는 만들지 말고 제안만 한다.
+3. 관련 식물이 없으면, 한 문장으로 새 식물을 만들지 물어본 뒤 동의하면
+   생성하고 그 식물 세션으로 suggest_scope_change를 제안한다.
+- bud 세션에서도 동일하게 적용한다: 현재 봉우리의 식물과 다른 분야면 제안한다.
 - global 또는 calendar 스코프에서는 suggest_scope_change를 호출하지 않는다.
-- 현재 식물과 동일한 주제면 제안 없이 바로 처리한다.
+- 현재 세션과 동일한 분야면 제안 없이 바로 처리한다.
 
 ## 응답 형식
 - 스킬 실행 후: 결과를 한두 문장으로 자연스럽게 알린다.

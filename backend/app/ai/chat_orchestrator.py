@@ -49,16 +49,30 @@ class ChatOrchestrator:
         stats = gs_svc.get_summary(user_id) if gs_svc else {}
         plants = plant_svc.list(user_id) if plant_svc else []
 
-        # Resolve plant name for scope context (plant scope only)
+        # Resolve scope context so the AI knows what the current session is about
+        # (needed to detect off-topic requests and suggest switching sessions).
         scope_plant_name = ""
+        scope_bud_title = ""
         if scope == "plant" and scope_id and plants:
             matching = [p for p in plants if p.id == scope_id]
             if matching:
                 scope_plant_name = matching[0].name
+        elif scope == "bud" and scope_id and bud_svc:
+            try:
+                cur_bud = bud_svc.get(user_id, scope_id)
+            except Exception:
+                cur_bud = None
+            if cur_bud is not None:
+                scope_bud_title = getattr(cur_bud, "title", "") or ""
+                bud_plant_id = getattr(cur_bud, "plant_id", None)
+                pm = [p for p in plants if p.id == bud_plant_id]
+                if pm:
+                    scope_plant_name = pm[0].name
 
         system = self.builder.build_system(
             ctx, current_screen, stats, plants,
             scope=scope, scope_id=scope_id, scope_plant_name=scope_plant_name,
+            scope_bud_title=scope_bud_title,
         )
         rec.set_system(system)
 

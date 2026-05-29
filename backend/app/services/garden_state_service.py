@@ -84,16 +84,3 @@ class GardenStateService:
             f"주요 분야: {plant_names}."
         )
 
-    def get_daily_briefing(self, user_id: str) -> str | None:
-        state = self._repo.get_or_create(user_id)
-        today_str = rs.today().isoformat()
-        stored_date = getattr(state, "daily_briefing_date", None)
-        if stored_date and str(stored_date)[:10] == today_str:
-            return getattr(state, "daily_briefing", None)
-        return None
-
-    def set_daily_briefing(self, user_id: str, text: str) -> None:
-        self._repo.update(user_id, {
-            "daily_briefing": text,
-            "daily_briefing_date": rs.today().isoformat(),
-        })

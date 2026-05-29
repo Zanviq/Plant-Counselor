@@ -435,9 +435,8 @@ def list_tables(admin=Depends(require_admin), db: Client = Depends(get_db)):
 @router.get("/controller/time")
 def get_virtual_time(admin=Depends(require_admin)):
     """Return the current virtual server time (real time + offset)."""
-    from datetime import datetime
     virt = rs.now()
-    real = datetime.utcnow()
+    real = rs.real_now()   # local wall-clock baseline (so offset = time travel only)
     offset_s = rs.time_offset_seconds()
     return {
         "ok": True,

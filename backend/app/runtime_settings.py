@@ -35,6 +35,11 @@ DEFAULTS: dict[str, Any] = {
     "system_log_level": "INFO",
     "system_max_log_files": 500,
 
+    # App timezone — what the app considers "now"/"today". Korea = UTC+9 (KST).
+    # All user-facing dates (calendar, deadlines, "오늘") are computed in this zone
+    # so they match the dates the (KST) frontend stores.
+    "app_timezone_offset_hours": 9,
+
     # Time travel (demo only) — offset in seconds added to all datetime checks
     "time_offset_seconds": 0,
 }
@@ -117,14 +122,24 @@ def load_snapshot() -> None:
 
 # ── Time helpers ─────────────────────────────────────────────────────────────
 
+def _tz_offset_hours() -> int:
+    return int(_store.get("app_timezone_offset_hours", 9) or 0)
+
+
+def real_now() -> datetime:
+    """Wall-clock 'now' in the app's local timezone (KST by default), WITHOUT
+    the time-travel offset. Used as the baseline for the admin time-travel view."""
+    return datetime.utcnow() + timedelta(hours=_tz_offset_hours())
+
+
 def now() -> datetime:
-    """Return the current UTC datetime, adjusted by the time offset."""
+    """App 'now' = local wall-clock (timezone-adjusted) + time-travel offset."""
     offset = _store.get("time_offset_seconds", 0) or 0
-    return datetime.utcnow() + timedelta(seconds=int(offset))
+    return real_now() + timedelta(seconds=int(offset))
 
 
 def today() -> date:
-    """Return the current date, adjusted by the time offset."""
+    """The app's current local date (timezone + time-travel adjusted)."""
     return now().date()
 
 

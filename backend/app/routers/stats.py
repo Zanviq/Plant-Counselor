@@ -23,11 +23,9 @@ def get_summary(user=Depends(require_user), db: Client = Depends(get_db)):
 
 @router.get("/briefing/today")
 def get_briefing(user=Depends(require_user), db: Client = Depends(get_db)):
-    svc = GardenStateService(db)
-    briefing = svc.get_daily_briefing(user.id)
-    if not briefing:
-        briefing = svc.build_briefing(user.id)
-        svc.set_daily_briefing(user.id, briefing)
+    # Always rebuilt (pure string formatting, no LLM) so it reflects the
+    # current garden state instead of a stale once-a-day cache.
+    briefing = GardenStateService(db).build_briefing(user.id)
     return {"ok": True, "data": {"briefing": briefing}}
 
 

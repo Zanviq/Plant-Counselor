@@ -1,8 +1,15 @@
 from __future__ import annotations
 import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
+
+# Transient upstream conditions worth retrying (Gemini overload / rate spikes).
+_RETRYABLE_MARKERS = ("503", "unavailable", "overloaded", "high demand",
+                      "deadline", "timeout", "500", "internal error")
+_MAX_RETRIES = 3            # total attempts = _MAX_RETRIES
+_BACKOFF_BASE = 1.0         # seconds: 1s, 2s between attempts
 
 
 class LLMClient:
@@ -88,56 +95,78 @@ class LLMClient:
                 "tool_use": None,
             }
 
-        try:
-            from google import genai
-            from google.genai import types
+        from google import genai
+        from google.genai import types
 
-            client = genai.Client(api_key=self._key)
-            contents = self._to_gemini_messages(messages)
-            gemini_tools = self._to_gemini_tools(tools)
+        client = genai.Client(api_key=self._key)
+        contents = self._to_gemini_messages(messages)
+        gemini_tools = self._to_gemini_tools(tools)
 
-            config_kwargs: dict = {"system_instruction": system}
-            if gemini_tools:
-                config_kwargs["tools"] = gemini_tools
+        config_kwargs: dict = {"system_instruction": system}
+        if gemini_tools:
+            config_kwargs["tools"] = gemini_tools
+        config = types.GenerateContentConfig(**config_kwargs)
 
-            response = client.models.generate_content(
-                model=self._model,
-                contents=contents,
-                config=types.GenerateContentConfig(**config_kwargs),
-            )
+        last_err: Exception | None = None
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                response = client.models.generate_content(
+                    model=self._model, contents=contents, config=config,
+                )
+                return self._parse_response(response)
+            except Exception as e:  # noqa: BLE001 — classify below
+                last_err = e
+                if attempt < _MAX_RETRIES and self._is_retryable(e):
+                    delay = _BACKOFF_BASE * (2 ** (attempt - 1))
+                    logger.warning(
+                        "Gemini transient error (attempt %d/%d), retrying in %.0fs: %s",
+                        attempt, _MAX_RETRIES, delay, e,
+                    )
+                    time.sleep(delay)
+                    continue
+                break
 
-            tool_use = None
+        logger.error("Gemini API 오류: %s", last_err, exc_info=True)
+        return {"text": f"LLM 오류: {self._friendly_error(last_err)}", "tool_use": None}
 
-            # function_call 파트 탐색
-            candidate = response.candidates[0] if response.candidates else None
-            if candidate and candidate.content and candidate.content.parts:
-                for part in candidate.content.parts:
-                    if hasattr(part, "function_call") and part.function_call:
-                        fc = part.function_call
-                        tool_use = {
-                            "name": fc.name,
-                            "input": dict(fc.args) if fc.args else {},
-                            "id": fc.name,
-                        }
-                        break
+    def _parse_response(self, response) -> dict:
+        tool_use = None
+        candidate = response.candidates[0] if response.candidates else None
+        if candidate and candidate.content and candidate.content.parts:
+            for part in candidate.content.parts:
+                if hasattr(part, "function_call") and part.function_call:
+                    fc = part.function_call
+                    tool_use = {
+                        "name": fc.name,
+                        "input": dict(fc.args) if fc.args else {},
+                        "id": fc.name,
+                    }
+                    break
 
-            # 텍스트 추출 — function_call만 있는 경우 parts에 text가 없으므로 ""
-            text = ""
-            if candidate and candidate.content and candidate.content.parts:
-                for part in candidate.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        text += part.text
+        # function_call만 있는 경우 parts에 text가 없으므로 ""
+        text = ""
+        if candidate and candidate.content and candidate.content.parts:
+            for part in candidate.content.parts:
+                if hasattr(part, "text") and part.text:
+                    text += part.text
 
-            logger.debug("Gemini 응답 — text=%r tool=%s", text[:80] if text else "", tool_use["name"] if tool_use else None)
-            return {"text": text, "tool_use": tool_use}
+        logger.debug("Gemini 응답 — text=%r tool=%s", text[:80] if text else "", tool_use["name"] if tool_use else None)
+        return {"text": text, "tool_use": tool_use}
 
-        except Exception as e:
-            logger.error("Gemini API 오류: %s", e, exc_info=True)
-            msg = str(e)
-            if "NOT_FOUND" in msg or "no longer available" in msg:
-                msg = f"모델({self._model})을 사용할 수 없습니다. 관리자에게 문의하세요."
-            elif "API_KEY_INVALID" in msg or "API key not valid" in msg:
-                msg = "API 키가 유효하지 않습니다. 설정에서 Gemini API 키를 확인해주세요."
-            elif "quota" in msg.lower() or "rate" in msg.lower():
-                msg = "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
-            return {"text": f"LLM 오류: {msg}", "tool_use": None}
+    @staticmethod
+    def _is_retryable(e: Exception) -> bool:
+        msg = str(e).lower()
+        return any(marker in msg for marker in _RETRYABLE_MARKERS)
+
+    def _friendly_error(self, e: Exception | None) -> str:
+        msg = str(e) if e else "알 수 없는 오류"
+        low = msg.lower()
+        if "503" in msg or "unavailable" in low or "overloaded" in low or "high demand" in low:
+            return "AI 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요."
+        if "NOT_FOUND" in msg or "no longer available" in low:
+            return f"모델({self._model})을 사용할 수 없습니다. 관리자에게 문의하세요."
+        if "API_KEY_INVALID" in msg or "api key not valid" in low:
+            return "API 키가 유효하지 않습니다. 설정에서 Gemini API 키를 확인해주세요."
+        if "quota" in low or "rate" in low or "429" in msg:
+            return "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
+        return msg

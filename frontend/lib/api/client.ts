@@ -33,14 +33,26 @@ async function apiFetch<T>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  let res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+  // Wrap every fetch in try-catch — a network error (server down / CORS /
+  // uvicorn reload) throws TypeError which must be caught and surfaced cleanly.
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+  } catch (networkErr) {
+    return { ok: false, error: { code: "network", message: `네트워크 오류: 서버에 연결할 수 없습니다. (${String(networkErr)})` } };
+  }
 
   // Auto-refresh on 401 (token may have just expired between Supabase refresh cycles)
   if (res.status === 401 && _refresh) {
-    const newToken = await _refresh();
+    let newToken: string | null = null;
+    try { newToken = await _refresh(); } catch { /* ignore refresh errors */ }
     if (newToken) {
       headers["Authorization"] = `Bearer ${newToken}`;
-      res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+      try {
+        res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+      } catch (retryErr) {
+        return { ok: false, error: { code: "network", message: `재시도 네트워크 오류: ${String(retryErr)}` } };
+      }
     }
   }
 

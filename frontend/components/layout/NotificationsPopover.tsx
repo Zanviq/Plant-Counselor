@@ -192,7 +192,7 @@ export default function NotificationsPopover({ onClose }: { onClose: () => void 
     setExpandedId((cur) => (cur === id ? null : id));
   }
 
-  const tabBtn = (t: Tab, label: string, count?: number): React.CSSProperties => ({
+  const tabBtn = (t: Tab): React.CSSProperties => ({
     flex: 1,
     padding: "7px 0",
     background: "none",
@@ -230,10 +230,10 @@ export default function NotificationsPopover({ onClose }: { onClose: () => void 
           )}
         </div>
         <div style={{ display: "flex", gap: 4 }}>
-          <button style={tabBtn("unread", "안 읽음")} onClick={() => { setTab("unread"); setExpandedId(null); }}>
+          <button style={tabBtn("unread")} onClick={() => { setTab("unread"); setExpandedId(null); }}>
             안 읽음{unread.length > 0 ? ` (${unread.length})` : ""}
           </button>
-          <button style={tabBtn("all", "전체")} onClick={() => { setTab("all"); setExpandedId(null); }}>
+          <button style={tabBtn("all")} onClick={() => { setTab("all"); setExpandedId(null); }}>
             전체 기록
           </button>
         </div>

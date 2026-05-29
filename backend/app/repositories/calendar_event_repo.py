@@ -28,7 +28,13 @@ def _rows(lst: list[dict]) -> list[SimpleNamespace]:
 
 
 def _lit(v: Any) -> str:
-    """Render a value as a safe SQL string literal (or NULL)."""
+    """Render a value as a safe SQL string literal (or NULL).
+
+    Doubles single quotes — the only literal metacharacter under
+    standard_conforming_strings = on (Supabase default). Backslashes are
+    literal in that mode and must NOT be doubled, or backslash-containing
+    text would be corrupted on round-trip.
+    """
     if v is None:
         return "NULL"
     return "'" + str(v).replace("'", "''") + "'"

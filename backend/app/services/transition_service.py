@@ -59,7 +59,6 @@ class TransitionService:
                     bud_repo.add_history(bud.id, "wilting", "rot", "자동: 소멸")
                     notif_repo.push(user_id, "bud_rot", {"bud_id": bud.id, "title": bud.title})
 
-        warn_date = (today + timedelta(days=deadline_warn_days)).isoformat()
         today_str = today.isoformat()
         deadline_buds = bud_repo.list(
             user_id,
@@ -70,6 +69,10 @@ class TransitionService:
         for bud in deadline_buds:
             dl = getattr(bud, "deadline", None)
             if dl and str(dl)[:10] >= today_str:
+                # Avoid re-notifying the same bud every scan (deadline doesn't
+                # change state, so it would otherwise pile up each interval).
+                if notif_repo.has_unacked(user_id, "deadline_warning", bud.id):
+                    continue
                 notif_repo.push(user_id, "deadline_warning", {
                     "bud_id": bud.id,
                     "title": bud.title,

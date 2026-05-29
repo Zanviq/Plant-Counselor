@@ -143,6 +143,18 @@ class ConversationRepository:
         res = q.execute()
         return len(res.data or [])
 
+    def _find(self, user_id: str, scope: str, scope_id: str | None) -> SimpleNamespace | None:
+        """Look up a conversation without creating one (read-only)."""
+        q = (
+            self.db.table("conversations")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("scope", scope)
+        )
+        q = q.is_("scope_id", "null") if scope_id is None else q.eq("scope_id", scope_id)
+        res = q.limit(1).execute()
+        return _row(res.data[0]) if res.data else None
+
     def search(
         self,
         user_id: str,
@@ -151,7 +163,10 @@ class ConversationRepository:
         scope_id: str | None,
         limit: int = 10,
     ) -> list[SimpleNamespace]:
-        conv = self.get_or_create(user_id, scope, scope_id)
+        # Read-only: don't create an empty conversation just to search it.
+        conv = self._find(user_id, scope, scope_id)
+        if conv is None:
+            return []
         # Escape LIKE wildcards so user input doesn't match unintended patterns.
         safe = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         res = (

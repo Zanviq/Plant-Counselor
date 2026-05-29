@@ -36,6 +36,7 @@ BACKUP_DIR = Path(__file__).parent.parent.parent / "backups"
 _TABLES: list[str] = [
     "profiles",
     "plants",
+    "calendar_events",   # standalone events, FK → plants (RPC-backed, see below)
     "buds",
     "bud_history",
     "garden_state",
@@ -44,8 +45,14 @@ _TABLES: list[str] = [
     "notifications",
 ]
 
+# Tables not exposed via PostgREST — accessed through the exec_admin_query RPC
+# (same reason as CalendarEventRepository: PostgREST schema cache doesn't expose
+# the freshly-created calendar_events table).
+_RPC_TABLES: set[str] = {"calendar_events"}
+
 _BACKUP_VERSION = 1
 _INSERT_CHUNK = 500
+_PAGE_SIZE = 1000
 
 
 def _safe_name(filename: str) -> str:
@@ -92,21 +99,50 @@ class BackupService:
         logger.info("Backup created: %s (%d bytes, counts=%s)", filename, size, counts)
         return {"filename": filename, "size_bytes": size, "created_at": created_at, "counts": counts}
 
+    def _rpc_rows(self, sql: str) -> list[dict]:
+        """Run a SELECT through the exec_admin_query RPC and return its rows."""
+        res = self.db.rpc("exec_admin_query", {"sql_query": sql}).execute()
+        data = res.data
+        if isinstance(data, dict):
+            if data.get("error"):
+                raise RuntimeError(data["error"])
+            return data.get("rows", []) or []
+        return []
+
     def _dump_table(self, table: str) -> list[dict]:
-        """Fetch all rows from a table, paging to bypass PostgREST row limits."""
+        """Fetch all rows from a table, paging to bypass PostgREST row limits.
+        RPC-backed tables (not exposed via PostgREST) use the SQL RPC instead."""
+        if table in _RPC_TABLES:
+            return self._rpc_rows(f"select * from {table}")
         rows: list[dict] = []
         page = 0
-        page_size = 1000
         while True:
-            start = page * page_size
-            end = start + page_size - 1
+            start = page * _PAGE_SIZE
+            end = start + _PAGE_SIZE - 1
             res = self.db.table(table).select("*").range(start, end).execute()
             batch = res.data or []
             rows.extend(batch)
-            if len(batch) < page_size:
+            if len(batch) < _PAGE_SIZE:
                 break
             page += 1
         return rows
+
+    def _existing_ids(self, table: str) -> set:
+        """All primary keys currently in the table (paged for PostgREST)."""
+        if table in _RPC_TABLES:
+            return {r["id"] for r in self._rpc_rows(f"select id from {table}") if "id" in r}
+        ids: set = set()
+        page = 0
+        while True:
+            start = page * _PAGE_SIZE
+            end = start + _PAGE_SIZE - 1
+            res = self.db.table(table).select("id").range(start, end).execute()
+            batch = res.data or []
+            ids.update(r["id"] for r in batch if "id" in r)
+            if len(batch) < _PAGE_SIZE:
+                break
+            page += 1
+        return ids
 
     # ── List / inspect ──────────────────────────────────────────────────────
 
@@ -164,15 +200,18 @@ class BackupService:
             return summary
 
         # Existing primary keys → skip (never overwrite).
-        existing: set = set()
         try:
-            res = self.db.table(table).select("id").execute()
-            existing = {r["id"] for r in (res.data or []) if "id" in r}
+            existing = self._existing_ids(table)
         except Exception as e:
             logger.warning("Restore: could not read existing ids for %s: %s", table, e)
+            existing = set()
 
         new_rows = [r for r in rows if r.get("id") not in existing]
         summary["skipped"] = len(rows) - len(new_rows)
+
+        if table in _RPC_TABLES:
+            self._restore_rpc_rows(table, new_rows, summary)
+            return summary
 
         for i in range(0, len(new_rows), _INSERT_CHUNK):
             chunk = new_rows[i : i + _INSERT_CHUNK]
@@ -191,6 +230,32 @@ class BackupService:
                     except Exception:
                         summary["failed"] += 1
         return summary
+
+    def _restore_rpc_rows(self, table: str, new_rows: list[dict], summary: dict) -> None:
+        """Insert rows into an RPC-backed table via exec_admin_query, row by row."""
+        from app.repositories.calendar_event_repo import _lit
+
+        def _val(v: Any) -> str:
+            if v is None:
+                return "NULL"
+            if isinstance(v, bool):
+                return "TRUE" if v else "FALSE"
+            if isinstance(v, (int, float)):
+                return str(v)
+            return _lit(v)
+
+        for row in new_rows:
+            cols = list(row.keys())
+            vals = ", ".join(_val(row[c]) for c in cols)
+            col_sql = ", ".join(cols)
+            sql = f"insert into {table} ({col_sql}) values ({vals})"
+            try:
+                res = self.db.rpc("exec_admin_query", {"sql_query": sql}).execute()
+                if isinstance(res.data, dict) and res.data.get("error"):
+                    raise RuntimeError(res.data["error"])
+                summary["inserted"] += 1
+            except Exception:
+                summary["failed"] += 1
 
     # ── Delete ──────────────────────────────────────────────────────────────
 

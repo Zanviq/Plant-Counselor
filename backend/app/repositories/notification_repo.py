@@ -23,6 +23,21 @@ class NotificationRepository:
         res = self.db.table("notifications").insert(row).execute()
         return _row(res.data[0])
 
+    def has_unacked(self, user_id: str, kind: str, bud_id: str) -> bool:
+        """True if an unread notification of this kind already exists for the bud.
+        Used to avoid re-pushing the same deadline warning every scan."""
+        res = (
+            self.db.table("notifications")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("kind", kind)
+            .is_("acked_at", "null")
+            .contains("payload", {"bud_id": bud_id})
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+
     def list_unread(self, user_id: str) -> list[SimpleNamespace]:
         res = (
             self.db.table("notifications")

@@ -296,6 +296,7 @@ export const restoreBackup = (filename: string) =>
 export const deleteBackup = (filename: string) =>
   apiDelete<{ deleted: string }>(`/admin/backups/${encodeURIComponent(filename)}`);
 
-/** Backup download URL — opened directly so the browser saves the .zip. */
+/** API path fragment for a backup download. Pass to downloadFile() (which
+ *  prepends the API base and the Bearer token) — do NOT use as a plain <a href>. */
 export const backupDownloadPath = (filename: string) =>
   `/admin/backups/${encodeURIComponent(filename)}/download`;

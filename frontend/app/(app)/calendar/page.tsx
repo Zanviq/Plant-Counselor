@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   getCalendar, getSummary, getBriefing,
   createCalendarEvent, deleteCalendarEvent,
+  type CalEvent,
 } from "@/lib/api/stats";
 import { listPlants, Plant } from "@/lib/api/plants";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -21,17 +22,6 @@ function daysInMonth(y: number, m: number) { return new Date(y, m + 1, 0).getDat
 function firstWeekday(y: number, m: number) { return (new Date(y, m, 1).getDay() + 6) % 7; }
 function ymd(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-interface CalEvent {
-  id: string;
-  title: string;
-  status: string;
-  type: string;
-  detail: string;
-  plant_name: string;
-  plant_id: string | null;
-  source: "bud" | "event";
 }
 
 /** Dot/accent colour for an event: standalone events use the accent, bud
@@ -126,8 +116,10 @@ export default function CalendarPage() {
   }
 
   async function handleDeleteEvent(id: string) {
+    if (!window.confirm("이 일정을 삭제할까요?")) return;
     const r = await deleteCalendarEvent(id);
     if (r.ok) invalidateCalendar();
+    else window.alert(`일정 삭제 실패: ${r.error.message}`);
   }
 
   return (

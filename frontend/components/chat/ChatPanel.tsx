@@ -531,8 +531,7 @@ export default function ChatPanel() {
       clearPending();
       sendText(t);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingPrefill, pendingSend, historyLoaded]);
+  }, [pendingPrefill, pendingSend, historyLoaded, clearPending, sendText]);
 
   if (!open) return null;
 

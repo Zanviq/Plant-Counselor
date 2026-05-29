@@ -134,10 +134,15 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
         })}
       </div>
 
-      {/* Label + actions — z-index above ground layers */}
+      {/* Label + actions — z-index above ground layers.
+          The garden sits on a fixed light sky image, so use dark, theme-independent
+          text (with a light halo) — otherwise the name is invisible in dark mode. */}
       <div style={{ textAlign: "center", marginTop: 6, position: "relative", zIndex: 10 }}>
-        <div className="t-h3" style={{ color: selected ? "var(--fg)" : "var(--fg-muted)" }}>{plant.name}</div>
-        <div className="t-caption" style={{ color: "var(--fg-subtle)", marginTop: 2 }}>{activeBuds.length}개 봉우리</div>
+        <div className="t-h3" style={{
+          color: selected ? "#23301a" : "rgba(35,48,26,0.6)",
+          textShadow: "0 1px 3px rgba(255,255,255,0.6)",
+        }}>{plant.name}</div>
+        <div className="t-caption" style={{ color: "rgba(35,48,26,0.5)", marginTop: 2, textShadow: "0 1px 2px rgba(255,255,255,0.5)" }}>{activeBuds.length}개 봉우리</div>
         {selected && (
           <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8 }}>
             <button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); onDetail(); }}>상세</button>
@@ -171,7 +176,7 @@ function ViewToggle({ current, onChange }: { current: ViewMode; onChange: (m: Vi
 
 export default function PlantsPage() {
   const router = useRouter();
-  const { openWith } = useChatStore();
+  const { openWith, scope } = useChatStore();
   const { accessToken } = useAuthStore();
   const [view, setView] = useState<ViewMode>("garden");
   const [query, setQuery] = useState("");
@@ -231,6 +236,14 @@ export default function PlantsPage() {
   useEffect(() => {
     if (selectedIdx >= filtered.length) setSelectedIdx(Math.max(0, filtered.length - 1));
   }, [filtered.length, selectedIdx]);
+
+  // When the chat session switches to a plant, surface that plant in the garden
+  // carousel (the scroll effect above then centers it).
+  useEffect(() => {
+    if (scope.kind !== "plant" || !scope.id) return;
+    const idx = filtered.findIndex((p) => p.id === scope.id);
+    if (idx >= 0) setSelectedIdx(idx);
+  }, [scope.kind, scope.id, filtered]);
 
   return (
     <div style={{ padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>

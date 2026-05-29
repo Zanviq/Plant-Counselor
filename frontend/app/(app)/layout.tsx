@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -17,9 +17,10 @@ import type { UserProfile } from "@/lib/store/authStore";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const qc = useQueryClient();
   const { accessToken, user, setSession, clearSession } = useAuthStore();
-  const { open, openWith, chatWidth } = useChatStore();
+  const { open, openWith, chatWidth, setScope } = useChatStore();
   const initialized = useRef(false);
 
   /** Warm the caches that every page needs — called once after a valid token is available. */
@@ -105,6 +106,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Match the chat session to the current page: 홈/정원 → 전체(global), 캘린더 → calendar.
+  // Plant detail / history / settings pages keep whatever scope is active.
+  useEffect(() => {
+    if (pathname === "/home" || pathname === "/plants") setScope({ kind: "global" });
+    else if (pathname === "/calendar") setScope({ kind: "calendar" });
+  }, [pathname, setScope]);
 
   // Global space-key opens chat (when not in input)
   useEffect(() => {

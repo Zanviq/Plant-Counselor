@@ -23,6 +23,8 @@ interface ChatState {
   /** One-shot: text to auto-send after a scope change. */
   pendingSend: string | null;
   openWith: (scope?: ChatScope, opts?: OpenOpts) => void;
+  /** Change the session scope WITHOUT opening the panel (e.g. on page navigation). */
+  setScope: (scope: ChatScope) => void;
   close: () => void;
   toggle: () => void;
   setDraft: (text: string) => void;
@@ -50,6 +52,7 @@ export const useChatStore = create<ChatState>()(
           pendingPrefill: opts?.prefill ?? null,
           pendingSend: opts?.send ?? null,
         }),
+      setScope: (scope) => set({ scope, pendingPrefill: null, pendingSend: null }),
       close: () => set({ open: false }),
       toggle: () => set((s) => ({ open: !s.open })),
       setDraft: (text) => set({ draft: text }),

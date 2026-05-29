@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
 import { listBuds, getBud, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -228,8 +228,16 @@ export default function PlantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
-  const { openWith } = useChatStore();
+  const { openWith, scope } = useChatStore();
   const { accessToken } = useAuthStore();
+
+  // Follow the chat session: if it switches to a *different* plant (e.g. via the
+  // "세션 변경" banner), navigate to that plant's detail page.
+  useEffect(() => {
+    if (scope.kind === "plant" && scope.id && scope.id !== id) {
+      router.push(`/plants/${scope.id}`);
+    }
+  }, [scope.kind, scope.id, id, router]);
   const [selectedBudId, setSelectedBudId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [confirming, setConfirming] = useState(false);

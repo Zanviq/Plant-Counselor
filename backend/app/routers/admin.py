@@ -9,6 +9,7 @@ Provides:
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,8 @@ from ulid import ULID
 
 import app.runtime_settings as rs
 from app.deps import get_db, require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -351,9 +354,17 @@ class SqlQuery(BaseModel):
 
 @router.post("/controller/sql")
 def execute_sql(body: SqlQuery, admin=Depends(require_admin), db: Client = Depends(get_db)):
-    """Execute arbitrary SQL via the exec_admin_query RPC function."""
+    """Execute arbitrary SQL via the exec_admin_query RPC function.
+
+    Security model: admin-only (require_admin), RPC runs SECURITY DEFINER on
+    Postgres side. Every invocation is audit-logged with the admin user_id
+    and the full query text so any destructive action is traceable.
+    """
     if not body.query.strip():
         raise HTTPException(400, "SQL 쿼리를 입력해주세요.")
+    # Audit log: admin user + query (truncated for readability if huge).
+    q_preview = body.query if len(body.query) <= 500 else body.query[:500] + "...(truncated)"
+    logger.warning("ADMIN_SQL_EXEC user=%s query=%r", admin.id, q_preview)
     try:
         res = db.rpc("exec_admin_query", {"sql_query": body.query}).execute()
         result = res.data

@@ -260,3 +260,42 @@ export const getUserBuds = (userId: string) =>
 
 export const deleteBud = (budId: string) =>
   apiDelete<{ deleted_id: string }>(`/admin/data/buds/${budId}`);
+
+// ── Backup / Restore ─────────────────────────────────────────────────────────
+
+export interface BackupMeta {
+  filename: string;
+  size_bytes: number;
+  created_at?: string;
+  counts?: Record<string, number>;
+  total_rows?: number;
+  error?: string;
+}
+
+export interface RestoreTableResult {
+  total: number;
+  inserted: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface RestoreResult {
+  filename: string;
+  tables: Record<string, RestoreTableResult>;
+}
+
+export const createBackup = () =>
+  apiPost<BackupMeta>("/admin/backup", {});
+
+export const listBackups = () =>
+  apiGet<{ items: BackupMeta[] }>("/admin/backups");
+
+export const restoreBackup = (filename: string) =>
+  apiPost<RestoreResult>(`/admin/backups/${encodeURIComponent(filename)}/restore`, {});
+
+export const deleteBackup = (filename: string) =>
+  apiDelete<{ deleted: string }>(`/admin/backups/${encodeURIComponent(filename)}`);
+
+/** Backup download URL — opened directly so the browser saves the .zip. */
+export const backupDownloadPath = (filename: string) =>
+  `/admin/backups/${encodeURIComponent(filename)}/download`;

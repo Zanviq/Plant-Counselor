@@ -89,6 +89,32 @@ export async function apiDelete<T>(path: string, data?: unknown) {
   return apiFetch<T>(path, { method: "DELETE", body: data ? JSON.stringify(data) : undefined });
 }
 
+/**
+ * Download a file from an authenticated endpoint and trigger a browser save.
+ * Plain <a href> can't send the Bearer token, so we fetch the blob ourselves.
+ */
+export async function downloadFile(path: string, suggestedName: string): Promise<{ ok: boolean; error?: string }> {
+  const token = _getToken?.();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    const res = await fetch(`${BASE}${path}`, { headers, credentials: "include" });
+    if (!res.ok) return { ok: false, error: `다운로드 실패 (${res.status})` };
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: `네트워크 오류: ${String(e)}` };
+  }
+}
+
 export function streamChat(
   payload: { text: string; scope?: string; scope_id?: string; current_screen?: string },
   callbacks: {

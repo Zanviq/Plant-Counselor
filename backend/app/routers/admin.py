@@ -15,12 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from supabase import Client
 from ulid import ULID
 
 import app.runtime_settings as rs
 from app.deps import get_db, require_admin
+from app.services.backup_service import BackupService
 
 logger = logging.getLogger(__name__)
 
@@ -639,3 +641,64 @@ def delete_bud(bud_id: str, admin=Depends(require_admin), db: Client = Depends(g
     if not res.data:
         raise HTTPException(404, "봉우리를 찾을 수 없습니다.")
     return {"ok": True, "data": {"deleted_id": bud_id}}
+
+
+# ── Backup / Restore ──────────────────────────────────────────────────────────
+
+@router.post("/backup")
+def create_backup(admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Create a full data backup (all tables) as a compressed ZIP archive."""
+    try:
+        meta = BackupService(db).create_backup()
+        logger.info("ADMIN_BACKUP_CREATE user=%s file=%s", admin.id, meta["filename"])
+        return {"ok": True, "data": meta}
+    except Exception as e:
+        logger.error("Backup creation failed: %s", e, exc_info=True)
+        raise HTTPException(500, f"백업 생성 실패: {e}")
+
+
+@router.get("/backups")
+def list_backups(admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """List all stored backup archives, newest first."""
+    return {"ok": True, "data": {"items": BackupService(db).list_backups()}}
+
+
+@router.post("/backups/{filename}/restore")
+def restore_backup(filename: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Restore a backup. Existing rows (same id) are skipped, never overwritten."""
+    try:
+        result = BackupService(db).restore_backup(filename)
+        logger.warning("ADMIN_BACKUP_RESTORE user=%s file=%s", admin.id, filename)
+        return {"ok": True, "data": result}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        logger.error("Backup restore failed: %s", e, exc_info=True)
+        raise HTTPException(500, f"복원 실패: {e}")
+
+
+@router.get("/backups/{filename}/download")
+def download_backup(filename: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Download a backup archive file."""
+    try:
+        path = BackupService(db).backup_path(filename)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    return FileResponse(path, media_type="application/zip", filename=path.name)
+
+
+@router.delete("/backups/{filename}")
+def delete_backup(filename: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete a stored backup archive."""
+    try:
+        BackupService(db).delete_backup(filename)
+        logger.info("ADMIN_BACKUP_DELETE user=%s file=%s", admin.id, filename)
+        return {"ok": True, "data": {"deleted": filename}}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))

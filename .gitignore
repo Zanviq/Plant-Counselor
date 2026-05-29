@@ -25,6 +25,9 @@ backend/.env
 # Chat debug logs (large, ephemeral)
 backend/logs/
 
+# Data backup archives (large, may contain user data)
+backend/backups/
+
 # ── Node / Frontend ───────────────────────────
 node_modules/
 .pnp

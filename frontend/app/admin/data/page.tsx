@@ -9,8 +9,11 @@ import {
   getUserBuds,        deleteBud,
   deleteUserConversations, deleteAllConversations, deleteAllLogFiles,
   adminDeleteUserAccount,
+  createBackup, listBackups, restoreBackup, deleteBackup, backupDownloadPath,
   type AdminUser, type ConversationItem, type PlantItem, type BudItem,
+  type BackupMeta, type RestoreResult,
 } from "@/lib/api/admin";
+import { downloadFile } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/store/authStore";
 
 // ── Shared ────────────────────────────────────────────────────────────────────
@@ -484,6 +487,186 @@ function GlobalOps({ onResult }: { onResult: (r: { ok: boolean; msg: string }) =
   );
 }
 
+// ── Backup / Restore ────────────────────────────────────────────────────────
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function BackupSection({ onResult }: { onResult: (r: { ok: boolean; msg: string }) => void }) {
+  const { accessToken } = useAuthStore();
+  const qc = useQueryClient();
+  const { confirm, modal } = useConfirm();
+  const [busy, setBusy] = useState<string>("");  // "create" | "restore:<file>" | "delete:<file>" | "download:<file>"
+  const [restoreReport, setRestoreReport] = useState<RestoreResult | null>(null);
+
+  const { data: res, isLoading } = useQuery({
+    queryKey: ["admin", "backups"],
+    queryFn: listBackups,
+    enabled: !!accessToken,
+  });
+  const backups: BackupMeta[] = res?.ok ? res.data.items : [];
+
+  async function handleCreate() {
+    setBusy("create");
+    const r = await createBackup();
+    setBusy("");
+    if (r.ok) {
+      qc.invalidateQueries({ queryKey: ["admin", "backups"] });
+      const total = r.data.counts ? Object.values(r.data.counts).reduce((s, n) => s + n, 0) : 0;
+      onResult({ ok: true, msg: `백업 생성 완료 · ${r.data.filename} (${total.toLocaleString()}행, ${fmtBytes(r.data.size_bytes)})` });
+    } else {
+      onResult({ ok: false, msg: `백업 생성 실패: ${r.error.message}` });
+    }
+  }
+
+  async function handleRestore(b: BackupMeta) {
+    const ok = await confirm(
+      "백업 복원",
+      [
+        `백업 파일: ${b.filename}`,
+        b.created_at ? `생성 시각: ${b.created_at.slice(0, 19).replace("T", " ")} UTC` : "",
+        "",
+        "이 백업의 데이터를 현재 DB로 가져옵니다.",
+        "이미 존재하는 항목(동일 ID)은 덮어쓰지 않고 건너뜁니다.",
+        "새로운 항목만 추가됩니다.",
+      ].filter(Boolean).join("\n"),
+      "복원하기",
+    );
+    if (!ok) return;
+    setBusy(`restore:${b.filename}`);
+    setRestoreReport(null);
+    const r = await restoreBackup(b.filename);
+    setBusy("");
+    if (r.ok) {
+      setRestoreReport(r.data);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      const totals = Object.values(r.data.tables).reduce(
+        (acc, t) => ({ inserted: acc.inserted + t.inserted, skipped: acc.skipped + t.skipped, failed: acc.failed + t.failed }),
+        { inserted: 0, skipped: 0, failed: 0 },
+      );
+      onResult({ ok: true, msg: `복원 완료 · 추가 ${totals.inserted} · 건너뜀 ${totals.skipped}${totals.failed ? ` · 실패 ${totals.failed}` : ""}` });
+    } else {
+      onResult({ ok: false, msg: `복원 실패: ${r.error.message}` });
+    }
+  }
+
+  async function handleDownload(b: BackupMeta) {
+    setBusy(`download:${b.filename}`);
+    const r = await downloadFile(backupDownloadPath(b.filename), b.filename);
+    setBusy("");
+    if (!r.ok) onResult({ ok: false, msg: r.error ?? "다운로드 실패" });
+  }
+
+  async function handleDelete(b: BackupMeta) {
+    const ok = await confirm("백업 파일 삭제", `${b.filename} 백업 파일을 삭제합니다.\n\n되돌릴 수 없습니다.`, "삭제");
+    if (!ok) return;
+    setBusy(`delete:${b.filename}`);
+    const r = await deleteBackup(b.filename);
+    setBusy("");
+    if (r.ok) {
+      qc.invalidateQueries({ queryKey: ["admin", "backups"] });
+      onResult({ ok: true, msg: "백업 파일이 삭제됐습니다." });
+    } else {
+      onResult({ ok: false, msg: "삭제 실패" });
+    }
+  }
+
+  return (
+    <>
+      {modal()}
+      <div style={{ background: "#1a1f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", padding: "16px 20px", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            데이터 백업 / 복원
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={busy === "create"}
+            style={{ marginLeft: "auto", padding: "7px 16px", borderRadius: 7, border: "none", background: "#3b82f6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: busy === "create" ? "default" : "pointer", opacity: busy === "create" ? 0.6 : 1 }}
+          >
+            {busy === "create" ? "백업 생성 중…" : "+ 지금 백업 생성"}
+          </button>
+        </div>
+
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1.6, marginBottom: 14 }}>
+          모든 사용자의 프로필·식물·봉우리·봉우리 기록·대화·메시지·정원 상태·알림을 ZIP으로 압축 저장합니다.
+          복원 시 <strong style={{ color: "rgba(255,255,255,0.45)" }}>이미 존재하는 항목(동일 ID)은 덮어쓰지 않고 건너뜁니다.</strong>
+        </div>
+
+        {/* Restore report */}
+        {restoreReport && (
+          <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#34d399", marginBottom: 8 }}>
+              복원 결과: {restoreReport.filename}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 6 }}>
+              {Object.entries(restoreReport.tables).map(([table, t]) => (
+                <div key={table} style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                  <span style={{ fontFamily: "monospace", color: "#60a5fa" }}>{table}</span>
+                  {": "}추가 {t.inserted} · 건너뜀 {t.skipped}
+                  {t.failed > 0 && <span style={{ color: "#f87171" }}> · 실패 {t.failed}</span>}
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setRestoreReport(null)} style={{ marginTop: 8, background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 11, cursor: "pointer", padding: 0 }}>닫기</button>
+          </div>
+        )}
+
+        {/* Backup list */}
+        {isLoading ? (
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>백업 목록 로딩 중...</p>
+        ) : backups.length === 0 ? (
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>저장된 백업이 없습니다.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+            {backups.map((b) => {
+              const restoring = busy === `restore:${b.filename}`;
+              return (
+                <div key={b.filename} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 7, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "#fff", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {b.filename}
+                    </div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+                      {b.error
+                        ? <span style={{ color: "#f87171" }}>{b.error}</span>
+                        : <>{(b.total_rows ?? 0).toLocaleString()}행 · {fmtBytes(b.size_bytes)} · {b.created_at?.slice(0, 19).replace("T", " ")} UTC</>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRestore(b)}
+                    disabled={!!busy}
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "rgba(52,211,153,0.12)", color: "#34d399", fontSize: 11, fontWeight: 600, cursor: busy ? "default" : "pointer", flexShrink: 0, opacity: busy && !restoring ? 0.5 : 1 }}
+                  >
+                    {restoring ? "복원 중…" : "복원"}
+                  </button>
+                  <button
+                    onClick={() => handleDownload(b)}
+                    disabled={!!busy}
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 600, cursor: busy ? "default" : "pointer", flexShrink: 0 }}
+                  >
+                    다운로드
+                  </button>
+                  <button
+                    onClick={() => handleDelete(b)}
+                    disabled={!!busy}
+                    style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "rgba(239,68,68,0.1)", color: "#f87171", fontSize: 11, cursor: busy ? "default" : "pointer", flexShrink: 0 }}
+                  >
+                    삭제
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function AdminDataPage() {
@@ -507,6 +690,8 @@ export default function AdminDataPage() {
       </header>
 
       {result && <Result ok={result.ok} msg={result.msg} onDismiss={() => setResult(null)} />}
+
+      <BackupSection onResult={setResult} />
 
       <GlobalOps onResult={setResult} />
 

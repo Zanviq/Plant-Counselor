@@ -22,8 +22,8 @@ def update_me(body: UserUpdate, user=Depends(require_user), db: Client = Depends
 
 @router.delete("")
 def delete_account(user=Depends(require_user), db: Client = Depends(get_db)):
-    UserService(db).delete_account(user.id)
-    return {"ok": True, "data": {}}
+    deleted = UserService(db).delete_account(user.id)
+    return {"ok": True, "data": {"deleted": deleted}}
 
 
 @router.put("/api-key")

@@ -478,3 +478,92 @@ def set_virtual_time(body: TimeOffsetBody, admin=Depends(require_admin)):
             "offset_days": round(rs.time_offset_seconds() / 86400, 2),
         },
     }
+
+
+# ── Cleanup / Purge ───────────────────────────────────────────────────────────
+
+@router.delete("/controller/users/{user_id}/conversations")
+def delete_user_conversations(user_id: str, include_logs: bool = True,
+                               admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete all conversations (+ messages via CASCADE) for one user.
+    Optionally also wipes the AI chat log files for that user.
+    """
+    conv_res = db.table("conversations").delete().eq("user_id", user_id).execute()
+    deleted_convs = len(conv_res.data or [])
+
+    deleted_logs = 0
+    if include_logs:
+        from pathlib import Path
+        import logging
+        log_dir = Path(__file__).parent.parent.parent / "logs" / "chat"
+        uid8 = user_id[:8]
+        if log_dir.exists():
+            for p in log_dir.glob("*.json"):
+                if uid8 in p.stem:
+                    try:
+                        p.unlink()
+                        deleted_logs += 1
+                    except Exception:
+                        pass
+
+    return {
+        "ok": True,
+        "data": {
+            "deleted_conversations": deleted_convs,
+            "deleted_log_files": deleted_logs,
+        },
+    }
+
+
+@router.delete("/controller/conversations/all")
+def delete_all_conversations(include_logs: bool = True,
+                              admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete ALL conversations and messages across all users."""
+    # Delete all conversation_messages first (redundant due to CASCADE but explicit)
+    db.table("conversation_messages").delete().neq("id", "").execute()
+    conv_res = db.table("conversations").delete().neq("id", "").execute()
+    deleted_convs = len(conv_res.data or [])
+
+    deleted_logs = 0
+    if include_logs:
+        from pathlib import Path
+        log_dir = Path(__file__).parent.parent.parent / "logs" / "chat"
+        if log_dir.exists():
+            for p in log_dir.glob("*.json"):
+                try:
+                    p.unlink()
+                    deleted_logs += 1
+                except Exception:
+                    pass
+
+    return {
+        "ok": True,
+        "data": {
+            "deleted_conversations": deleted_convs,
+            "deleted_log_files": deleted_logs,
+        },
+    }
+
+
+@router.delete("/controller/logs/all")
+def delete_all_log_files(admin=Depends(require_admin)):
+    """Delete all AI chat log JSON files from disk (keep DB conversations)."""
+    from pathlib import Path
+    log_dir = Path(__file__).parent.parent.parent / "logs" / "chat"
+    deleted = 0
+    if log_dir.exists():
+        for p in log_dir.glob("*.json"):
+            try:
+                p.unlink()
+                deleted += 1
+            except Exception:
+                pass
+    return {"ok": True, "data": {"deleted_log_files": deleted}}
+
+
+@router.delete("/controller/users/{user_id}/account")
+def admin_delete_user_account(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Admin-triggered full account deletion (same as user self-deletion)."""
+    from app.services.user_service import UserService
+    deleted = UserService(db).delete_account(user_id)
+    return {"ok": True, "data": {"deleted": deleted}}

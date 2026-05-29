@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiGet, apiPatch, apiPost, apiDelete } from "./client";
 
 export interface AdminStats {
   total_users: number;
@@ -188,3 +188,23 @@ export const setTimeOffset = (body: {
   "/admin/controller/time",
   body
 );
+
+// ── Cleanup / Purge ────────────────────────────────────────────────────────
+
+export interface PurgeResult {
+  deleted_conversations?: number;
+  deleted_log_files?: number;
+  deleted?: Record<string, number>;
+}
+
+export const deleteUserConversations = (userId: string, includeLogs = true) =>
+  apiDelete<PurgeResult>(`/admin/controller/users/${userId}/conversations?include_logs=${includeLogs}`);
+
+export const deleteAllConversations = (includeLogs = true) =>
+  apiDelete<PurgeResult>(`/admin/controller/conversations/all?include_logs=${includeLogs}`);
+
+export const deleteAllLogFiles = () =>
+  apiDelete<PurgeResult>("/admin/controller/logs/all");
+
+export const adminDeleteUserAccount = (userId: string) =>
+  apiDelete<PurgeResult>(`/admin/controller/users/${userId}/account`);

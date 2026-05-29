@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.ai.permissions import guard_bud
 from app.ai.skill_base import SkillBase, SkillResult, SkillContext
 
 
@@ -28,6 +29,9 @@ class SetDeadlineSkill(SkillBase):
                 message="날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.",
                 error_code="invalid_argument",
             )
+        _, err = guard_bud(ctx, args["bud_id"])
+        if err:
+            return err
         ctx.bud_service.set_deadline(ctx.user_id, args["bud_id"], d)
         return SkillResult(
             ok=True,

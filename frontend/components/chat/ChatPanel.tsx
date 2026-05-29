@@ -51,6 +51,8 @@ const SKILLS_INFO = [
   { name: "delete_plant",         desc: "식물 삭제" },
   { name: "create_bud",           desc: "봉우리(고민/일정) 추가" },
   { name: "create_calendar_event", desc: "캘린더 단순 일정 추가 (봉우리 없이)" },
+  { name: "update_calendar_event", desc: "일반 일정 수정" },
+  { name: "delete_calendar_event", desc: "일반 일정 삭제" },
   { name: "update_bud_status",    desc: "봉우리 상태 변경" },
   { name: "update_bud_progress",  desc: "봉우리 진행률 변경" },
   { name: "set_deadline",         desc: "마감일 설정" },
@@ -69,6 +71,8 @@ const SKILL_INVALIDATIONS: Record<string, string[]> = {
   delete_plant:          ["plants", "buds", "stats", "briefing"],
   create_bud:            ["buds", "plants", "stats", "briefing", "calendar"],
   create_calendar_event: ["calendar"],
+  update_calendar_event: ["calendar"],
+  delete_calendar_event: ["calendar"],
   update_bud_status:   ["buds", "plants", "stats", "briefing", "bud"],
   update_bud_progress: ["buds", "bud"],
   harvest_bud:         ["buds", "plants", "stats", "briefing", "bud"],
@@ -137,6 +141,8 @@ interface ScopeSuggestion {
   targetScope: "plant" | "bud" | "global";
   targetId?: string;
   targetName: string;
+  /** The user message that triggered the suggestion — carried into the new session. */
+  carryText: string;
 }
 
 function ScopeSuggestionBanner({
@@ -236,7 +242,8 @@ function Sep() {
 
 export default function ChatPanel() {
   const router = useRouter();
-  const { open, close, scope, openWith, chatWidth, setChatWidth } = useChatStore();
+  const { open, close, scope, openWith, chatWidth, setChatWidth,
+          pendingPrefill, pendingSend, clearPending } = useChatStore();
   const { user } = useAuthStore();
   const qc = useQueryClient();
 
@@ -471,6 +478,7 @@ export default function ChatPanel() {
                 targetScope: (r.data.target_scope as "plant" | "bud" | "global") ?? "plant",
                 targetId: r.data.target_id as string | undefined,
                 targetName: (r.data.target_name as string) ?? "",
+                carryText: text,  // carry the user's original message into the new session
               });
             }
           }
@@ -507,6 +515,24 @@ export default function ChatPanel() {
     if (t.startsWith("/")) { runCommand(t); return; }
     sendText(t);
   }, [input, loading, runCommand, sendText]);
+
+  // Consume one-shot pending actions set by openWith():
+  //  - pendingPrefill → drop the carried-over text into the input (user presses Enter)
+  //  - pendingSend    → auto-send once the new session's history has loaded
+  useEffect(() => {
+    if (pendingPrefill) {
+      setInput(pendingPrefill);
+      clearPending();
+      setTimeout(() => inputRef.current?.focus(), 60);
+      return;
+    }
+    if (pendingSend && historyLoaded) {
+      const t = pendingSend;
+      clearPending();
+      sendText(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPrefill, pendingSend, historyLoaded]);
 
   if (!open) return null;
 
@@ -688,13 +714,16 @@ export default function ChatPanel() {
         <ScopeSuggestionBanner
           suggestion={scopeSuggestion}
           onConfirm={() => {
-            const { targetScope, targetId } = scopeSuggestion;
+            const { targetScope, targetId, carryText } = scopeSuggestion;
+            // Carry the original question into the new session's input box so the
+            // user only needs to press Enter to re-run it in the correct scope.
+            const opts = carryText ? { prefill: carryText } : undefined;
             if (targetScope === "plant") {
-              openWith({ kind: "plant", id: targetId });
+              openWith({ kind: "plant", id: targetId }, opts);
             } else if (targetScope === "bud") {
-              openWith({ kind: "bud", id: targetId });
+              openWith({ kind: "bud", id: targetId }, opts);
             } else {
-              openWith({ kind: "global" });
+              openWith({ kind: "global" }, opts);
             }
             setScopeSuggestion(null);
           }}

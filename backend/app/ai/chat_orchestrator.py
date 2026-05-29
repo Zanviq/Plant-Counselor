@@ -42,6 +42,8 @@ class ChatOrchestrator:
             garden_state_service=gs_svc,
             conversation_service=conv_svc,
             calendar_service=cal_svc,
+            scope=scope,
+            scope_id=scope_id,
         )
 
         stats = gs_svc.get_summary(user_id) if gs_svc else {}

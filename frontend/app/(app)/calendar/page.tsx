@@ -109,6 +109,12 @@ export default function CalendarPage() {
     openWith({ kind: "calendar" });
   }
 
+  /** Open the calendar AI and actually ask it to explain today's schedule
+   *  (a real streamed LLM call, not a canned reply). */
+  function askCalendarAI() {
+    openWith({ kind: "calendar" }, { send: "오늘 일정 설명해줘" });
+  }
+
   function openAdd(dateKey?: string) {
     setAddDate(dateKey ?? selectedKey ?? todayKey);
     setAddOpen(true);
@@ -232,8 +238,8 @@ export default function CalendarPage() {
             ) : (
               <p className="t-caption" style={{ color: "var(--fg-muted)" }}>AI에게 오늘 일정을 물어보세요.</p>
             )}
-            <button className="btn btn-ghost btn-sm" onClick={openCalendarChat} style={{ marginTop: 8, paddingLeft: 0 }}>
-              AI에게 물어보기 →
+            <button className="btn btn-ghost btn-sm" onClick={askCalendarAI} style={{ marginTop: 8, paddingLeft: 0 }}>
+              오늘 일정 물어보기 →
             </button>
           </section>
 

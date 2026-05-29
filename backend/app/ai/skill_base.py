@@ -21,6 +21,9 @@ class SkillContext:
     garden_state_service: Any = None
     conversation_service: Any = None
     calendar_service: Any = None
+    # Current chat session scope — drives per-session edit/delete permissions.
+    scope: str = "global"          # global | plant | bud | calendar
+    scope_id: str | None = None    # plant_id (plant scope) or bud_id (bud scope)
 
 
 class SkillBase(ABC):

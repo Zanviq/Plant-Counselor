@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.ai.permissions import can_delete_plant
 from app.ai.skill_base import SkillBase, SkillResult, SkillContext
 
 
@@ -19,6 +20,9 @@ class DeletePlantSkill(SkillBase):
     }
 
     def run(self, args: dict, ctx: SkillContext) -> SkillResult:
+        allowed, msg = can_delete_plant(ctx, args["plant_id"])
+        if not allowed:
+            return SkillResult(ok=False, message=msg, error_code="forbidden", data={"forbidden": True})
         ctx.plant_service.delete(
             ctx.user_id, args["plant_id"], args.get("archive", True)
         )

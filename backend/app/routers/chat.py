@@ -12,6 +12,7 @@ from app.ai.skills.abandon_bud import AbandonBudSkill
 from app.ai.skills.create_bud import CreateBudSkill
 from app.ai.skills.create_calendar_event import CreateCalendarEventSkill
 from app.ai.skills.create_plant import CreatePlantSkill
+from app.ai.skills.delete_calendar_event import DeleteCalendarEventSkill
 from app.ai.skills.delete_plant import DeletePlantSkill
 from app.ai.skills.get_garden_briefing import GetGardenBriefingSkill
 from app.ai.skills.get_statistics import GetStatisticsSkill
@@ -19,6 +20,7 @@ from app.ai.skills.harvest_bud import HarvestBudSkill
 from app.ai.skills.list_buds import ListBudsSkill
 from app.ai.skills.list_calendar_events import ListCalendarEventsSkill
 from app.ai.skills.list_plants import ListPlantsSkill
+from app.ai.skills.update_calendar_event import UpdateCalendarEventSkill
 from app.ai.skills.match_plant import MatchPlantSkill
 from app.ai.skills.search_conversation import SearchConversationSkill
 from app.ai.skills.set_deadline import SetDeadlineSkill
@@ -48,6 +50,7 @@ def _build_registry() -> SkillRegistry:
         ListPlantsSkill, ListBudsSkill, GetStatisticsSkill,
         GetGardenBriefingSkill, SearchConversationSkill, SuggestScopeChangeSkill,
         CreateCalendarEventSkill, ListCalendarEventsSkill,
+        UpdateCalendarEventSkill, DeleteCalendarEventSkill,
     ):
         reg.register(skill_cls())
     return reg

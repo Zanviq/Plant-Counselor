@@ -65,11 +65,10 @@ def _resolve_api_key(db: Client, user) -> str:
 def chat_message(req: ChatRequest, user=Depends(require_user), db: Client = Depends(get_db)):
     import app.runtime_settings as rs
     api_key = _resolve_api_key(db, user)
-    # Per-user model override (set via admin controller) takes priority,
-    # then the runtime default, then LLMClient.DEFAULT_MODEL.
+    # Priority: per-user override → runtime default → LLMClient.DEFAULT_MODEL.
     user_model = getattr(user, "ai_model", None)
     global_model = rs.get("llm_default_model", LLMClient.DEFAULT_MODEL)
-    model = user_model if user_model and user_model != "gemini-2.5-flash" else global_model
+    model = user_model or global_model
     llm = LLMClient(api_key, model=model)
     services = {
         "plant": PlantService(db),

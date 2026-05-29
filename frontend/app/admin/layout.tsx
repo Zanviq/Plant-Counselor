@@ -173,11 +173,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Guard: if user is loaded but not admin, redirect
-  if (user && user.role !== "admin") {
-    router.replace("/home");
-    return null;
-  }
+  // Guard: if user is loaded but not admin, redirect (side effect must run in effect).
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      router.replace("/home");
+    }
+  }, [user, router]);
+
+  if (user && user.role !== "admin") return null;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex" }}>

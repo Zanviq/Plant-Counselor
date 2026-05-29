@@ -9,10 +9,8 @@ Provides:
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +18,7 @@ from pydantic import BaseModel
 from supabase import Client
 from ulid import ULID
 
+import app.runtime_settings as rs
 from app.deps import get_db, require_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -32,11 +31,6 @@ LOG_DIR = Path(__file__).parent.parent.parent / "logs" / "chat"
 def _all_users(db: Client) -> list[dict]:
     res = db.table("profiles").select("*").order("created_at", desc=False).execute()
     return res.data or []
-
-
-def _count_for_user(db: Client, table: str, user_id: str) -> int:
-    res = db.table(table).select("id", count="exact").eq("user_id", user_id).execute()
-    return res.count or 0
 
 
 def _log_files() -> list[Path]:
@@ -89,18 +83,9 @@ def get_stats(admin=Depends(require_admin), db: Client = Depends(get_db)):
     logs = _log_files()
     total_sessions = len(logs)
 
-    # Sessions in last 7 days
-    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
-    recent_sessions = sum(1 for p in logs if p.stem[:15] >= cutoff[:15].replace("-", "").replace("T", "_").replace(":", ""))
-
-    # Per-user session counts from log filenames
-    user_session_counts: dict[str, int] = {}
-    for p in logs:
-        # filename: YYYYMMDD_HHMMSS_XXX_<user_id_8chars>.json
-        parts = p.stem.split("_")
-        if len(parts) >= 4:
-            uid_prefix = parts[3]
-            user_session_counts[uid_prefix] = user_session_counts.get(uid_prefix, 0) + 1
+    # Sessions in last 7 days — compare YYYYMMDD prefix directly.
+    cutoff_date = (datetime.utcnow() - timedelta(days=7)).strftime("%Y%m%d")
+    recent_sessions = sum(1 for p in logs if p.stem[:8] >= cutoff_date)
 
     # Token estimate across all logs
     total_tokens = 0
@@ -139,17 +124,28 @@ def list_users(admin=Depends(require_admin), db: Client = Depends(get_db)):
         if len(parts) >= 4:
             log_counts[parts[3]] = log_counts.get(parts[3], 0) + 1
 
+    # Bulk fetch user_ids from plants/buds in two queries (vs 2*N before).
+    plants_res = db.table("plants").select("user_id").execute()
+    buds_res = db.table("buds").select("user_id").execute()
+    plant_counts: dict[str, int] = {}
+    bud_counts: dict[str, int] = {}
+    for row in (plants_res.data or []):
+        uid = row.get("user_id")
+        if uid:
+            plant_counts[uid] = plant_counts.get(uid, 0) + 1
+    for row in (buds_res.data or []):
+        uid = row.get("user_id")
+        if uid:
+            bud_counts[uid] = bud_counts.get(uid, 0) + 1
+
     result = []
     for u in users:
         uid = u["id"]
-        uid8 = uid[:8]
-        plant_count = _count_for_user(db, "plants", uid)
-        bud_count = _count_for_user(db, "buds", uid)
         result.append({
             **u,
-            "plant_count": plant_count,
-            "bud_count": bud_count,
-            "ai_session_count": log_counts.get(uid8, 0),
+            "plant_count": plant_counts.get(uid, 0),
+            "bud_count": bud_counts.get(uid, 0),
+            "ai_session_count": log_counts.get(uid[:8], 0),
         })
     return {"ok": True, "data": {"items": result}}
 
@@ -311,9 +307,6 @@ def get_notification_history(limit: int = 100, admin=Depends(require_admin), db:
 
 
 # ── Controller ────────────────────────────────────────────────────────────────
-
-import app.runtime_settings as rs
-
 
 @router.get("/controller/settings")
 def get_controller_settings(admin=Depends(require_admin)):
@@ -492,19 +485,15 @@ def delete_user_conversations(user_id: str, include_logs: bool = True,
     deleted_convs = len(conv_res.data or [])
 
     deleted_logs = 0
-    if include_logs:
-        from pathlib import Path
-        import logging
-        log_dir = Path(__file__).parent.parent.parent / "logs" / "chat"
+    if include_logs and LOG_DIR.exists():
         uid8 = user_id[:8]
-        if log_dir.exists():
-            for p in log_dir.glob("*.json"):
-                if uid8 in p.stem:
-                    try:
-                        p.unlink()
-                        deleted_logs += 1
-                    except Exception:
-                        pass
+        for p in LOG_DIR.glob("*.json"):
+            if uid8 in p.stem:
+                try:
+                    p.unlink()
+                    deleted_logs += 1
+                except Exception:
+                    pass
 
     return {
         "ok": True,
@@ -525,16 +514,13 @@ def delete_all_conversations(include_logs: bool = True,
     deleted_convs = len(conv_res.data or [])
 
     deleted_logs = 0
-    if include_logs:
-        from pathlib import Path
-        log_dir = Path(__file__).parent.parent.parent / "logs" / "chat"
-        if log_dir.exists():
-            for p in log_dir.glob("*.json"):
-                try:
-                    p.unlink()
-                    deleted_logs += 1
-                except Exception:
-                    pass
+    if include_logs and LOG_DIR.exists():
+        for p in LOG_DIR.glob("*.json"):
+            try:
+                p.unlink()
+                deleted_logs += 1
+            except Exception:
+                pass
 
     return {
         "ok": True,
@@ -548,11 +534,9 @@ def delete_all_conversations(include_logs: bool = True,
 @router.delete("/controller/logs/all")
 def delete_all_log_files(admin=Depends(require_admin)):
     """Delete all AI chat log JSON files from disk (keep DB conversations)."""
-    from pathlib import Path
-    log_dir = Path(__file__).parent.parent.parent / "logs" / "chat"
     deleted = 0
-    if log_dir.exists():
-        for p in log_dir.glob("*.json"):
+    if LOG_DIR.exists():
+        for p in LOG_DIR.glob("*.json"):
             try:
                 p.unlink()
                 deleted += 1
@@ -575,10 +559,19 @@ def admin_delete_user_account(user_id: str, admin=Depends(require_admin), db: Cl
 def get_user_conversations(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
     """List all conversations for a user with message count."""
     convs = db.table("conversations").select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
-    result = []
-    for c in (convs.data or []):
-        msg_res = db.table("conversation_messages").select("id", count="exact").eq("conversation_id", c["id"]).execute()
-        result.append({**c, "message_count": msg_res.count or 0})
+    convs_data = convs.data or []
+    if not convs_data:
+        return {"ok": True, "data": {"items": []}}
+
+    # Bulk fetch all messages for these conversations in one query (vs N).
+    conv_ids = [c["id"] for c in convs_data]
+    msgs_res = db.table("conversation_messages").select("conversation_id").in_("conversation_id", conv_ids).execute()
+    counts: dict[str, int] = {}
+    for m in (msgs_res.data or []):
+        cid = m["conversation_id"]
+        counts[cid] = counts.get(cid, 0) + 1
+
+    result = [{**c, "message_count": counts.get(c["id"], 0)} for c in convs_data]
     return {"ok": True, "data": {"items": result}}
 
 
@@ -595,11 +588,19 @@ def delete_conversation(conversation_id: str, admin=Depends(require_admin), db: 
 def get_user_plants(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
     """List all plants (including archived) for a user."""
     res = db.table("plants").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-    # Attach bud counts
-    result = []
-    for p in (res.data or []):
-        bud_res = db.table("buds").select("id", count="exact").eq("plant_id", p["id"]).execute()
-        result.append({**p, "bud_count": bud_res.count or 0})
+    plants_data = res.data or []
+    if not plants_data:
+        return {"ok": True, "data": {"items": []}}
+
+    # Bulk fetch bud counts per plant in one query.
+    plant_ids = [p["id"] for p in plants_data]
+    buds_res = db.table("buds").select("plant_id").in_("plant_id", plant_ids).execute()
+    bud_counts: dict[str, int] = {}
+    for b in (buds_res.data or []):
+        pid = b["plant_id"]
+        bud_counts[pid] = bud_counts.get(pid, 0) + 1
+
+    result = [{**p, "bud_count": bud_counts.get(p["id"], 0)} for p in plants_data]
     return {"ok": True, "data": {"items": result}}
 
 

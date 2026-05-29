@@ -1,9 +1,10 @@
 from __future__ import annotations
-from datetime import datetime, date
+from datetime import date
 from types import SimpleNamespace
 
 from supabase import Client
 
+import app.runtime_settings as rs
 from app.repositories.bud_repo import BudRepository
 
 _PROGRESS_TRANSITIONS: list[tuple[int, str]] = [
@@ -51,7 +52,7 @@ class BudService:
         from_status = bud.status
         updated = self._repo.update(user_id, bud_id, {
             "status": to_status,
-            "last_progress_at": datetime.utcnow().isoformat(),
+            "last_progress_at": rs.now().isoformat(),
         })
         self._repo.add_history(bud_id, from_status, to_status, reason)
         return updated or bud
@@ -60,7 +61,7 @@ class BudService:
                         auto_transition: bool = True, note: str = "") -> SimpleNamespace:
         bud = self.get(user_id, bud_id)
         progress = max(0, min(100, progress))
-        fields: dict = {"progress": progress, "last_progress_at": datetime.utcnow().isoformat()}
+        fields: dict = {"progress": progress, "last_progress_at": rs.now().isoformat()}
 
         if auto_transition:
             target_status = bud.status
@@ -97,20 +98,3 @@ class BudService:
             return None, []
         history = self._repo.get_history(bud_id)
         return bud, history
-
-    def purge_disappeared(self, user_id: str, older_than_days: int) -> None:
-        from datetime import timedelta
-        cutoff = (datetime.utcnow() - timedelta(days=older_than_days)).isoformat()
-        res = (
-            self.db.table("buds")
-            .select("id")
-            .eq("user_id", user_id)
-            .in_("status", ["rot", "harvested"])
-            .is_("disappeared_at", "null")
-            .lte("updated_at", cutoff)
-            .execute()
-        )
-        ids = [r["id"] for r in (res.data or [])]
-        if ids:
-            now = datetime.utcnow().isoformat()
-            self.db.table("buds").update({"disappeared_at": now}).in_("id", ids).execute()

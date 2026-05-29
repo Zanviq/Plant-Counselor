@@ -1,5 +1,4 @@
 from __future__ import annotations
-from datetime import datetime
 from types import SimpleNamespace
 
 from supabase import Client
@@ -74,23 +73,4 @@ class PlantRepository:
             .eq("user_id", user_id)
             .execute()
         )
-        return _row(res.data[0]) if res.data else None
-
-    def increment_stat(self, user_id: str, plant_id: str, stat_key: str) -> None:
-        # stat_key is a direct integer column: harvested_count or rot_count
-        plant = self.get(user_id, plant_id)
-        if plant is None:
-            return
-        current = int(getattr(plant, stat_key, 0) or 0)
-        self.db.table("plants").update({
-            stat_key: current + 1,
-            "last_activity_at": datetime.utcnow().isoformat(),
-        }).eq("id", plant_id).eq("user_id", user_id).execute()
-
-    def update_active_bud_count(self, user_id: str, plant_id: str, count: int) -> None:
-        self.db.table("plants").update({"active_bud_count": count}).eq("id", plant_id).eq("user_id", user_id).execute()
-
-    def update_stats(self, user_id: str, plant_id: str, stats_update: dict) -> SimpleNamespace | None:
-        # stats_update may contain harvested_count/rot_count/active_bud_count as direct columns
-        res = self.db.table("plants").update(stats_update).eq("id", plant_id).eq("user_id", user_id).execute()
         return _row(res.data[0]) if res.data else None

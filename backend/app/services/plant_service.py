@@ -3,11 +3,7 @@ from types import SimpleNamespace
 
 from supabase import Client
 
-from app.repositories.plant_repo import PlantRepository
-from app.repositories.bud_repo import BudRepository
-
-
-_ACTIVE_STATUSES = {"seed", "bud", "flower", "fruit", "wilting"}
+from app.repositories.plant_repo import PlantRepository, _rows
 
 
 class PlantService:
@@ -41,36 +37,15 @@ class PlantService:
             self.db.table("plants").delete().eq("id", plant_id).eq("user_id", user_id).execute()
 
     def find_matches(self, user_id: str, query: str, top_k: int = 3) -> list[SimpleNamespace]:
-        # Search by name only (PostgREST doesn't support OR filtering easily)
+        # Escape LIKE wildcards so user input doesn't match unintended patterns.
+        safe = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         res = (
             self.db.table("plants")
             .select("*")
             .eq("user_id", user_id)
             .neq("status", "archived")
-            .ilike("name", f"%{query}%")
+            .ilike("name", f"%{safe}%")
             .limit(top_k)
             .execute()
         )
-        from app.repositories.plant_repo import _rows
         return _rows(res.data or [])
-
-    def increment_harvest(self, user_id: str, plant_id: str) -> None:
-        self._repo.increment_stat(user_id, plant_id, "harvested_count")
-
-    def increment_rot(self, user_id: str, plant_id: str) -> None:
-        self._repo.increment_stat(user_id, plant_id, "rot_count")
-
-    def mark_dormant(self, user_id: str, plant_id: str) -> None:
-        plant = self._repo.update(user_id, plant_id, {"status": "dormant"})
-        if plant is None:
-            raise ValueError(f"식물을 찾을 수 없습니다: {plant_id}")
-
-    def update_stats(self, user_id: str, plant_id: str, stats_update: dict) -> SimpleNamespace:
-        plant = self._repo.update_stats(user_id, plant_id, stats_update)
-        if plant is None:
-            raise ValueError(f"식물을 찾을 수 없습니다: {plant_id}")
-        return plant
-
-    def refresh_active_bud_count(self, user_id: str, plant_id: str) -> None:
-        count = BudRepository(self.db).count_active(plant_id)
-        self._repo.update_active_bud_count(user_id, plant_id, count)

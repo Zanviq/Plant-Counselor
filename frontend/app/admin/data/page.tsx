@@ -146,6 +146,8 @@ function ConversationsPanel({ userId, onResult }: { userId: string; onResult: (r
       qc.invalidateQueries({ queryKey: ["admin", "data", "convs", userId] });
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       onResult({ ok: true, msg: `대화 ${r.data.deleted_conversations ?? 0}개 삭제됨` });
+    } else {
+      onResult({ ok: false, msg: "전체 삭제 실패" });
     }
   }
 

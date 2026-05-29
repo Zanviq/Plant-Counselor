@@ -105,13 +105,20 @@ export function streamChat(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
+  let doneFired = false;
+  const fireDone = () => {
+    if (doneFired) return;
+    doneFired = true;
+    callbacks.onDone?.();
+  };
+
   fetch(`${BASE}/chat/message`, {
     method: "POST",
     headers,
     credentials: "include",
     body: JSON.stringify(payload),
   }).then(async (res) => {
-    if (!res.body) return;
+    if (!res.body) { fireDone(); return; }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -138,10 +145,15 @@ export function streamChat(
           else if (event === "tool_result") callbacks.onToolResult?.(parsed.name, parsed.result);
           else if (event === "confirmation_required") callbacks.onConfirmationRequired?.(parsed.intended);
           else if (event === "error") callbacks.onError?.(parsed.code, parsed.message);
-          else if (event === "done") callbacks.onDone?.();
+          else if (event === "done") fireDone();
         } catch {}
       }
     }
-    callbacks.onDone?.();
-  }).catch((e) => callbacks.onError?.("network", String(e)));
+    // Fallback: if the server closes the stream without sending `done`, still fire.
+    fireDone();
+  }).catch((e) => {
+    callbacks.onError?.("network", String(e));
+    // Ensure onDone fires on network errors too, so UI loading state clears.
+    fireDone();
+  });
 }

@@ -191,9 +191,8 @@ function WiltingRow({ bud, onChat }: { bud: Bud; onChat: () => void }) {
 export default function HomePage() {
   const router = useRouter();
   const { openWith } = useChatStore();
-  const { user } = useAuthStore();
+  const { user, accessToken } = useAuthStore();
 
-  const { accessToken } = useAuthStore();
   // Query keys from QK factory — shared with plants/page.tsx to hit the same cache.
   // `enabled` guard prevents unauthenticated 401s on cold start.
   const { data: sumRes,    isLoading: loadingSum }    = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,          enabled: !!accessToken });

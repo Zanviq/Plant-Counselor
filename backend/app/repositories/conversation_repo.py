@@ -127,15 +127,6 @@ class ConversationRepository:
             })
         return result
 
-    def list_conversations(self, user_id: str) -> list[SimpleNamespace]:
-        res = (
-            self.db.table("conversations")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        return _rows(res.data or [])
-
     def search(
         self,
         user_id: str,
@@ -145,25 +136,14 @@ class ConversationRepository:
         limit: int = 10,
     ) -> list[SimpleNamespace]:
         conv = self.get_or_create(user_id, scope, scope_id)
+        # Escape LIKE wildcards so user input doesn't match unintended patterns.
+        safe = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         res = (
             self.db.table("conversation_messages")
             .select("*")
             .eq("conversation_id", conv.id)
-            .like("text", f"%{query}%")
+            .like("text", f"%{safe}%")
             .order("at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        return _rows(res.data or [])
-
-    def get_messages(
-        self, conversation_id: str, limit: int = 200
-    ) -> list[SimpleNamespace]:
-        res = (
-            self.db.table("conversation_messages")
-            .select("*")
-            .eq("conversation_id", conversation_id)
-            .order("at", desc=False)
             .limit(limit)
             .execute()
         )

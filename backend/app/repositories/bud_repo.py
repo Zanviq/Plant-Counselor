@@ -1,9 +1,11 @@
 from __future__ import annotations
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 from supabase import Client
 from ulid import ULID
+
+import app.runtime_settings as rs
 
 
 def _row(d: dict | None) -> SimpleNamespace | None:
@@ -71,7 +73,7 @@ class BudRepository:
         if wilting_only:
             q = q.eq("status", "wilting")
         if deadline_within_days is not None:
-            cutoff = (date.today() + timedelta(days=deadline_within_days)).isoformat()
+            cutoff = (rs.today() + timedelta(days=deadline_within_days)).isoformat()
             q = q.lte("deadline", cutoff).not_.is_("deadline", "null")
         q = q.order("created_at", desc=True).limit(limit)
         res = q.execute()
@@ -103,7 +105,7 @@ class BudRepository:
             "bud_id": bud_id,
             "from_status": from_status,
             "to_status": to_status,
-            "at": datetime.utcnow().isoformat(),
+            "at": rs.now().isoformat(),
             "reason": reason,
         }
         res = self.db.table("bud_history").insert(row).execute()

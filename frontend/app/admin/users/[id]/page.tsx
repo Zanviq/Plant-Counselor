@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { getAdminUserDetail, updateUserRole, sendNotification, overrideUserSettings } from "@/lib/api/admin";
+import { getAdminUserDetail, updateUserRole, sendNotification } from "@/lib/api/admin";
 import { useAuthStore } from "@/lib/store/authStore";
 
 export default function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {

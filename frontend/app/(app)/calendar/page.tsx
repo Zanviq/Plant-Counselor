@@ -131,13 +131,13 @@ export default function CalendarPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
             {cells.map((d, i) => {
-              if (!d) return <div key={i} />;
+              if (!d) return <div key={`empty-${i}`} />;
               const key = ymd(year, month, d);
               const dayEvents = events[key] ?? [];
               const t = isToday(d);
               const sel = selected === d;
               return (
-                <button key={i} onClick={() => setSelected(sel ? null : d)} style={{
+                <button key={key} onClick={() => setSelected(sel ? null : d)} style={{
                   minHeight: 64, padding: "6px 7px", borderRadius: "var(--r-md)",
                   border: "1px solid", borderColor: t ? "var(--accent)" : sel ? "var(--accent)" : "transparent",
                   background: t ? "var(--accent-muted)" : sel ? "var(--bg-subtle)" : "transparent",

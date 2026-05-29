@@ -1,9 +1,9 @@
 from __future__ import annotations
-from datetime import datetime, date
 from types import SimpleNamespace
 
 from supabase import Client
 
+import app.runtime_settings as rs
 from app.repositories.garden_state_repo import GardenStateRepository
 from app.repositories.plant_repo import PlantRepository
 from app.repositories.bud_repo import BudRepository
@@ -21,7 +21,7 @@ class GardenStateService:
         buds = bud_repo.list(user_id, limit=500)
         plants = self._plant_repo.list(user_id)
 
-        today = date.today()
+        today = rs.today()
         month_start = today.replace(day=1).isoformat()
         active = {"seed", "bud", "flower", "fruit", "wilting"}
 
@@ -61,7 +61,7 @@ class GardenStateService:
         buds = bud_repo.list(user_id, plant_id=plant_id, limit=500)
 
         if period == "month":
-            month_start = date.today().replace(day=1).isoformat()
+            month_start = rs.today().replace(day=1).isoformat()
             buds = [b for b in buds if (getattr(b, "created_at", "") or "")[:10] >= month_start]
 
         return {
@@ -84,12 +84,9 @@ class GardenStateService:
             f"주요 분야: {plant_names}."
         )
 
-    def mark_opened(self, user_id: str) -> None:
-        self._repo.update(user_id, {"last_opened_at": datetime.utcnow().isoformat()})
-
     def get_daily_briefing(self, user_id: str) -> str | None:
         state = self._repo.get_or_create(user_id)
-        today_str = date.today().isoformat()
+        today_str = rs.today().isoformat()
         stored_date = getattr(state, "daily_briefing_date", None)
         if stored_date and str(stored_date)[:10] == today_str:
             return getattr(state, "daily_briefing", None)
@@ -98,5 +95,5 @@ class GardenStateService:
     def set_daily_briefing(self, user_id: str, text: str) -> None:
         self._repo.update(user_id, {
             "daily_briefing": text,
-            "daily_briefing_date": date.today().isoformat(),
+            "daily_briefing_date": rs.today().isoformat(),
         })

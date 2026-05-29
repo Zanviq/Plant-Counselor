@@ -141,9 +141,3 @@ class LLMClient:
             elif "quota" in msg.lower() or "rate" in msg.lower():
                 msg = "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
             return {"text": f"LLM 오류: {msg}", "tool_use": None}
-
-    def set_api_key(self, key: str) -> None:
-        self._key = key
-
-    def set_model(self, model: str) -> None:
-        self._model = model

@@ -47,8 +47,3 @@ class PlantUpdate(BaseModel):
     description: str | None = None
     species: str | None = None
     color: str | None = None
-
-
-class PlantListResponse(BaseModel):
-    items: list[PlantOut]
-    next_cursor: str | None

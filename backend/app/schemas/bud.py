@@ -33,16 +33,6 @@ class BudOut(BaseModel):
     updated_at: datetime
 
 
-class BudWithHistory(BaseModel):
-    bud: BudOut
-    history: list[BudHistoryOut]
-
-
 class BudPatch(BaseModel):
     title: str | None = None
     detail: str | None = None
-
-
-class BudListResponse(BaseModel):
-    items: list[BudOut]
-    next_cursor: str | None

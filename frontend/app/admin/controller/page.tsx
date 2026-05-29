@@ -302,7 +302,6 @@ function TimeTravelSection() {
   const isShifted = offsetSeconds !== 0;
 
   // Format offset for display
-  const offsetDays = offsetSeconds / 86400;
   const offsetLabel = (() => {
     const abs = Math.abs(offsetSeconds);
     const sign = offsetSeconds >= 0 ? "+" : "-";
@@ -545,7 +544,7 @@ function UserModelSection({ models }: { models: string[] }) {
               <span style={{ marginLeft: 8, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{u.email}</span>
             </div>
             <select
-              defaultValue={u.ai_model ?? "gemini-2.5-flash"}
+              value={u.ai_model ?? "gemini-2.5-flash"}
               onChange={(e) => modelMut.mutate({ userId: u.id, model: e.target.value })}
               style={{ ...input, minWidth: 200 }}
             >

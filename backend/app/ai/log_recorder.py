@@ -27,6 +27,7 @@ class LogRecorder:
             "skill_calls": [],
             "final_response": "",
             "events": [],
+            "llm_errors": [],
         }
 
     def set_system(self, prompt: str) -> None:
@@ -58,6 +59,21 @@ class LogRecorder:
             "message": message,
             "data": data,
         })
+
+    def log_llm_error(self, call_n: int, error: str, kind: str = "", cause: str = "") -> None:
+        """Record a raw LLM/API error (e.g. Gemini 503) for admin diagnostics."""
+        self._data["llm_errors"].append({
+            "call": call_n,
+            "error": error,
+            "kind": kind,
+            "cause": cause,
+            "time": datetime.now().isoformat(),
+        })
+        for entry in self._data["llm_calls"]:
+            if entry["call"] == call_n:
+                entry["error"] = error
+                entry["error_kind"] = kind
+                break
 
     def log_event(self, event_type: str, detail: str = "") -> None:
         self._data["events"].append({

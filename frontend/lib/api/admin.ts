@@ -42,6 +42,18 @@ export interface LogMeta {
   skill_names: string[];
   token_estimate: number;
   error?: string;
+  /** LLM/API error info (Gemini 503 등) for this session. */
+  error_count?: number;
+  error_kind?: string | null;
+  last_error?: string | null;
+}
+
+export interface LlmError {
+  call: number;
+  error: string;       // raw upstream error (e.g. "503 UNAVAILABLE ...")
+  kind: string;        // overloaded | rate_limit | auth | model_not_found | timeout | other
+  cause: string;       // 한국어 원인 설명
+  time: string;
 }
 
 export interface LogDetail {
@@ -54,6 +66,7 @@ export interface LogDetail {
   skill_calls: SkillCall[];
   final_response: string;
   events: LogEvent[];
+  llm_errors?: LlmError[];
 }
 
 export interface LlmCall {
@@ -63,6 +76,8 @@ export interface LlmCall {
   messages: unknown[];
   result_text?: string;
   result_tool_use?: unknown;
+  error?: string;
+  error_kind?: string;
 }
 
 export interface SkillCall {

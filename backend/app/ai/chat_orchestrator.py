@@ -15,6 +15,17 @@ class ChatOrchestrator:
         self.builder = prompt_builder
         self.services = services
 
+    @staticmethod
+    def _record_llm_error(rec, call_n: int, result: dict) -> None:
+        """If an LLM call returned an upstream error, record it for admin logs."""
+        err = result.get("error")
+        if not err:
+            return
+        kind = result.get("error_kind", "")
+        cause = result.get("error_cause", "")
+        rec.log_llm_error(call_n, err, kind, cause)
+        rec.log_event(f"llm_error_{call_n}", f"kind={kind} error={err[:200]}")
+
     def run(
         self,
         user_id: str,
@@ -105,12 +116,14 @@ class ChatOrchestrator:
             result = self.llm.chat(working_history, catalog, system)
             response_text = result.get("text", "")
             tool_use = result.get("tool_use")
+            self._record_llm_error(rec, step + 1, result)
 
             # 빈 응답 재시도 (1회)
             if not response_text and not tool_use:
                 result = self.llm.chat(working_history, catalog, system)
                 response_text = result.get("text", "")
                 tool_use = result.get("tool_use")
+                self._record_llm_error(rec, step + 1, result)
                 rec.log_event(
                     f"llm_retry_{step + 1}",
                     f"text_len={len(response_text)} tool={tool_use['name'] if tool_use else None}",

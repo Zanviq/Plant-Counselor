@@ -127,7 +127,15 @@ class LLMClient:
                 break
 
         logger.error("Gemini API 오류: %s", last_err, exc_info=True)
-        return {"text": f"LLM 오류: {self._friendly_error(last_err)}", "tool_use": None}
+        kind, cause = self._classify_error(last_err)
+        return {
+            "text": f"LLM 오류: {self._friendly_error(last_err)}",
+            "tool_use": None,
+            "error": str(last_err) if last_err else "unknown",  # raw upstream error (admin)
+            "error_kind": kind,
+            "error_cause": cause,
+            "model": self._model,
+        }
 
     def _parse_response(self, response) -> dict:
         tool_use = None
@@ -157,6 +165,29 @@ class LLMClient:
     def _is_retryable(e: Exception) -> bool:
         msg = str(e).lower()
         return any(marker in msg for marker in _RETRYABLE_MARKERS)
+
+    def _classify_error(self, e: Exception | None) -> tuple[str, str]:
+        """Return (kind, 한국어 원인 설명) for admin diagnostics."""
+        msg = str(e) if e else ""
+        low = msg.lower()
+        if "503" in msg or "unavailable" in low or "overloaded" in low or "high demand" in low:
+            return ("overloaded",
+                    "Gemini 서버 과부하(503 UNAVAILABLE). 전 세계 요청이 몰려 모델이 일시적으로 "
+                    "응답하지 못하는 상태입니다. 무료/공유 등급에서 특히 자주 발생하며, 보통 수초~수분 "
+                    "내에 자동 해소됩니다. (백엔드는 지수 백오프로 3회 자동 재시도 후 실패 시 이 오류를 표시)")
+        if "429" in msg or "quota" in low or "rate limit" in low or "resource_exhausted" in low:
+            return ("rate_limit",
+                    "요청 한도 초과(429 / quota). 분당·일일 요청 수 또는 토큰 한도를 넘었습니다. "
+                    "사용량이 리셋되거나 한도를 상향해야 합니다.")
+        if "api_key_invalid" in low or "api key not valid" in low or "permission" in low or "401" in msg or "403" in msg:
+            return ("auth",
+                    "인증 오류. API 키가 유효하지 않거나 권한이 없습니다. 설정의 Gemini API 키를 확인하세요.")
+        if "not_found" in low or "no longer available" in low or "404" in msg:
+            return ("model_not_found",
+                    f"모델({self._model})을 찾을 수 없거나 더 이상 제공되지 않습니다. 컨트롤러에서 모델명을 확인하세요.")
+        if "deadline" in low or "timeout" in low:
+            return ("timeout", "응답 시간 초과. 네트워크 지연 또는 모델 응답 지연입니다.")
+        return ("other", "분류되지 않은 LLM 오류입니다. 아래 원문을 확인하세요.")
 
     def _friendly_error(self, e: Exception | None) -> str:
         msg = str(e) if e else "알 수 없는 오류"

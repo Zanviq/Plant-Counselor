@@ -57,6 +57,8 @@ def _parse_log_meta(path: Path) -> dict:
             for call in llm_calls
             for m in call.get("messages", [])
         ) // 4
+        llm_errors = data.get("llm_errors", [])
+        last_error = llm_errors[-1] if llm_errors else None
         return {
             "filename": path.name,
             "timestamp": data.get("timestamp"),
@@ -66,6 +68,9 @@ def _parse_log_meta(path: Path) -> dict:
             "skill_call_count": len(skill_calls),
             "skill_names": [s.get("name") for s in skill_calls],
             "token_estimate": token_est,
+            "error_count": len(llm_errors),
+            "error_kind": (last_error or {}).get("kind") if last_error else None,
+            "last_error": (last_error or {}).get("error") if last_error else None,
         }
     except Exception:
         return {"filename": path.name, "error": "parse error"}

@@ -3,12 +3,12 @@
 import { useState, useEffect, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
-import { listLogs, getLogDetail, type LogMeta, type LogDetail, type LlmCall, type SkillCall } from "@/lib/api/admin";
+import { listLogs, getLogDetail, type LogMeta, type LogDetail, type LlmCall, type SkillCall, type LlmError } from "@/lib/api/admin";
 import { useAuthStore } from "@/lib/store/authStore";
 
 function LogDetailView({ filename, onClose }: { filename: string; onClose: () => void }) {
   const { accessToken } = useAuthStore();
-  const [activeSection, setActiveSection] = useState<"overview" | "prompt" | "llm" | "skills" | "events">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "prompt" | "llm" | "skills" | "events" | "errors">("overview");
 
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "log", filename],
@@ -17,6 +17,7 @@ function LogDetailView({ filename, onClose }: { filename: string; onClose: () =>
   });
 
   const log: LogDetail | null = res?.ok ? res.data : null;
+  const llmErrors: LlmError[] = log?.llm_errors ?? [];
 
   return (
     <div style={{
@@ -46,27 +47,34 @@ function LogDetailView({ filename, onClose }: { filename: string; onClose: () =>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 16px" }}>
           {[
-            { id: "overview", label: "개요" },
-            { id: "prompt", label: "시스템 프롬프트" },
-            { id: "llm", label: `LLM 호출 (${log?.llm_calls?.length ?? 0})` },
-            { id: "skills", label: `스킬 (${log?.skill_calls?.length ?? 0})` },
-            { id: "events", label: "이벤트" },
-          ].map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveSection(id as typeof activeSection)}
-              style={{
-                padding: "10px 14px", background: "none", border: "none",
-                color: activeSection === id ? "#60a5fa" : "rgba(255,255,255,0.4)",
-                fontSize: 12, fontWeight: activeSection === id ? 600 : 400,
-                cursor: "pointer",
-                borderBottom: activeSection === id ? "2px solid #60a5fa" : "2px solid transparent",
-                marginBottom: -1,
-              }}
-            >
-              {label}
-            </button>
-          ))}
+            { id: "overview", label: "개요", danger: false },
+            { id: "prompt", label: "시스템 프롬프트", danger: false },
+            { id: "llm", label: `LLM 호출 (${log?.llm_calls?.length ?? 0})`, danger: false },
+            { id: "skills", label: `스킬 (${log?.skill_calls?.length ?? 0})`, danger: false },
+            { id: "events", label: "이벤트", danger: false },
+            ...(llmErrors.length > 0
+              ? [{ id: "errors", label: `오류 (${llmErrors.length})`, danger: true }]
+              : []),
+          ].map(({ id, label, danger }) => {
+            const active = activeSection === id;
+            const color = danger ? "#f87171" : active ? "#60a5fa" : "rgba(255,255,255,0.4)";
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id as typeof activeSection)}
+                style={{
+                  padding: "10px 14px", background: "none", border: "none",
+                  color: active || danger ? color : "rgba(255,255,255,0.4)",
+                  fontSize: 12, fontWeight: active ? 600 : 400,
+                  cursor: "pointer",
+                  borderBottom: active ? `2px solid ${danger ? "#f87171" : "#60a5fa"}` : "2px solid transparent",
+                  marginBottom: -1,
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Content */}
@@ -76,6 +84,22 @@ function LogDetailView({ filename, onClose }: { filename: string; onClose: () =>
             <>
               {activeSection === "overview" && (
                 <div>
+                  {llmErrors.length > 0 && (
+                    <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 4 }}>
+                        ⚠ 이 세션에서 LLM 오류 {llmErrors.length}건 발생
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.55 }}>
+                        {llmErrors[llmErrors.length - 1].cause}
+                      </div>
+                      <button
+                        onClick={() => setActiveSection("errors")}
+                        style={{ marginTop: 6, background: "none", border: "none", color: "#f87171", fontSize: 11, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                      >
+                        오류 상세 보기 →
+                      </button>
+                    </div>
+                  )}
                   <Section title="사용자 입력">
                     <pre style={preStyle}>{log.user_input}</pre>
                   </Section>
@@ -155,8 +179,34 @@ function LogDetailView({ filename, onClose }: { filename: string; onClose: () =>
                   {log.events.map((e, i) => (
                     <div key={i} style={{ display: "flex", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>{e.time?.slice(11, 19)}</div>
-                      <div style={{ fontSize: 11, color: "#60a5fa", whiteSpace: "nowrap" }}>{e.type}</div>
+                      <div style={{ fontSize: 11, color: e.type?.startsWith("llm_error") ? "#f87171" : "#60a5fa", whiteSpace: "nowrap" }}>{e.type}</div>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{e.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeSection === "errors" && (
+                <div>
+                  {llmErrors.length === 0 && <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>오류 없음</p>}
+                  {llmErrors.map((err, i) => (
+                    <div key={i} style={{ marginBottom: 14, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "12px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 11, padding: "1px 8px", borderRadius: 999, background: "rgba(239,68,68,0.18)", color: "#f87171", fontWeight: 700 }}>
+                          {ERROR_KIND_LABEL[err.kind] ?? err.kind}
+                        </span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>LLM 호출 #{err.call} · {err.time?.slice(11, 19)}</span>
+                      </div>
+                      {err.cause && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>원인</div>
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 1.6 }}>{err.cause}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>원문 (upstream)</div>
+                        <pre style={{ ...preStyle, color: "#fca5a5" }}>{err.error}</pre>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -179,6 +229,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
+
+const ERROR_KIND_LABEL: Record<string, string> = {
+  overloaded: "서버 과부하 (503)",
+  rate_limit: "한도 초과 (429)",
+  auth: "인증 오류",
+  model_not_found: "모델 없음",
+  timeout: "시간 초과",
+  other: "기타 오류",
+};
 
 const preStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.04)",
@@ -260,7 +319,7 @@ function LogsContent() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.04)" }}>
-                {["시각", "사용자", "입력", "LLM", "스킬", "~토큰"].map((h) => (
+                {["시각", "사용자", "입력", "LLM", "스킬", "~토큰", "상태"].map((h) => (
                   <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     {h}
                   </th>
@@ -270,7 +329,7 @@ function LogsContent() {
             <tbody>
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: "20px 14px", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>로그 없음</td>
+                  <td colSpan={7} style={{ padding: "20px 14px", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>로그 없음</td>
                 </tr>
               )}
               {logs.map((log, i) => (
@@ -302,6 +361,18 @@ function LogsContent() {
                   </td>
                   <td style={{ padding: "9px 14px", fontSize: 11, color: "#f59e0b" }}>
                     ~{log.token_estimate}
+                  </td>
+                  <td style={{ padding: "9px 14px", fontSize: 11, whiteSpace: "nowrap" }}>
+                    {(log.error_count ?? 0) > 0 ? (
+                      <span
+                        title={log.last_error ?? ""}
+                        style={{ padding: "1px 8px", borderRadius: 999, background: "rgba(239,68,68,0.15)", color: "#f87171", fontWeight: 600 }}
+                      >
+                        오류 {log.error_count}
+                      </span>
+                    ) : (
+                      <span style={{ color: "rgba(255,255,255,0.25)" }}>—</span>
+                    )}
                   </td>
                 </tr>
               ))}

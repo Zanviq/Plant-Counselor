@@ -357,7 +357,7 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 
 ## 9. 세션별 작업 이력
 
-### 세션 13 (AI 마크다운 렌더링 + 관리자 LLM 오류 표시 + 최신 모델, 2026-05-30)
+### 세션 13 (AI 마크다운 렌더링 + 관리자 LLM 오류 표시 + 최신 모델 + 세션 태그 이동, 2026-05-30)
 
 **1. AI 채팅 마크다운 렌더링 (긴 디버깅 끝에 해결):**
 - 증상: AI 응답의 `**굵게**`, `### 제목`, 목록, 줄바꿈이 raw 텍스트로 출력됨
@@ -401,6 +401,15 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 - 두 엔드포인트 모두 `require_admin` 보호(관리자 전용), per-user는 화이트리스트 검증
 - ⚠ 3.x/3.5 API ID는 Google 명명 규칙 추정값 — 미서빙 시 `/admin/logs`에
   `모델 없음 (404)`로 표시되므로 한 번 대화해보면 유효성 확인 가능
+
+**5. 채팅 브레드크럼(세션 태그) 클릭 이동:**
+- ChatPanel 상단 세션 태그(`Breadcrumb`/`Crumb`)가 표시 전용 → **클릭 시 해당
+  세션으로 전환**. 비활성 태그만 클릭 가능(활성=현재 세션은 라벨)
+- bud 세션: `전체` → global, `🌿 식물명` → 그 식물 세션. plant 세션: `전체` → global
+- `plantId = plantScopeId ?? _budPlantId`(캐시 해석값)로 plant 태그 이동 대상 결정.
+  `onNavigate` → `openWith({kind, id})`로 scope만 교체(패널 유지) → scopeKey effect가
+  해당 세션 히스토리 재로드 + 메인화면 동기화(세션12)도 함께 동작
+- 접근성: `role=button`·`tabIndex`·Enter/Space 키 지원, 호버 강조
 
 ### 세션 12 (코드 리뷰·리팩토링 + 캘린더 일정 + 세션 권한 + 알림 개선, 2026-05-30)
 

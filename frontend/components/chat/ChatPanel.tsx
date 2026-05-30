@@ -189,18 +189,40 @@ function ScopeSuggestionBanner({
 
 // ── breadcrumb ──────────────────────────────────────────────
 
-function Breadcrumb({ scopeKind, plantName, budTitle }: { scopeKind: string; plantName?: string; budTitle?: string }) {
+function Breadcrumb({ scopeKind, plantName, budTitle, plantId, onNavigate }: {
+  scopeKind: string;
+  plantName?: string;
+  budTitle?: string;
+  plantId?: string;
+  onNavigate: (target: { kind: "global" | "plant"; id?: string }) => void;
+}) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
       {scopeKind === "calendar" ? (
         <Crumb active icon="📅" text="캘린더 일정" />
       ) : (
         <>
-          <Crumb active={scopeKind === "global"} icon="🏠" text="전체" />
+          {/* "전체"(global) — clickable from any plant/bud session to jump home */}
+          <Crumb
+            active={scopeKind === "global"}
+            icon="🏠"
+            text="전체"
+            onClick={scopeKind !== "global" ? () => onNavigate({ kind: "global" }) : undefined}
+          />
           {(scopeKind === "plant" || scopeKind === "bud") && (
             <>
               <Sep />
-              <Crumb active={scopeKind === "plant"} icon="🌿" text={plantName ?? "식물"} />
+              {/* plant crumb — clickable from a bud session to jump to its plant */}
+              <Crumb
+                active={scopeKind === "plant"}
+                icon="🌿"
+                text={plantName ?? "식물"}
+                onClick={
+                  scopeKind === "bud" && plantId
+                    ? () => onNavigate({ kind: "plant", id: plantId })
+                    : undefined
+                }
+              />
             </>
           )}
           {scopeKind === "bud" && (
@@ -215,9 +237,15 @@ function Breadcrumb({ scopeKind, plantName, budTitle }: { scopeKind: string; pla
   );
 }
 
-function Crumb({ active, icon, text }: { active: boolean; icon: string; text: string }) {
+function Crumb({ active, icon, text, onClick }: { active: boolean; icon: string; text: string; onClick?: () => void }) {
+  const clickable = !!onClick;
   return (
     <span
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick!(); } } : undefined}
+      title={clickable ? `${text} 세션으로 이동` : undefined}
       style={{
         display: "inline-flex", alignItems: "center", gap: 4,
         padding: "2px 8px",
@@ -227,7 +255,17 @@ function Crumb({ active, icon, text }: { active: boolean; icon: string; text: st
         color: active ? "var(--accent-fg)" : "var(--fg-muted)",
         border: `1px solid ${active ? "color-mix(in srgb, var(--accent) 25%, transparent)" : "var(--border)"}`,
         maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        cursor: clickable ? "pointer" : "default",
+        transition: "background 0.12s, border-color 0.12s",
       }}
+      onMouseEnter={clickable ? (e) => {
+        e.currentTarget.style.background = "var(--bg-hover)";
+        e.currentTarget.style.borderColor = "var(--border-strong)";
+      } : undefined}
+      onMouseLeave={clickable ? (e) => {
+        e.currentTarget.style.background = "var(--bg-subtle)";
+        e.currentTarget.style.borderColor = "var(--border)";
+      } : undefined}
     >
       <span style={{ fontSize: 10 }}>{icon}</span>
       {text}
@@ -573,7 +611,17 @@ export default function ChatPanel() {
         {/* Row 1 — session breadcrumb  +  온라인 badge  +  닫기 */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px 8px" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <Breadcrumb scopeKind={scope.kind} plantName={breadcrumbPlantName} budTitle={breadcrumbBudTitle} />
+            <Breadcrumb
+              scopeKind={scope.kind}
+              plantName={breadcrumbPlantName}
+              budTitle={breadcrumbBudTitle}
+              plantId={plantScopeId ?? _budPlantId}
+              onNavigate={(target) =>
+                target.kind === "plant"
+                  ? openWith({ kind: "plant", id: target.id })
+                  : openWith({ kind: "global" })
+              }
+            />
           </div>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-muted)", flexShrink: 0 }}>
             <span className="dot" style={{ background: "var(--positive)" }} />

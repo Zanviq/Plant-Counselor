@@ -62,8 +62,25 @@ const RE_HEAD = /^(#{1,4})\s+(.*)$/;
 const RE_QUOTE = /^\s*>\s?/;
 const RE_LIST = /^\s*([-*+]|\d+\.)\s+/;
 
+/**
+ * Normalize loosely-formatted model output so block markdown renders even when
+ * the model flattens everything onto one line (a common Gemini behavior):
+ *   - turn the literal two-char sequence "\n" into a real newline
+ *   - promote an inline thematic break ("text --- text") to its own block
+ *   - promote an inline ATX heading ("text ## Title") to a new block
+ * (Inline bullets are intentionally NOT split — " - " is a common dash in prose.)
+ */
+function normalizeMarkdown(text: string): string {
+  let t = (text ?? "").replace(/\r\n/g, "\n");
+  t = t.replace(/\\n/g, "\n");
+  t = t.replace(/[ \t]+(-{3,}|\*{3,})[ \t]+/g, "\n\n$1\n\n");
+  t = t.replace(/([^\n])[ \t]+(#{1,4}[ \t])/g, "$1\n\n$2");
+  t = t.replace(/\n{3,}/g, "\n\n");
+  return t.trim();
+}
+
 export function MarkdownText({ text }: { text: string }) {
-  const lines = (text ?? "").replace(/\r\n/g, "\n").split("\n");
+  const lines = normalizeMarkdown(text).split("\n");
   const blocks: React.ReactNode[] = [];
   let i = 0;
   let k = 0;

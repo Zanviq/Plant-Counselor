@@ -15,6 +15,7 @@ import {
 } from "@/lib/api/conversations";
 import { listPlants, Plant } from "@/lib/api/plants";
 import { listBuds, Bud } from "@/lib/api/buds";
+import { MarkdownText } from "@/lib/markdown";
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -226,13 +227,16 @@ function MessageBubble({ msg }: { msg: ConvMessage }) {
           style={{
             padding: "9px 12px",
             borderRadius: isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-            fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap",
+            fontSize: 13.5, lineHeight: 1.55,
+            // User text is plain (preserve newlines); AI text renders as markdown.
+            whiteSpace: isUser ? "pre-wrap" : "normal",
             background: isUser ? "var(--accent)" : "var(--bg-subtle)",
             color: isUser ? "var(--accent-contrast)" : "var(--fg)",
             border: isUser ? "none" : "1px solid var(--border)",
+            overflowWrap: "anywhere",
           }}
         >
-          {msg.text}
+          {isUser ? msg.text : <MarkdownText text={msg.text} />}
         </div>
       </div>
     </div>

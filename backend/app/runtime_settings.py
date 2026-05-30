@@ -44,10 +44,22 @@ DEFAULTS: dict[str, Any] = {
     "time_offset_seconds": 0,
 }
 
-# Available Gemini models (listed for UI)
+# Available Gemini models (listed for the admin UI dropdowns).
+# Ordered newest/most-capable first. The exact API model IDs follow Google's
+# convention (gemini-<version>-<tier>); if a brand-new ID is not yet served by
+# the API it will surface as a "모델 없음 (404)" error in the admin AI logs page.
 AVAILABLE_MODELS = [
-    "gemini-2.5-flash",
+    # Gemini 3.5 (최신 — 에이전트/코딩 특화)
+    "gemini-3.5-flash",
+    # Gemini 3.x (고성능 플래그십 + 실시간 Flash)
+    "gemini-3.1-pro",
+    "gemini-3-pro",
+    "gemini-3-flash",
+    # Gemini 2.5 (멀티모달 Pro + 일상 Flash 계열)
     "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    # Legacy (하위 호환용)
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash",

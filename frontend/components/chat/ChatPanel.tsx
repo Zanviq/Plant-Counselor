@@ -729,7 +729,9 @@ export default function ChatPanel() {
                       {msg.pending && !msg.text
                         ? <span className="animate-pulse" style={{ color: "var(--fg-muted)" }}>생각 중…</span>
                         : msg.role === "assistant"
-                          ? <MarkdownText text={msg.text} />
+                          // Remount when streaming settles so the final markdown
+                          // is parsed cleanly (avoids a stuck mid-stream render).
+                          ? <MarkdownText key={msg.pending ? "streaming" : "done"} text={msg.text} />
                           : msg.text}
                     </div>
                   </div>

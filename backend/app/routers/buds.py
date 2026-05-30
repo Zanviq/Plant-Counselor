@@ -4,7 +4,7 @@ from supabase import Client
 
 from app.deps import get_db, require_user
 from app.repositories.bud_repo import BudRepository
-from app.schemas.bud import BudHistoryOut, BudOut, BudPatch
+from app.schemas.bud import BudHistoryOut, BudOut, BudPatch, BudProgressUpdate
 from app.services.bud_service import BudService
 
 router = APIRouter(prefix="/buds", tags=["buds"])
@@ -39,4 +39,19 @@ def patch_bud(bud_id: str, body: BudPatch, user=Depends(require_user), db: Clien
     if not bud:
         raise HTTPException(404)
     updated = BudRepository(db).update(user.id, bud_id, body.model_dump(exclude_none=True))
+    return {"ok": True, "data": BudOut.model_validate(updated or bud)}
+
+
+@router.patch("/{bud_id}/progress")
+def set_bud_progress(bud_id: str, body: BudProgressUpdate,
+                     user=Depends(require_user), db: Client = Depends(get_db)):
+    """Directly set a bud's progress (manual slider). Applies the same
+    auto status-transition + history as the AI skill. The optional note is the
+    user's reason for the change."""
+    svc = BudService(db)
+    bud = svc.get(user.id, bud_id)
+    if not bud:
+        raise HTTPException(404, "봉우리를 찾을 수 없습니다.")
+    note = body.note.strip() or "사용자 수동 조정"
+    updated = svc.update_progress(user.id, bud_id, body.progress, auto_transition=True, note=note)
     return {"ok": True, "data": BudOut.model_validate(updated or bud)}

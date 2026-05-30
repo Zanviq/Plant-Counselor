@@ -13,6 +13,10 @@ export const getBud = (id: string) =>
 export const patchBud = (id: string, fields: { title?: string; detail?: string }) =>
   apiPatch<Bud>(`/buds/${id}`, fields);
 
+/** Manually set a bud's progress (slider). `note` carries the user's reason. */
+export const setBudProgress = (id: string, progress: number, note = "") =>
+  apiPatch<Bud>(`/buds/${id}/progress`, { progress, note });
+
 export interface Bud {
   id: string;
   plant_id: string;

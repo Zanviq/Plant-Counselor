@@ -36,3 +36,8 @@ class BudOut(BaseModel):
 class BudPatch(BaseModel):
     title: str | None = None
     detail: str | None = None
+
+
+class BudProgressUpdate(BaseModel):
+    progress: int            # 0–100 (clamped server-side)
+    note: str = ""           # optional reason ("왜 변경했는지") for history/AI

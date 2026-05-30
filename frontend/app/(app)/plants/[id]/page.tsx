@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
-import { listBuds, getBud, Bud } from "@/lib/api/buds";
+import { listBuds, getBud, setBudProgress, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
@@ -68,12 +68,25 @@ function BudRow({ bud, selected, onClick }: { bud: Bud; selected: boolean; onCli
 
 function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => void }) {
   const { open: chatOpen, chatWidth, openWith } = useChatStore();
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: QK.bud(budId), queryFn: () => getBud(budId) });
+  // Manual progress slider state.
+  const [draft, setDraft] = useState<number | null>(null);     // live slider value
+  const [reasonFor, setReasonFor] = useState<number | null>(null); // value awaiting a reason
+  const [reasonText, setReasonText] = useState("");
+  const [saving, setSaving] = useState(false);
+  // Reset transient slider/popup state when the drawer switches to another bud.
+  useEffect(() => {
+    setDraft(null); setReasonFor(null); setReasonText("");
+  }, [budId]);
+
   const bud = data?.ok ? data.data.bud : null;
   const history = data?.ok ? data.data.history : [];
   if (!bud) return null;
 
   const status = bud.status as BudStatus;
+  const editable = !isDone(bud.status);
+  const shown = draft ?? bud.progress;
 
   // Quick actions hand off to chat with a self-contained instruction so the
   // LLM uses the correct skill without further clarification.
@@ -84,6 +97,30 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
       window.dispatchEvent(ev);
     }, 80);
   }
+
+  // Persist the manually-set progress, then optionally hand the reason to the AI.
+  async function commitProgress(value: number, note: string, sendToAI: boolean) {
+    setSaving(true);
+    const r = await setBudProgress(budId, value, note);
+    setSaving(false);
+    setReasonFor(null);
+    setReasonText("");
+    setDraft(null);
+    if (!r.ok) return;
+    qc.invalidateQueries({ queryKey: QK.bud(budId) });
+    qc.invalidateQueries({ queryKey: QK.plantBuds(bud!.plant_id) });
+    qc.invalidateQueries({ queryKey: ["buds"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["briefing"] });
+    if (sendToAI && note) {
+      const prompt =
+        `방금 '${bud!.title}' 봉우리의 진행률을 직접 ${value}%로 변경했어요. ` +
+        `이유: ${note}. 진행률은 이미 변경됐으니 다시 바꾸지 말고, 이 변화에 대해 ` +
+        `짧게 조언하거나 다음에 무엇을 하면 좋을지 알려줘.`;
+      openWith({ kind: "bud", id: budId }, { send: prompt });
+    }
+  }
+
   // When the chat panel is open the drawer shifts left to sit beside it.
   const drawerRight = chatOpen ? chatWidth : 0;
 
@@ -130,12 +167,36 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
         <div style={{ flex: 1, overflowY: "auto", padding: 18 }}>
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span className="t-label" style={{ color: "var(--fg-muted)" }}>진행률</span>
-              <span className="t-h3" style={{ color: "var(--accent)" }}>{bud.progress}%</span>
+              <span className="t-label" style={{ color: "var(--fg-muted)" }}>진행률 (완성도)</span>
+              <span className="t-h3" style={{ color: "var(--accent)" }}>{shown}%</span>
             </div>
-            <div className="progress-track" style={{ height: 6 }}>
-              <div className="progress-fill" style={{ width: `${bud.progress}%` }} />
-            </div>
+            {editable ? (
+              <>
+                <input
+                  type="range" min={0} max={100} step={5}
+                  value={shown}
+                  onChange={(e) => setDraft(Number(e.target.value))}
+                  onPointerUp={(e) => {
+                    const v = Number((e.target as HTMLInputElement).value);
+                    if (v !== bud.progress) setReasonFor(v);
+                  }}
+                  onKeyUp={(e) => {
+                    const v = Number((e.target as HTMLInputElement).value);
+                    if (v !== bud.progress) setReasonFor(v);
+                  }}
+                  disabled={saving || reasonFor !== null}
+                  aria-label="진행률 슬라이더"
+                  style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                <div className="t-caption" style={{ color: "var(--fg-subtle)", marginTop: 2 }}>
+                  슬라이더를 움직여 완성도를 직접 조절하세요. 30·60·85%에서 단계가 자동 전이됩니다.
+                </div>
+              </>
+            ) : (
+              <div className="progress-track" style={{ height: 6 }}>
+                <div className="progress-fill" style={{ width: `${bud.progress}%` }} />
+              </div>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
@@ -207,6 +268,55 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
           </button>
         </footer>
       </aside>
+
+      {/* "왜 변경하였나요?" reason popup — appears after a manual slider change */}
+      {reasonFor !== null && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => { setReasonFor(null); setReasonText(""); setDraft(null); }}
+        >
+          <div
+            className="card"
+            style={{ width: 380, maxWidth: "92vw", padding: "22px 24px", boxShadow: "var(--shadow-lg)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 6 }}>왜 변경하였나요?</div>
+            <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginBottom: 14, lineHeight: 1.6 }}>
+              진행률을 <strong style={{ color: "var(--accent-fg)" }}>{reasonFor}%</strong>로 바꾸셨네요.
+              이유를 알려주시면 AI 정원사가 도움을 줄 수 있어요.
+            </p>
+            <textarea
+              value={reasonText}
+              onChange={(e) => setReasonText(e.target.value)}
+              autoFocus
+              rows={3}
+              placeholder="예: 오늘 면접 준비를 절반쯤 끝냈어요"
+              style={{
+                width: "100%", padding: "9px 11px", borderRadius: "var(--r-md)",
+                background: "var(--bg-subtle)", border: "1px solid var(--border)",
+                color: "var(--fg)", fontSize: 13.5, outline: "none", resize: "vertical",
+                boxSizing: "border-box", fontFamily: "var(--font-sans)",
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <button
+                className="btn btn-ghost"
+                disabled={saving}
+                onClick={() => commitProgress(reasonFor, "", false)}
+              >
+                그냥 저장
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={saving || !reasonText.trim()}
+                onClick={() => commitProgress(reasonFor, reasonText.trim(), true)}
+              >
+                {saving ? "저장 중…" : "AI에게 전달"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

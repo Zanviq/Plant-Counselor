@@ -95,10 +95,6 @@ export default function CalendarPage() {
   const todayKey = ymd(today.getFullYear(), today.getMonth(), today.getDate());
   const todayEvents: CalEvent[] = events[todayKey] ?? [];
 
-  function openCalendarChat() {
-    openWith({ kind: "calendar" });
-  }
-
   /** Open the calendar AI and actually ask it to explain today's schedule
    *  (a real streamed LLM call, not a canned reply). */
   function askCalendarAI() {
@@ -131,14 +127,9 @@ export default function CalendarPage() {
             마감 일정을 한눈에 보고 오늘 할 일을 정리합니다.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-secondary" onClick={() => openAdd()}>
-            + 일정 추가
-          </button>
-          <button className="btn btn-primary" onClick={openCalendarChat}>
-            일정 AI와 대화
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={() => openAdd()}>
+          + 일정 추가
+        </button>
       </header>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, marginBottom: 16 }}>

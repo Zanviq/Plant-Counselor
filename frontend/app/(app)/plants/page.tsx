@@ -254,12 +254,9 @@ export default function PlantsPage() {
       </header>
 
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <ViewToggle current={view} onChange={setView} />
-          {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={() => openWith()}>+ AI와 식물 만들기</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <ViewToggle current={view} onChange={setView} />
+        {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
       </div>
 
       {/* Loading skeleton */}

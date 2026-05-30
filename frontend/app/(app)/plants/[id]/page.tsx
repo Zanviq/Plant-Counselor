@@ -114,9 +114,10 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
     qc.invalidateQueries({ queryKey: ["briefing"] });
     if (sendToAI && note) {
       const prompt =
-        `방금 '${bud!.title}' 봉우리의 진행률을 직접 ${value}%로 변경했어요. ` +
-        `이유: ${note}. 진행률은 이미 변경됐으니 다시 바꾸지 말고, 이 변화에 대해 ` +
-        `짧게 조언하거나 다음에 무엇을 하면 좋을지 알려줘.`;
+        `방금 '${bud!.title}' 봉우리의 진행률을 직접 ${value}%로 변경했어요.\n` +
+        `이유: ${note}\n\n` +
+        `진행률은 이미 변경됐으니 다시 바꾸지 말고, 이 변화에 대해 짧게 조언하거나 ` +
+        `다음에 무엇을 하면 좋을지 알려줘.`;
       openWith({ kind: "bud", id: budId }, { send: prompt });
     }
   }
@@ -394,8 +395,12 @@ export default function PlantDetailPage() {
   async function handleDelete() {
     if (!id) return;
     await deletePlant(id, false);
+    // Refresh everything the dashboard/garden show so the deleted plant and its
+    // buds disappear immediately (plants list, buds, summary stats, briefing).
     qc.invalidateQueries({ queryKey: ["plants"] });
+    qc.invalidateQueries({ queryKey: ["buds"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["briefing"] });
     router.replace("/plants");
   }
 

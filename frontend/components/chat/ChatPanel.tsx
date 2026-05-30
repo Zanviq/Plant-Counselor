@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { useChatStore, MIN_CHAT_W, MAX_CHAT_W } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { streamChat } from "@/lib/api/client";
@@ -238,6 +241,25 @@ function Sep() {
   return <span style={{ fontSize: 10, color: "var(--fg-subtle)" }}>›</span>;
 }
 
+// ── markdown renderer for AI output ─────────────────────────
+
+const MD_PLUGINS = [remarkGfm, remarkBreaks];
+
+function MarkdownText({ text }: { text: string }) {
+  return (
+    <div className="md-msg">
+      <ReactMarkdown
+        remarkPlugins={MD_PLUGINS}
+        components={{
+          a: ({ node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 // ── ChatPanel ───────────────────────────────────────────────
 
 export default function ChatPanel() {
@@ -367,6 +389,12 @@ export default function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Reset the auto-grown textarea back to one line whenever the input is cleared
+  // (after send / command). Without this it stays tall after a long message.
+  useEffect(() => {
+    if (input === "" && inputRef.current) inputRef.current.style.height = "auto";
+  }, [input]);
 
   // ── command handling ─────────────────────────────────────
 
@@ -688,15 +716,21 @@ export default function ChatPanel() {
                       style={{
                         maxWidth: "86%", padding: "9px 12px",
                         borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                        fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap",
+                        fontSize: 13.5, lineHeight: 1.55,
+                        // User text is plain (preserve their newlines); AI text is
+                        // rendered as markdown so its own block layout applies.
+                        whiteSpace: msg.role === "user" ? "pre-wrap" : "normal",
                         background: msg.role === "user" ? "var(--accent)" : "var(--bg-subtle)",
                         color: msg.role === "user" ? "var(--accent-contrast)" : "var(--fg)",
                         border: msg.role === "user" ? "none" : "1px solid var(--border)",
+                        overflowWrap: "anywhere",
                       }}
                     >
                       {msg.pending && !msg.text
                         ? <span className="animate-pulse" style={{ color: "var(--fg-muted)" }}>생각 중…</span>
-                        : msg.text}
+                        : msg.role === "assistant"
+                          ? <MarkdownText text={msg.text} />
+                          : msg.text}
                     </div>
                   </div>
                 </div>

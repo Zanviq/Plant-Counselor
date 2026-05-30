@@ -459,7 +459,9 @@ button:focus-visible, a:focus-visible { outline-offset: 1px; }
 .md-msg > :first-child { margin-top: 0; }
 .md-msg > :last-child { margin-bottom: 0; }
 .md-msg p { margin: 0 0 0.5em; }
-.md-msg ul, .md-msg ol { margin: 0 0 0.5em; padding-left: 1.25em; }
+/* restore bullets/numbers (Tailwind preflight removes list-style) */
+.md-msg ul { margin: 0 0 0.5em; padding-left: 1.25em; list-style: disc outside; }
+.md-msg ol { margin: 0 0 0.5em; padding-left: 1.25em; list-style: decimal outside; }
 .md-msg li { margin: 0.15em 0; }
 .md-msg li > p { margin: 0; }
 .md-msg h1, .md-msg h2, .md-msg h3, .md-msg h4 { margin: 0.6em 0 0.3em; font-weight: 700; line-height: 1.3; }

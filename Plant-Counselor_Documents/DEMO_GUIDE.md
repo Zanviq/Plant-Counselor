@@ -93,6 +93,7 @@
   - 12.1 LLM 과부하 자동 재시도
   - 12.2 다크 모드 정원 이름 가독성
   - 12.3 브리핑 최신성
+  - 12.4 AI 응답 마크다운 렌더링
 - 부록 A. REST 엔드포인트 요약
 - 부록 B. 스킬 - 스코프 권한 매트릭스
 
@@ -695,6 +696,14 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
 - 기대 결과: 시스템 프롬프트, LLM 호출 내역, 스킬 호출, 이벤트가 슬라이드 패널에 표시된다.
 - 동작 원리: `GET /admin/logs`(목록), `GET /admin/logs/{filename}`(상세). 각 채팅은
   `backend/logs/chat/`에 JSON으로 기록된다. 대화 기록(DB)과는 별개의 저장소다.
+- **LLM 오류 표시**: Gemini 호출이 실패한 세션은 목록 테이블 `상태` 칸에 빨간
+  `오류 N` 배지가 뜨고, 상세 패널에 빨간 `오류 (N)` 탭이 추가된다. 탭을 열면 오류
+  종류 배지(서버 과부하 503 / 한도 초과 429 / 인증 / 모델 없음 404 / 시간 초과 /
+  기타), 한국어 원인, 그리고 Gemini가 던진 원문(upstream)이 표시된다.
+- 동작 원리: `llm_client`가 실패 시 `error`/`error_kind`/`error_cause`를 반환 →
+  `log_recorder.log_llm_error()`가 세션 로그의 `llm_errors[]`에 누적 → 관리자 API가
+  `error_count`/`error_kind`/`last_error`로 노출. "AI 모델이 일시적으로 혼잡합니다"는
+  대부분 무료/공유 티어의 503 서버 과부하이며 보통 자동 해소된다(12.1 재시도 참고).
 
 ### 9.4 알림 발송
 
@@ -783,6 +792,13 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
 - 동작 원리: `PATCH /admin/controller/users/{id}/model`로 profiles.ai_model 갱신.
   채팅 시 사용자 모델이 있으면 우선, 없으면 런타임 기본 모델을 사용한다
   (`user_model or global_model`).
+- **선택 가능 모델**: 드롭다운은 백엔드 `runtime_settings.AVAILABLE_MODELS`를 그대로
+  렌더링한다(기본 모델 9.11과 동일 목록 공유). 최신순으로 `gemini-3.5-flash`,
+  `gemini-3.1-pro`, `gemini-3-pro`, `gemini-3-flash`, `gemini-2.5-pro`,
+  `gemini-2.5-flash`, `gemini-2.5-flash-lite` + 레거시(2.0/1.5/1.0). 두 엔드포인트
+  모두 `require_admin`(관리자 전용)이며, per-user는 이 목록으로 화이트리스트 검증한다.
+- 참고: 3.x/3.5 모델 ID는 Google 명명 규칙 추정값으로, 아직 API가 서빙하지 않으면
+  해당 모델로 대화 시 9.3의 AI 로그에 `모델 없음 (404)` 오류로 표시된다.
 
 ### 9.13 컨트롤러 - SQL 실행기
 
@@ -881,6 +897,9 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
   않고 지수 백오프(1초, 2초)로 최대 3회 재시도한다. 끝까지 실패하면 "AI 모델이 일시적으로
   혼잡합니다. 잠시 후 다시 시도해주세요."로 안내한다.
 - 동작 원리: LLMClient.chat의 재시도 루프와 _friendly_error 매핑.
+- 관리자 가시성: 3회 재시도 후에도 실패하면 그 세션의 raw 오류·종류·원인이 9.3의
+  AI 로그 페이지에 기록·표시된다(`_classify_error` → `llm_errors[]`). 사용자에겐 친절
+  메시지만 나가지만 관리자는 실제 원인(503/429/404 등)을 확인할 수 있다.
 
 ### 12.2 다크 모드 정원 이름 가독성
 
@@ -895,6 +914,17 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
 - 확인 포인트: 홈/캘린더의 "AI 일정 제안" 브리핑이 현재 식물 수를 정확히 반영한다
   (식물을 추가하면 다음 조회에서 바로 반영).
 - 동작 원리: 브리핑을 매 호출 재생성한다(과거에는 하루 단위 캐시로 옛 값이 남았음).
+
+### 12.4 AI 응답 마크다운 렌더링
+
+- 사전 조건: 3.1처럼 AI에게 목록·강조가 섞인 답을 유도(예: "내 식물 현황을 항목별로
+  정리해줘")한 뒤 진행해 주세요.
+- 확인 포인트: AI 응답의 `**굵게**`, `### 제목`, `- 목록`, 줄바꿈이 raw 텍스트가 아닌
+  서식으로 렌더링된다. 같은 답을 `/history`(대화 기록)에서 다시 열어도 동일하게 보인다.
+- 동작 원리: `frontend/lib/markdown.tsx`의 자체 렌더러를 ChatPanel과 /history가 공유.
+  AI가 한 줄로 flatten한 출력도 `normalizeMarkdown()`이 블록으로 승격한다. 링크의
+  `javascript:`/`data:` URI는 `safeHref()`가 차단한다.
+- 회귀 주의: `react-markdown`은 Turbopack dev 런타임에서 로드 실패하므로 재도입 금지.
 
 ---
 

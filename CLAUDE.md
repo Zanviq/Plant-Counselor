@@ -1,7 +1,7 @@
 # Plant Counselor — CLAUDE.md
 
 > **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-30 (세션 12)  
+> 최종 업데이트: 2026-05-30 (세션 13)  
 > 작성자: confidencecat (jaemi)
 
 ---
@@ -114,6 +114,7 @@ plant-counselor/
 │   │   ├── (app)/calendar/page.tsx   ← 캘린더
 │   │   └── (app)/settings/page.tsx   ← 5탭 설정
 │   ├── lib/
+│   │   ├── markdown.tsx              ← 자체 마크다운 렌더러 (ChatPanel·/history 공유)
 │   │   ├── api/admin.ts              ← 관리자 API 클라이언트 (전체 타입 포함)
 │   │   └── api/client.ts             ← fetch wrapper (네트워크 에러 try-catch 포함)
 │   └── public/sprites/               ← 픽셀아트 PNG 파일들
@@ -311,6 +312,9 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 | apiFetch 네트워크 에러 | `fetch()`는 HTTP 에러는 Response로, 네트워크 단절은 TypeError를 throw. 두 경우 모두 try-catch로 감싸 ApiResult error 반환 | frontend/lib/api/client.ts |
 | uvicorn reload_excludes | `*.json`, `logs/**` 제외 → 런타임 설정 저장·채팅 로그 생성 시 서버 재로드 방지 | backend/run.py |
 | 회원탈퇴 cascade 삭제 | bulk delete by user_id (loop+limit 방식 대신). plants 삭제 → buds+bud_history CASCADE. conversations 삭제 → conversation_messages CASCADE. AI 로그 파일 + Supabase Auth 삭제 포함 | backend/app/services/user_service.py |
+| 자체 마크다운 렌더러 | `react-markdown`이 Turbopack dev 런타임에서 ESM 로드 실패(build/start는 OK) → 의존성 없는 자체 파서로 교체. ChatPanel·/history가 동일 렌더러 공유해 중복 버그 방지. `safeHref()`로 javascript: URI 차단 | frontend/lib/markdown.tsx |
+| LLM 오류 분류·기록 | Gemini 503 등 upstream 오류를 친절 메시지 뒤로 삼키지 않고 raw+종류+원인으로 분류해 세션 로그(`llm_errors[]`)에 기록 → 관리자 AI 로그 페이지에 표시. 디버깅 가시성 확보 | backend/app/ai/llm_client.py |
+| AVAILABLE_MODELS 단일 출처 | 관리자 모델 드롭다운(기본+사용자별)이 백엔드 리스트 하나를 공유. 모델 추가는 이 배열만 수정. 미서빙 ID는 404로 /admin/logs에 노출 | backend/app/runtime_settings.py |
 
 ---
 
@@ -352,6 +356,51 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 ---
 
 ## 9. 세션별 작업 이력
+
+### 세션 13 (AI 마크다운 렌더링 + 관리자 LLM 오류 표시 + 최신 모델, 2026-05-30)
+
+**1. AI 채팅 마크다운 렌더링 (긴 디버깅 끝에 해결):**
+- 증상: AI 응답의 `**굵게**`, `### 제목`, 목록, 줄바꿈이 raw 텍스트로 출력됨
+- 1차 시도 `react-markdown` → **Turbopack dev 런타임에서 ESM 패키지 로드 실패**
+  (`pnpm build`/`pnpm start`·단독 node 테스트는 OK였으나 dev 서버에서만 깨짐) → 폐기
+- **해결**: 의존성 없는 자체 렌더러 `frontend/lib/markdown.tsx` 신규 작성
+  (`MarkdownText`, `renderInline` export). 블록(코드펜스/HR/헤딩/인용/목록) +
+  인라인(굵게/기울임/코드/링크) 파싱. `normalizeMarkdown()`으로 AI가 한 줄로
+  flatten한 출력(`\n` 리터럴, 인라인 `---`/`## `)을 블록으로 승격
+- 보안: `safeHref()`로 `javascript:`/`data:` URI 차단 (코드리뷰 HIGH 대응)
+- Tailwind preflight가 `<ul>` 불릿 제거 → `globals.css .md-msg` 리스트 스타일 복원
+- ChatPanel·`/history` 양쪽이 **동일 렌더러 공유** → "반복 문제" 재발 방지
+  (`1a9bc68` 대화 기록 페이지도 동일 마크다운 적용)
+- 함정: 포트 3000의 **좀비 dev 서버(stale 코드)** 가 수정 미반영의 진짜 원인이었음
+  → `netstat`로 PID 찾아 종료 후 재기동, Playwright로 실제 DOM 검증
+- 관련 커밋: `768a988 cbe752e 00841ad 20fbff4 4726ce4 70e2523 d086e42 fe3fd02 1a9bc68`
+
+**2. 채팅 UX 정리 (`768a988`):**
+- 대화 입력창 전송 버튼 크기 축소(글자 높이에 맞춤), 식물 삭제 시 대시보드 즉시 갱신
+- 중복 채팅 버튼 제거: 캘린더 "일정 AI와 대화" / 정원 "+ AI와 식물 만들기" 삭제
+
+**3. 관리자 페이지에 LLM(Gemini) 오류 표시 (`0a6c0a2`):**
+- 동기: "AI 모델이 일시적으로 혼잡합니다" = Gemini **503 과부하**. 사용자에겐 친절한
+  메시지만 나가고 진짜 원인이 사라져 관리자가 디버깅 불가했음
+- `llm_client.chat()` 실패 시 `error`(raw upstream) / `error_kind` / `error_cause`
+  반환. `_classify_error()`가 종류 매핑: overloaded(503)·rate_limit(429)·auth·
+  model_not_found(404)·timeout·other
+- `log_recorder.log_llm_error()` → 세션 로그에 `llm_errors[]` 기록 + 해당 llm_call에 태깅
+- `chat_orchestrator._record_llm_error()` ReAct 매 `llm.chat()` 후 호출
+- `admin._parse_log_meta`에 `error_count`/`error_kind`/`last_error` 노출
+- `/admin/logs` UI: 빨간 "오류 (N)" 탭 + 상세 카드(종류 배지·원인·원문 pre) +
+  세션 배너 + 목록 테이블 `상태` 컬럼 배지. 엔드투엔드 테스트 통과
+- **503 원인**: Gemini 무료/공유 티어 서버 과부하(거의 항상 일시적, 자동 해소).
+  `llm_client`가 지수 백오프 3회 재시도 후에도 실패해야 노출됨
+
+**4. 관리자 모델 선택에 최신 Gemini 추가 (`d33c444`):**
+- `runtime_settings.AVAILABLE_MODELS` 확장(7→12). 기본 모델·사용자별 오버라이드
+  드롭다운이 이 목록을 공유 → 한 곳 수정으로 양쪽 반영
+- 최신순: `gemini-3.5-flash`, `gemini-3.1-pro`, `gemini-3-pro`, `gemini-3-flash`,
+  `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite` + 레거시(2.0/1.5/1.0)
+- 두 엔드포인트 모두 `require_admin` 보호(관리자 전용), per-user는 화이트리스트 검증
+- ⚠ 3.x/3.5 API ID는 Google 명명 규칙 추정값 — 미서빙 시 `/admin/logs`에
+  `모델 없음 (404)`로 표시되므로 한 번 대화해보면 유효성 확인 가능
 
 ### 세션 12 (코드 리뷰·리팩토링 + 캘린더 일정 + 세션 권한 + 알림 개선, 2026-05-30)
 

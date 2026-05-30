@@ -15,15 +15,15 @@
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0      # ASGI 서버
 
-# ── Database (Supabase PostgreSQL) ────────────────────
-sqlalchemy>=2.0.0              # ORM
-psycopg2-binary>=2.9.0         # PostgreSQL 드라이버
+# ── Database (Supabase, PostgREST HTTP) ───────────────
+supabase>=2.30.0              # supabase-py 클라이언트 (DB 접근 전부 이걸로)
+                              # ※ SQLAlchemy/psycopg2 직접 연결은 사용하지 않음
 
 # ── Auth (Supabase JWT 검증) ───────────────────────────
-python-jose[cryptography]>=3.3.0   # HS256 JWT 검증
+python-jose[cryptography]>=3.3.0   # ES256(JWKS)/HS256 JWT 검증
 
 # ── Config & env ──────────────────────────────────────
-python-dotenv>=1.0.0
+python-dotenv>=1.0.0          # 로컬 .env 로딩 (pydantic-settings)
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 
@@ -31,7 +31,7 @@ pydantic-settings>=2.0.0
 google-genai>=1.0.0
 
 # ── Scheduling ────────────────────────────────────────
-apscheduler>=3.10.0            # 10분 주기 봉우리 자동 전이
+apscheduler>=3.10.0            # 주기적 봉우리 자동 전이
 
 # ── Utilities ─────────────────────────────────────────
 python-ulid>=2.0.0             # ULID 기본키 생성

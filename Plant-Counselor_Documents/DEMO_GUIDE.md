@@ -39,6 +39,7 @@
   - 4.5 마감일 설정
   - 4.6 수확 처리
   - 4.7 포기 처리
+  - 4.8 진행률 수동 조절 (슬라이더) + 사유 팝업
 - 5. 캘린더
   - 5.1 일정 직접 추가 (모달 폼)
   - 5.2 봉우리 마감 일정 표시
@@ -361,6 +362,28 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
 - 기대 결과: 봉우리가 rot(포기) 상태가 된다.
 - 동작 원리: `abandon_bud` 스킬. "삭제·포기" 원칙에 따라 명확한 의사가 있을 때만
   실행한다. 권한 가드 적용.
+
+### 4.8 진행률 수동 조절 (슬라이더) + 사유 팝업
+
+- 사전 조건: 4.1 수행 후 진행해 주세요. (완료/포기 상태가 아닌 봉우리 필요)
+- 절차:
+  1. 식물 상세 페이지에서 봉우리를 클릭해 상세 드로어를 연다.
+  2. "진행률 (완성도)" 슬라이더를 드래그해 값을 바꾸고 손을 뗀다.
+  3. "왜 변경하였나요? AI 정원사가 도움을 줄 수 있어요" 팝업에서 사유를 입력
+  4. "AI에게 전달" 또는 "그냥 저장"을 선택 (배경 클릭은 취소)
+- 기대 결과:
+  - 진행률이 즉시 저장되고, 30/60/85% 임계값을 넘으면 상태가 자동 전이된다.
+  - "AI에게 전달"을 누르면 봉우리(bud) 세션 채팅이 열리며 "방금 진행률을 X%로
+    변경했어요. 이유: ..." 메시지가 자동 전송되어 AI가 조언한다(진행률을 다시
+    바꾸지는 않는다).
+  - "그냥 저장"은 사유 없이 진행률만 저장한다.
+- 동작 원리: 슬라이더를 놓는 순간(onPointerUp/onKeyUp) 값이 바뀌었으면 팝업이
+  뜬다. 저장은 `PATCH /buds/{id}/progress {progress, note}` → BudService.update_progress로
+  처리되어 AI 스킬과 동일한 자동 전이·이력 기록을 거친다(0~100 clamp). "AI에게
+  전달"은 chatStore의 pendingSend로 사유 포함 프롬프트를 bud 세션에 자동 전송한다.
+  이 흐름은 "사용자가 왜 바꿨는지 AI가 알아야 한다"는 요구를 충족한다.
+  - 참고: 완료(harvested)·포기(rot) 상태 봉우리는 슬라이더 대신 정적 진행률 바를
+    표시한다.
 
 ---
 
@@ -880,7 +903,7 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
 사용자:
 - POST /chat/message (SSE)
 - GET /plants, GET /plants/{id}, PATCH /plants/{id}, DELETE /plants/{id}
-- GET /buds, GET /buds/{id}, PATCH /buds/{id}
+- GET /buds, GET /buds/{id}, PATCH /buds/{id}, PATCH /buds/{id}/progress
 - GET /calendar, POST /calendar/events, PATCH /calendar/events/{id}, DELETE /calendar/events/{id}
 - GET /stats/summary, GET /briefing/today
 - GET /conversations/list, GET /conversations, DELETE /conversations, POST /conversations/search

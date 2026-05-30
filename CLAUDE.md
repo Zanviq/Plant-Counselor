@@ -425,14 +425,40 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
     - 페이지→세션: 홈·정원→global, 캘린더→calendar (chatStore.setScope)
     - 다크모드 정원 식물 이름이 밝은 하늘 배경에 묻히던 버그 → 테마 독립 어두운색 + halo
 
+**15. 데모 가이드 + 2차 코드 리뷰·리팩토링 (`1de832d`, `5d336d7`):**
+    - `DEMO_GUIDE.md` 작성 (모든 기능 파트별 테스트 시나리오 + 동작 원리)
+    - 세션 12 신규 코드 리뷰 후 수정: backup_service에 calendar_events 누락 복구
+      (RPC 경로로 덤프/복원), deadline_warning 스캔마다 중복 발송 방지(has_unacked),
+      conversation search 부작용 제거(빈 대화 미생성), 미사용 dead code 제거,
+      프론트 CalEvent 타입 중복 제거·삭제 실패 피드백·effect 의존성 보정
+
+**16. 백업 RPC 컬럼 식별자 검증 (`fe55a76`)** — 자동 보안 리뷰 대응. _restore_rpc_rows의
+    컬럼명 raw 보간을 snake_case 정규식 허용목록으로 검증(값은 이미 _lit 이스케이프).
+    변조 백업의 컬럼명 주입 차단.
+
+**17. 의존성 매니페스트 수정 + 배포 가이드 (`1959b8c`):**
+    - backend requirements.txt/pyproject.toml이 실제 코드와 불일치: 누락된 `supabase`
+      추가, 미사용 `sqlalchemy`/`psycopg2-binary` 제거 (새 환경 설치 시 죽던 문제)
+    - `DEPLOYMENT_GUIDE.md` 작성: 프론트(Vercel) + 백엔드(Render 무료 / AWS 프리티어)
+      + Supabase 설정 + 무료 플랜 한계 + 환경변수표 + 트러블슈팅
+
+**18. 봉우리 진행률 수동 슬라이더 + 사유 팝업 (`4b2a0ca`):**
+    - `PATCH /buds/{id}/progress` 신규 (BudProgressUpdate). BudService.update_progress
+      재사용 → 30·60·85% 자동 전이 + 이력(note) + 0~100 clamp
+    - 상세 드로어: 정적 진행률 바 → input[type=range] 슬라이더(step 5, 완료/포기는 정적)
+    - 슬라이더 놓으면 "왜 변경하였나요? AI가 도움을 줄 수 있어요" 팝업 →
+      "AI에게 전달"(사유 저장 후 bud 세션 AI에 pendingSend로 전달, AI는 재변경 없이 조언) /
+      "그냥 저장"(사유 없이). 저장 시 bud/buds/plantBuds/stats/briefing 캐시 무효화
+
 **현재 스킬 수: 20개** (think, match_plant, create_plant, delete_plant, create_bud,
 update_bud_status, update_bud_progress, set_deadline, abandon_bud, harvest_bud,
 list_plants, list_buds, get_statistics, get_garden_briefing, search_conversation,
 suggest_scope_change, create_calendar_event, list_calendar_events,
 update_calendar_event, delete_calendar_event)
 
-**데모/테스트 문서: `Plant-Counselor_Documents/DEMO_GUIDE.md`** (세션 12에서 작성 —
-모든 기능의 파트별 테스트 시나리오 + 동작 원리)
+**문서: `Plant-Counselor_Documents/`**
+- `DEMO_GUIDE.md` — 모든 기능의 파트별 테스트 시나리오 + 동작 원리
+- `DEPLOYMENT_GUIDE.md` — Vercel(프론트) + Render/AWS(백엔드) 무료 플랜 배포 가이드
 
 ### 세션 1 (초기 구현)
 - FastAPI 백엔드 전체 구현 (8 라우터, 15 스킬, ReAct 루프)

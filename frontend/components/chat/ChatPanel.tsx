@@ -856,15 +856,17 @@ export default function ChatPanel() {
             disabled={!input.trim() || loading}
             aria-label="보내기"
             style={{
-              width: 30, height: 30, borderRadius: "var(--r-md)",
-              flexShrink: 0,
+              // Match the single-line text height (~21px) so the button doesn't
+              // make the input box taller than the text and leave a top gap.
+              width: 22, height: 22, borderRadius: "var(--r-sm)",
+              flexShrink: 0, padding: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
               background: input.trim() ? "var(--accent)" : "var(--bg-muted)",
               border: "none", cursor: input.trim() && !loading ? "pointer" : "default",
               transition: "background 0.15s",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={input.trim() ? "var(--accent-contrast)" : "var(--fg-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke={input.trim() ? "var(--accent-contrast)" : "var(--fg-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 12V2M2 7l5-5 5 5" />
             </svg>
           </button>

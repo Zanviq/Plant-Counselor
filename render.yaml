@@ -1,0 +1,32 @@
+# Render Blueprint — backend (FastAPI) deploy.
+# In Render: New → Blueprint → connect this repo. Render reads this file and
+# creates the service. Then open the service → Environment and fill the values
+# marked `sync: false` (they are intentionally NOT stored in git).
+#
+# Frontend (Next.js) is deployed separately on Vercel — see DEPLOYMENT_GUIDE.md.
+services:
+  - type: web
+    name: plant-counselor-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    region: singapore            # closest Render region to Korea (ap-northeast-2)
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # ── Fill these in the Render dashboard (Environment tab) ──
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: KEY_ENCRYPTION_SECRET
+        sync: false
+      - key: CORS_ALLOW_ORIGIN          # e.g. https://<your-app>.vercel.app
+        sync: false

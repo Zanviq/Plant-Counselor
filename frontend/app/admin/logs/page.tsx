@@ -87,7 +87,7 @@ function LogDetailView({ filename, onClose }: { filename: string; onClose: () =>
                   {llmErrors.length > 0 && (
                     <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 4 }}>
-                        ⚠ 이 세션에서 LLM 오류 {llmErrors.length}건 발생
+                        이 세션에서 LLM 오류 {llmErrors.length}건 발생
                       </div>
                       <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.55 }}>
                         {llmErrors[llmErrors.length - 1].cause}

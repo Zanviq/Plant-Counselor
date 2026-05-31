@@ -50,8 +50,8 @@ function ConfirmModal({
         style={{ background: "#1a1f2e", borderRadius: 14, border: "1px solid rgba(255,255,255,0.13)", padding: "26px 30px", width: 420, maxWidth: "92vw", boxShadow: "0 28px 80px rgba(0,0,0,0.7)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 10 }}>
-          <span style={{ color: "#f87171", marginRight: 8 }}>⚠</span>{title}
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#f87171", marginBottom: 10 }}>
+          {title}
         </div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 22, lineHeight: 1.75, whiteSpace: "pre-line" }}>
           {description}

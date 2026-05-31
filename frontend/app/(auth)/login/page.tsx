@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -50,13 +51,17 @@ export default function LoginPage() {
         }}
         className="hidden lg:flex"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Link
+          href="/"
+          aria-label="랜딩 페이지로 이동"
+          style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", width: "fit-content" }}
+        >
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <rect width="24" height="24" rx="6" fill="var(--accent)" />
             <path d="M12 18V11.5M12 11.5C12 8 9.5 6 7.5 6c0 3 1 5.5 4.5 5.5zM12 11.5C12 8 14.5 6 16.5 6c0 3-1 5.5-4.5 5.5z" stroke="var(--accent-contrast)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontSize: 16, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>Plant Counselor</span>
-        </div>
+        </Link>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <h2 className="t-display" style={{ color: "var(--fg)", lineHeight: 1.2, marginBottom: 16 }}>

@@ -1,7 +1,32 @@
 // Server component — no "use client".
 // <Link> renders as real <a> tags → navigation works without JS.
+// The preview blocks below are purely presentational mock-ups: they reuse the
+// real sprite assets and chat styling, but nothing here is interactive.
 import Link from "next/link";
 import AuthRedirect from "./_components/AuthRedirect";
+
+// ── Sprite constants (mirror /sprites/manifest.json v5) ─────────────────────
+
+const S = "/sprites";
+const PLANT_IMG = { file: `${S}/plant.png`, w: 140, h: 240 };
+const SLOTS = [
+  { x: 28, y: 12 }, { x: 108, y: 12 },
+  { x: 20, y: 56 }, { x: 116, y: 56 },
+  { x: 32, y: 108 }, { x: 104, y: 108 },
+];
+// anchor (ax, ay) = center of each bud sprite, so it sits centered on its slot.
+const BUD_SPRITES: Record<string, { file: string; w: number; h: number; ax: number; ay: number }> = {
+  seed:      { file: `${S}/bud_seed.png`,      w: 20, h: 28, ax: 10, ay: 14 },
+  sprout:    { file: `${S}/bud_sprout.png`,    w: 36, h: 28, ax: 18, ay: 14 },
+  flower:    { file: `${S}/bud_flower.png`,    w: 36, h: 32, ax: 18, ay: 16 },
+  fruit:     { file: `${S}/bud_fruit.png`,     w: 28, h: 32, ax: 14, ay: 16 },
+  wilted:    { file: `${S}/bud_wilted.png`,    w: 28, h: 24, ax: 14, ay: 12 },
+  harvested: { file: `${S}/bud_harvested.png`, w: 28, h: 20, ax: 14, ay: 10 },
+};
+const STATUS_MAP: Record<string, string> = {
+  seed: "seed", bud: "sprout", flower: "flower", fruit: "fruit",
+  wilting: "wilted", rot: "wilted", harvested: "harvested",
+};
 
 // ── SVG icons ──────────────────────────────────────────────────────────────
 
@@ -60,11 +85,11 @@ function IconBell() {
   );
 }
 
-function IconArrow() {
+function IconSend() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="2" y1="7" x2="12" y2="7" />
-      <polyline points="8 3 12 7 8 11" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
@@ -77,6 +102,225 @@ function IconGoogle() {
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
     </svg>
+  );
+}
+
+// ── Preview mock-ups (non-interactive) ──────────────────────────────────────
+
+// A single static plant composite (plant.png + buds at their slot positions).
+function DemoPlant({ name, caption, buds, scale = 1 }: {
+  name: string; caption: string; scale?: number;
+  buds: { status: string; title: string }[];
+}) {
+  const w = PLANT_IMG.w * scale;
+  const h = PLANT_IMG.h * scale;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+      <div style={{ position: "relative", width: w, height: h, imageRendering: "pixelated" }}>
+        <img src={PLANT_IMG.file} alt={name} width={w} height={h}
+          style={{ imageRendering: "pixelated", display: "block" }} draggable={false} />
+        {buds.slice(0, SLOTS.length).map((b, i) => {
+          const slot = SLOTS[i];
+          const meta = BUD_SPRITES[STATUS_MAP[b.status] ?? "seed"];
+          if (!slot || !meta) return null;
+          return (
+            <img
+              key={i}
+              src={meta.file}
+              alt={b.title}
+              title={b.title}
+              width={meta.w * scale}
+              height={meta.h * scale}
+              draggable={false}
+              style={{
+                position: "absolute",
+                left: slot.x * scale - meta.ax * scale,
+                top: slot.y * scale - meta.ay * scale,
+                imageRendering: "pixelated",
+                zIndex: 3,
+              }}
+            />
+          );
+        })}
+      </div>
+      {/* Dark, theme-independent label (the garden sits on a fixed light sky). */}
+      <div style={{ textAlign: "center", marginTop: 2, position: "relative", zIndex: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#23301a", textShadow: "0 1px 3px rgba(255,255,255,0.7)" }}>{name}</div>
+        <div style={{ fontSize: 11, color: "rgba(35,48,26,0.65)", textShadow: "0 1px 2px rgba(255,255,255,0.6)", marginTop: 1 }}>{caption}</div>
+      </div>
+    </div>
+  );
+}
+
+// The garden preview — sky + plants + grass strip, mirroring the real /plants view.
+function GardenPreview() {
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden",
+      borderRadius: "var(--r-xl)", border: "1px solid var(--border)",
+      boxShadow: "var(--shadow-md)", minHeight: 372,
+      display: "flex", flexDirection: "column",
+    }}>
+      {/* Sky */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backgroundImage: `url(${S}/sky.png)`,
+        backgroundSize: "cover", backgroundPosition: "center bottom",
+        zIndex: 0,
+      }} />
+      {/* Caption chip */}
+      <div style={{ position: "relative", zIndex: 4, padding: "14px 16px 0" }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 7,
+          padding: "5px 12px", borderRadius: "var(--r-pill)",
+          background: "rgba(255,255,255,0.78)", backdropFilter: "blur(4px)",
+          fontSize: 12, fontWeight: 600, color: "#3d4a30",
+        }}>
+          <IconSeedling /> 나의 정원
+        </span>
+      </div>
+      {/* Plants */}
+      <div style={{
+        position: "relative", zIndex: 2, flex: 1,
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        gap: 28, padding: "8px 24px 60px",
+        overflowX: "auto", scrollbarWidth: "none",
+      }}>
+        <DemoPlant
+          name="취업"
+          caption="3개 봉우리"
+          scale={0.92}
+          buds={[
+            { status: "fruit", title: "디자인 면접 준비" },
+            { status: "flower", title: "포트폴리오 정리" },
+            { status: "bud", title: "자기소개서 작성" },
+          ]}
+        />
+        <DemoPlant
+          name="건강"
+          caption="2개 봉우리"
+          scale={0.92}
+          buds={[
+            { status: "harvested", title: "주 3회 러닝" },
+            { status: "seed", title: "수면 패턴 교정" },
+          ]}
+        />
+      </div>
+      {/* Grass + soil */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 52, zIndex: 1, pointerEvents: "none" }}>
+        <div style={{
+          height: 32,
+          backgroundImage: `url(${S}/grass.png)`,
+          backgroundRepeat: "repeat-x", backgroundSize: "auto 32px",
+          backgroundPosition: "bottom", imageRendering: "pixelated",
+        }} />
+        <div style={{ height: 20, background: "linear-gradient(180deg, #7AB050 0%, #5A8A30 50%, #4A7228 100%)" }} />
+      </div>
+    </div>
+  );
+}
+
+// One chat bubble in the mock conversation.
+function DemoBubble({ role, children }: { role: "user" | "ai"; children: React.ReactNode }) {
+  const isUser = role === "user";
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 4, fontWeight: 600, textAlign: isUser ? "right" : "left" }}>
+        {isUser ? "나" : "AI 정원사"}
+      </div>
+      <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+        <div style={{
+          maxWidth: "84%",
+          padding: "10px 14px",
+          fontSize: 14, lineHeight: 1.6,
+          borderRadius: isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+          background: isUser ? "var(--accent)" : "var(--bg-subtle)",
+          color: isUser ? "var(--accent-contrast)" : "var(--fg)",
+          border: isUser ? "none" : "1px solid var(--border)",
+        }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A "skill ran" chip, like the real chat shows after a tool call.
+function DemoToolChip({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 14 }}>
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "5px 11px", borderRadius: "var(--r-pill)",
+        background: "var(--accent-muted)", border: "1px solid var(--accent-soft)",
+        fontSize: 12, fontWeight: 600, color: "var(--accent-fg)",
+      }}>
+        <IconSeedling /> {children}
+      </span>
+    </div>
+  );
+}
+
+// The chat preview — a static mock of the in-app chat panel.
+function ChatPreview() {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", overflow: "hidden",
+      borderRadius: "var(--r-xl)", border: "1px solid var(--border)",
+      background: "var(--bg-elevated)", boxShadow: "var(--shadow-md)",
+      minHeight: 372,
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "12px 16px", borderBottom: "1px solid var(--border)",
+        background: "var(--bg)",
+      }}>
+        <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--accent-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <IconChat />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg)" }}>AI 정원사</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--fg-muted)" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3fb950", display: "inline-block" }} />
+            전체 정원
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, padding: "16px", overflow: "hidden", background: "var(--bg-elevated)" }}>
+        <DemoBubble role="ai">안녕하세요, 정원사예요. 요즘 가장 신경 쓰이는 일이 있나요?</DemoBubble>
+        <DemoBubble role="user">다음 주 수요일에 디자인 면접이 있어서 준비해야 해</DemoBubble>
+        <DemoToolChip>‘취업’ 식물에 새 봉우리를 심었어요</DemoToolChip>
+        <DemoBubble role="ai">
+          <strong>디자인 면접 준비</strong>를 씨앗으로 심었어요 🌱<br />
+          수요일까지 함께 키워봐요. 포트폴리오부터 정리해볼까요?
+        </DemoBubble>
+      </div>
+
+      {/* Input bar (disabled — preview only) */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: 12, borderTop: "1px solid var(--border)", background: "var(--bg)",
+      }}>
+        <div style={{
+          flex: 1, padding: "10px 14px",
+          borderRadius: "var(--r-md)", border: "1px solid var(--border)",
+          background: "var(--bg-subtle)", color: "var(--fg-subtle)", fontSize: 13,
+        }}>
+          로그인하면 직접 대화할 수 있어요
+        </div>
+        <div aria-hidden style={{
+          width: 38, height: 38, flexShrink: 0,
+          borderRadius: "var(--r-md)", background: "var(--bg-muted)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "var(--fg-subtle)",
+        }}>
+          <IconSend />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -159,14 +403,12 @@ export default function LandingPage() {
                   fontSize: 13, fontWeight: 500, color: "var(--fg-muted)",
                   textDecoration: "none", padding: "6px 12px",
                   borderRadius: "var(--r-md)",
-                  transition: "color 0.12s, background 0.12s",
                 }}
-                onMouseOver={undefined}
               >
                 로그인
               </Link>
               <Link href="/login" className="btn btn-primary btn-sm">
-                무료로 시작하기
+                시작하기
               </Link>
             </nav>
           </div>
@@ -175,7 +417,7 @@ export default function LandingPage() {
         {/* ── Hero ─────────────────────────────────────────────────── */}
         <section style={{
           flex: "none",
-          padding: "96px 32px 80px",
+          padding: "84px 32px 64px",
           textAlign: "center",
           borderBottom: "1px solid var(--border)",
         }}>
@@ -239,16 +481,15 @@ export default function LandingPage() {
                   fontSize: 15, fontWeight: 600,
                   textDecoration: "none",
                   border: "1px solid var(--accent)",
-                  transition: "background 0.12s",
                   boxShadow: "var(--shadow-md)",
                 }}
               >
                 <IconGoogle />
-                Google로 무료 시작
+                Google로 시작하기
               </Link>
 
               <a
-                href="#features"
+                href="#preview"
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 7,
                   padding: "13px 22px",
@@ -258,10 +499,9 @@ export default function LandingPage() {
                   fontSize: 15, fontWeight: 500,
                   textDecoration: "none",
                   border: "1px solid var(--border)",
-                  transition: "background 0.12s",
                 }}
               >
-                더 알아보기
+                둘러보기
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
                   <line x1="7" y1="2" x2="7" y2="12" />
                   <polyline points="3 8 7 12 11 8" />
@@ -271,12 +511,53 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Live preview (garden + chat) ─────────────────────────── */}
+        <section
+          id="preview"
+          style={{
+            padding: "80px 32px",
+            background: "var(--bg-subtle)",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 44 }}>
+              <p style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
+                color: "var(--accent)", textTransform: "uppercase", marginBottom: 10,
+              }}>
+                미리보기
+              </p>
+              <h2 style={{
+                fontSize: "clamp(1.5rem, 3vw, 2rem)",
+                fontWeight: 700, color: "var(--fg)",
+                letterSpacing: "-0.02em", lineHeight: 1.2,
+              }}>
+                대화 한 번이면, 이렇게 자랍니다
+              </h2>
+              <p style={{ fontSize: 14, color: "var(--fg-muted)", marginTop: 12 }}>
+                실제 화면 그대로의 미리보기예요. (둘러보기용 — 입력은 동작하지 않아요)
+              </p>
+            </div>
+
+            {/* Responsive 2-up: chat ↔ garden. Wraps to one column when narrow. */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 20,
+              alignItems: "stretch",
+            }}>
+              <ChatPreview />
+              <GardenPreview />
+            </div>
+          </div>
+        </section>
+
         {/* ── Features ─────────────────────────────────────────────── */}
         <section
           id="features"
           style={{
             padding: "80px 32px",
-            background: "var(--bg-subtle)",
             borderBottom: "1px solid var(--border)",
           }}
         >
@@ -419,7 +700,7 @@ export default function LandingPage() {
               fontSize: 14, color: "var(--fg-muted)",
               lineHeight: 1.7, marginBottom: 36,
             }}>
-              Google 계정으로 5초 만에 시작할 수 있습니다.
+              Google 계정으로 바로 시작할 수 있습니다.
             </p>
             <Link
               href="/login"

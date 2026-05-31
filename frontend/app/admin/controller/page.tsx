@@ -156,7 +156,7 @@ function SqlExecutor() {
 
   return (
     <div style={card}>
-      <SectionTitle>💾 SQL 실행기</SectionTitle>
+      <SectionTitle>SQL 실행기</SectionTitle>
       <textarea
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -355,7 +355,7 @@ function TimeTravelSection() {
     }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>⏱ 서버 시간 이동</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>서버 시간 이동</div>
         {isShifted && (
           <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "2px 8px", borderRadius: 999, fontWeight: 600 }}>
             오프셋 활성: {offsetLabel}
@@ -492,7 +492,7 @@ function TableOverview() {
 
   return (
     <div style={card}>
-      <SectionTitle>📊 테이블 현황</SectionTitle>
+      <SectionTitle>테이블 현황</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
         {tables.map((t) => (
           <div key={t.table} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "10px 14px" }}>
@@ -534,7 +534,7 @@ function UserModelSection({ models }: { models: string[] }) {
 
   return (
     <div style={card}>
-      <SectionTitle>🤖 사용자별 AI 모델 오버라이드</SectionTitle>
+      <SectionTitle>사용자별 AI 모델 오버라이드</SectionTitle>
       {feedback && <div style={{ fontSize: 12, color: "#34d399", marginBottom: 10 }}>{feedback}</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {users.map((u) => (
@@ -614,10 +614,10 @@ export default function AdminControllerPage() {
   }
 
   const GROUP_LABELS: Record<string, string> = {
-    llm: "🤖 LLM 설정",
-    scheduler: "⏱ 스케줄러",
-    default: "🌱 시스템 기본값",
-    system: "⚙ 시스템",
+    llm: "LLM 설정",
+    scheduler: "스케줄러",
+    default: "시스템 기본값",
+    system: "시스템",
   };
 
   function handleSave(key: string, value: unknown, persist = false) {
@@ -656,7 +656,7 @@ export default function AdminControllerPage() {
       {/* Runtime settings */}
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>⚙ 런타임 설정</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>런타임 설정</div>
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -670,7 +670,7 @@ export default function AdminControllerPage() {
             disabled={updateMut.isPending}
             style={btn("primary")}
           >
-            💾 디스크에 저장
+            디스크에 저장
           </button>
         </div>
 

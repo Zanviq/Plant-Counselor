@@ -46,7 +46,8 @@ interface TreeItem {
   conv: ConversationSummary;
   label: string;
   icon: string;
-  indent: number;       // 0=root, 1=plant, 2=bud
+  indent: number;       // visual indent only: 0=root/plant, 1=bud
+  nodeType: "root" | "plant" | "bud";
   plantId?: string;
   dimmed?: boolean;     // disappeared buds
 }
@@ -72,14 +73,14 @@ function buildTree(
   // ── Global ──────────────────────────────────────────────────
   const global = byScope.get("global:");
   if (global) {
-    const item: TreeItem = { key: global.id, conv: global, label: "전체 대화", icon: "🌍", indent: 0 };
+    const item: TreeItem = { key: global.id, conv: global, label: "전체 대화", icon: "🌍", indent: 0, nodeType: "root" };
     if (!q || matchesFilter(item, q)) items.push(item);
   }
 
   // ── Calendar ────────────────────────────────────────────────
   const cal = byScope.get("calendar:");
   if (cal) {
-    const item: TreeItem = { key: cal.id, conv: cal, label: "캘린더", icon: "📅", indent: 0 };
+    const item: TreeItem = { key: cal.id, conv: cal, label: "캘린더", icon: "📅", indent: 0, nodeType: "root" };
     if (!q || matchesFilter(item, q)) items.push(item);
   }
 
@@ -117,7 +118,8 @@ function buildTree(
           conv: c,
           label: bud.title,
           icon: bud.type === "schedule" ? "🗓" : "🌱",
-          indent: 2,
+          indent: 1,
+          nodeType: "bud",
           plantId: plant.id,
           dimmed: !!bud.disappeared_at,
         };
@@ -132,7 +134,8 @@ function buildTree(
           conv: plantConv,
           label: plant.name,
           icon: "🌿",
-          indent: 1,
+          indent: 0,
+          nodeType: "plant",
           plantId: plant.id,
         }
       : null;
@@ -148,7 +151,8 @@ function buildTree(
             conv: budConvs[0].conv, // proxy for display
             label: plant.name,
             icon: "🌿",
-            indent: 1,
+            indent: 0,
+            nodeType: "plant",
             plantId: plant.id,
           });
         }
@@ -191,7 +195,7 @@ function ScopeTag({ item, plants }: { item: TreeItem; plants: Plant[] }) {
           }}>
             {plant.name}
           </span>
-          {item.indent === 2 && <span style={{ fontSize: 10, color: "var(--fg-subtle)" }}>›</span>}
+          {item.nodeType === "bud" && <span style={{ fontSize: 10, color: "var(--fg-subtle)" }}>›</span>}
         </>
       )}
       <span style={{
@@ -243,6 +247,21 @@ function MessageBubble({ msg }: { msg: ConvMessage }) {
   );
 }
 
+// ── Chevron (expand/collapse) ─────────────────────────────────
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="13" height="13" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+      style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", display: "block" }}
+      aria-hidden
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 // ── TreeRow ───────────────────────────────────────────────────
 
 function TreeRow({
@@ -250,11 +269,13 @@ function TreeRow({
   selected,
   onClick,
   onPrefetch,
+  hasToggle,
 }: {
   item: TreeItem;
   selected: boolean;
   onClick: () => void;
   onPrefetch?: () => void;
+  hasToggle?: boolean;
 }) {
   const isGhost = item.key.startsWith("ghost-plant-");
   return (
@@ -263,7 +284,7 @@ function TreeRow({
       disabled={isGhost}
       style={{
         width: "100%", textAlign: "left", border: "none",
-        padding: `7px 12px 7px ${12 + item.indent * 16}px`,
+        padding: `7px ${hasToggle ? 58 : 12}px 7px ${12 + item.indent * 16}px`,
         background: selected ? "var(--accent-muted)" : "transparent",
         cursor: isGhost ? "default" : "pointer",
         borderRadius: "var(--r-sm)",
@@ -283,9 +304,9 @@ function TreeRow({
             className="t-body-sm"
             style={{
               color: selected ? "var(--accent-fg)" : isGhost ? "var(--fg-muted)" : "var(--fg)",
-              fontWeight: item.indent === 0 || item.indent === 1 ? 600 : 400,
+              fontWeight: item.nodeType === "bud" ? 400 : 600,
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              fontSize: item.indent === 2 ? 12.5 : 13,
+              fontSize: item.nodeType === "bud" ? 12.5 : 13,
             }}
           >
             {item.label}
@@ -468,8 +489,19 @@ function ThreadPanel({
 export default function HistoryPage() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [filterQuery, setFilterQuery] = useState("");
+  // plantIds whose bud conversations are expanded. Default: all collapsed.
+  const [expandedPlants, setExpandedPlants] = useState<Set<string>>(new Set());
   const { accessToken } = useAuthStore();
   const qc = useQueryClient();
+
+  const togglePlant = useCallback((plantId: string) => {
+    setExpandedPlants((prev) => {
+      const next = new Set(prev);
+      if (next.has(plantId)) next.delete(plantId);
+      else next.add(plantId);
+      return next;
+    });
+  }, []);
 
   const prefetchThread = useCallback((item: TreeItem) => {
     if (item.key.startsWith("ghost-")) return;
@@ -497,6 +529,18 @@ export default function HistoryPage() {
     () => buildTree(conversations, plants, buds, filterQuery),
     [conversations, plants, buds, filterQuery]
   );
+
+  // How many bud conversations sit under each plant (for the toggle chip).
+  const budCountByPlant = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of treeItems) {
+      if (it.nodeType === "bud" && it.plantId) m.set(it.plantId, (m.get(it.plantId) ?? 0) + 1);
+    }
+    return m;
+  }, [treeItems]);
+
+  // While filtering, force every plant open so matches are never hidden.
+  const filtering = filterQuery.trim().length > 0;
 
   const selectedItem = treeItems.find((i) => i.key === selectedKey) ?? null;
   // Auto-select first real item when tree loads
@@ -598,15 +642,51 @@ export default function HistoryPage() {
               </div>
             )}
 
-            {treeItems.map((item) => (
-              <TreeRow
-                key={item.key}
-                item={item}
-                selected={selectedKey === item.key}
-                onClick={() => setSelectedKey(item.key)}
-                onPrefetch={() => prefetchThread(item)}
-              />
-            ))}
+            {treeItems.map((item) => {
+              const isPlant = item.nodeType === "plant";
+              const budCount = isPlant && item.plantId ? (budCountByPlant.get(item.plantId) ?? 0) : 0;
+              const hasToggle = isPlant && budCount > 0;
+              const open = !!item.plantId && (filtering || expandedPlants.has(item.plantId));
+
+              // Hide a plant's bud rows while it's collapsed.
+              if (item.nodeType === "bud" && item.plantId && !open) return null;
+
+              return (
+                <div key={item.key} style={{ position: "relative" }}>
+                  <TreeRow
+                    item={item}
+                    selected={selectedKey === item.key}
+                    onClick={() => setSelectedKey(item.key)}
+                    onPrefetch={() => prefetchThread(item)}
+                    hasToggle={hasToggle}
+                  />
+                  {hasToggle && (
+                    <button
+                      type="button"
+                      onClick={() => togglePlant(item.plantId!)}
+                      aria-expanded={open}
+                      aria-label={open ? `${item.label} 봉우리 접기` : `${item.label} 봉우리 펼치기`}
+                      title={open ? "봉우리 접기" : `봉우리 ${budCount}개 펼치기`}
+                      style={{
+                        position: "absolute", right: 8, bottom: 7,
+                        display: "flex", alignItems: "center", gap: 3,
+                        padding: "2px 6px", borderRadius: 999,
+                        border: "1px solid var(--border)", background: "var(--bg-elevated)",
+                        color: "var(--fg-muted)", cursor: filtering ? "default" : "pointer",
+                        fontSize: 10.5, fontWeight: 700, lineHeight: 1,
+                        opacity: filtering ? 0.6 : 1,
+                      }}
+                      disabled={filtering}
+                      onMouseEnter={(e) => { if (!filtering) e.currentTarget.style.color = "var(--accent-fg)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--fg-muted)"; }}
+                    >
+                      {budCount}
+                      <Chevron open={open} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

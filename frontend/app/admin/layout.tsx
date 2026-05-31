@@ -14,12 +14,12 @@ function AdminNav() {
   const router = useRouter();
 
   const nav = [
-    { href: "/admin", label: "대시보드", icon: "⬛" },
-    { href: "/admin/users", label: "사용자 관리", icon: "👥" },
-    { href: "/admin/logs", label: "AI 로그", icon: "📋" },
-    { href: "/admin/notifications", label: "알림 발송", icon: "🔔" },
-    { href: "/admin/data", label: "데이터 관리", icon: "🗑" },
-    { href: "/admin/controller", label: "컨트롤러", icon: "🎛" },
+    { href: "/admin", label: "대시보드" },
+    { href: "/admin/users", label: "사용자 관리" },
+    { href: "/admin/logs", label: "AI 로그" },
+    { href: "/admin/notifications", label: "알림 발송" },
+    { href: "/admin/data", label: "데이터 관리" },
+    { href: "/admin/controller", label: "컨트롤러" },
   ];
 
   async function handleLogout() {
@@ -43,9 +43,9 @@ function AdminNav() {
             width: 28, height: 28, borderRadius: 6,
             background: "var(--accent, #e11d48)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14,
+            fontSize: 14, fontWeight: 800, color: "#fff",
           }}>
-            ⚙
+            P
           </div>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Plant Admin</span>
         </div>
@@ -56,7 +56,7 @@ function AdminNav() {
 
       {/* Navigation */}
       <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
-        {nav.map(({ href, label, icon }) => {
+        {nav.map(({ href, label }) => {
           const active = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
           return (
             <Link
@@ -72,7 +72,6 @@ function AdminNav() {
                 transition: "background 0.12s, color 0.12s",
               }}
             >
-              <span style={{ fontSize: 14 }}>{icon}</span>
               {label}
             </Link>
           );
@@ -90,7 +89,7 @@ function AdminNav() {
             textDecoration: "none",
           }}
         >
-          <span>↩</span> 일반 사용자 모드
+          일반 사용자 모드
         </Link>
         <button
           onClick={handleLogout}
@@ -101,7 +100,7 @@ function AdminNav() {
             fontSize: 13, cursor: "pointer", textAlign: "left",
           }}
         >
-          <span>🚪</span> 로그아웃
+          로그아웃
         </button>
       </div>
     </aside>

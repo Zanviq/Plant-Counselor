@@ -257,6 +257,17 @@ export default function PlantsPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <ViewToggle current={view} onChange={setView} />
         {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
+        {view === "garden" && !isLoading && filtered.length > 1 && (
+          <div style={{
+            marginLeft: "auto", display: "flex", gap: 8, alignItems: "center",
+            background: "var(--bg-subtle)", border: "1px solid var(--border)",
+            padding: "4px 10px", borderRadius: "var(--r-pill)",
+          }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ padding: "0 6px", fontSize: 16 }}>‹</button>
+            <span className="t-caption" style={{ color: "var(--fg-secondary)", fontWeight: 600 }}>{selectedIdx + 1} / {filtered.length}</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate(1)} style={{ padding: "0 6px", fontSize: 16 }}>›</button>
+          </div>
+        )}
       </div>
 
       {/* Loading skeleton */}
@@ -295,20 +306,6 @@ export default function PlantsPage() {
             backgroundSize: "cover", backgroundPosition: "center bottom",
             zIndex: 0,
           }} />
-
-          {/* Navigation arrows */}
-          {filtered.length > 1 && (
-            <div style={{
-              position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
-              zIndex: 10, display: "flex", gap: 8, alignItems: "center",
-              background: "rgba(255,255,255,0.7)", backdropFilter: "blur(4px)",
-              padding: "4px 12px", borderRadius: "var(--r-pill)",
-            }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ padding: "0 6px", fontSize: 16 }}>‹</button>
-              <span className="t-caption" style={{ color: "var(--fg-secondary)", fontWeight: 600 }}>{selectedIdx + 1} / {filtered.length}</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate(1)} style={{ padding: "0 6px", fontSize: 16 }}>›</button>
-            </div>
-          )}
 
           {/* Scrollable plant row */}
           <div ref={scrollRef} style={{

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
-import { useThemeStore, ThemeMode, AccentTheme } from "@/lib/store/themeStore";
+import { useThemeStore, ThemeMode } from "@/lib/store/themeStore";
 import { supabase } from "@/lib/supabase";
 import { apiPatch, apiPut, apiDelete } from "@/lib/api/client";
 import type { UserProfile } from "@/lib/store/authStore";
@@ -22,13 +22,6 @@ const TONES = [
   { key: "counselor", label: "따뜻한 상담사", desc: "공감과 격려를 중심으로 답합니다" },
   { key: "assistant", label: "담백한 비서",   desc: "간결하고 명확하게 답합니다" },
   { key: "friend",    label: "친구",          desc: "편하고 캐주얼하게 답합니다" },
-];
-
-const ACCENTS: { key: AccentTheme; label: string; color: string }[] = [
-  { key: "emerald",  label: "Emerald",  color: "#059669" },
-  { key: "sapphire", label: "Sapphire", color: "#2563EB" },
-  { key: "violet",   label: "Violet",   color: "#7C3AED" },
-  { key: "sunset",   label: "Sunset",   color: "#EA580C" },
 ];
 
 const MODES: { key: ThemeMode; label: string; desc: string }[] = [
@@ -51,7 +44,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user, accessToken, setSession, clearSession } = useAuthStore();
-  const { mode, accent, setMode, setAccent } = useThemeStore();
+  const { mode, setMode } = useThemeStore();
 
   const [tab, setTab] = useState<TabId>("account");
   const [apiKeyVal, setApiKeyVal] = useState("");
@@ -257,20 +250,6 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </SubSection>
-
-              <SubSection title="강조색">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                  {ACCENTS.map((a) => (
-                    <AccentCard
-                      key={a.key}
-                      active={accent === a.key}
-                      color={a.color}
-                      label={a.label}
-                      onClick={() => setAccent(a.key)}
-                    />
-                  ))}
-                </div>
-              </SubSection>
             </Section>
           )}
 
@@ -389,26 +368,6 @@ function ModeCard({ active, onClick, label, desc, themeKey }: {
         </div>
         {active && <Check />}
       </div>
-    </button>
-  );
-}
-
-function AccentCard({ active, color, label, onClick }: { active: boolean; color: string; label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "10px 12px", border: "1px solid",
-        borderColor: active ? color : "var(--border)",
-        borderRadius: "var(--r-md)", cursor: "pointer",
-        background: "var(--bg-elevated)", textAlign: "left",
-        display: "flex", alignItems: "center", gap: 10,
-        transition: "border-color 0.12s",
-      }}
-    >
-      <span style={{ width: 18, height: 18, borderRadius: "50%", background: color, flexShrink: 0 }} />
-      <span className="t-body-sm" style={{ color: "var(--fg)", flex: 1 }}>{label}</span>
-      {active && <Check />}
     </button>
   );
 }

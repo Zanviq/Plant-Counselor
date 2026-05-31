@@ -22,6 +22,9 @@ env/
 # Backend env
 backend/.env
 
+# Poetry local machine config
+backend/poetry.toml
+
 # Chat debug logs (large, ephemeral)
 backend/logs/
 

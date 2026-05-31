@@ -142,34 +142,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Floating chat FAB — visible only when chat is closed */}
-      {!open && (
-        <button
-          onClick={() => openWith()}
-          aria-label="AI 정원사 열기"
-          style={{
-            position: "fixed",
-            top: 12, right: 16,
-            zIndex: 30,
-            width: 36, height: 36,
-            borderRadius: "var(--r-md)",
-            background: "var(--accent)",
-            color: "var(--accent-contrast)",
-            border: "none",
-            cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "var(--shadow-md)",
-            transition: "background 0.12s, transform 0.12s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-hover)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--accent)")}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 12a8 8 0 01-11.5 7.2L3 21l1.8-6.5A8 8 0 1121 12z" />
-          </svg>
-        </button>
-      )}
-
       <ChatPanel />
     </div>
   );

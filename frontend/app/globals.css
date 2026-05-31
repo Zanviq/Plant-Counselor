@@ -133,41 +133,6 @@
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.6);
 }
 
-/* ── ACCENT THEMES (kept for settings) ───────────────────── */
-
-[data-accent="sapphire"] {
-  --accent: #4A6A8A; --accent-hover: #3A5A7A;
-  --accent-soft: #D0DDE8; --accent-muted: #E8EFF5;
-  --accent-fg: #2A4060;
-}
-[data-theme="dark"][data-accent="sapphire"] {
-  --accent: #5A8AB0; --accent-hover: #6A9AC0;
-  --accent-soft: #1E2E3E; --accent-muted: #142028;
-  --accent-fg: #A0C0E0;
-}
-
-[data-accent="violet"] {
-  --accent: #6A5090; --accent-hover: #5A4080;
-  --accent-soft: #DDD0F0; --accent-muted: #EEE8F8;
-  --accent-fg: #3A2860;
-}
-[data-theme="dark"][data-accent="violet"] {
-  --accent: #9A80C0; --accent-hover: #AA90D0;
-  --accent-soft: #2E2040; --accent-muted: #201828;
-  --accent-fg: #C8B0E8;
-}
-
-[data-accent="sunset"] {
-  --accent: #B06030; --accent-hover: #A05028;
-  --accent-soft: #F0D8C0; --accent-muted: #F8ECE0;
-  --accent-fg: #603018;
-}
-[data-theme="dark"][data-accent="sunset"] {
-  --accent: #D08050; --accent-hover: #E09060;
-  --accent-soft: #3A2018; --accent-muted: #281410;
-  --accent-fg: #F0C0A0;
-}
-
 /* ═══════════════════════════════════════════════════════════
    TAILWIND THEME
    ═══════════════════════════════════════════════════════════ */

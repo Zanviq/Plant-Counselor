@@ -2,14 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type ThemeMode = "light" | "dark" | "system";
-export type AccentTheme = "emerald" | "sapphire" | "violet" | "sunset";
 
 interface ThemeState {
   mode: ThemeMode;
-  accent: AccentTheme;
   resolved: "light" | "dark";
   setMode: (m: ThemeMode) => void;
-  setAccent: (a: AccentTheme) => void;
   apply: () => void;
 }
 
@@ -19,14 +16,12 @@ function resolveMode(m: ThemeMode): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function paint(mode: ThemeMode, accent: AccentTheme): "light" | "dark" {
+function paint(mode: ThemeMode): "light" | "dark" {
   const resolved = resolveMode(mode);
   if (typeof document === "undefined") return resolved;
   const root = document.documentElement;
   root.setAttribute("data-theme", resolved);
-  // emerald is the default token set; only mark non-default accents
-  if (accent === "emerald") root.removeAttribute("data-accent");
-  else root.setAttribute("data-accent", accent);
+  root.removeAttribute("data-accent");
   return resolved;
 }
 
@@ -34,19 +29,14 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       mode: "system",
-      accent: "emerald",
       resolved: "light",
       setMode: (mode) => {
-        const resolved = paint(mode, get().accent);
+        const resolved = paint(mode);
         set({ mode, resolved });
       },
-      setAccent: (accent) => {
-        const resolved = paint(get().mode, accent);
-        set({ accent, resolved });
-      },
       apply: () => {
-        const { mode, accent } = get();
-        const resolved = paint(mode, accent);
+        const { mode } = get();
+        const resolved = paint(mode);
         set({ resolved });
       },
     }),

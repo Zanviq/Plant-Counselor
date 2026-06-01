@@ -1,8 +1,12 @@
 # Plant Counselor — CLAUDE.md
 
-> **다음 Claude 세션을 위한 핸드오프 문서**  
-> 최종 업데이트: 2026-05-30 (세션 13)  
+> **과거 Claude 세션 변경 이력**
+> 최종 안내 갱신: 2026-06-02
 > 작성자: confidencecat (jaemi)
+>
+> 현재 작업 가이드는 `AGENTS.md`, 최신 웹 문서 지도는 `docs/README.md`를 우선한다.
+> 아래 세션별 기록은 당시 맥락을 보존하기 위한 역사 자료다. 실제 코드와 충돌하면
+> 실제 코드와 `AGENTS.md`를 따른다.
 
 ---
 
@@ -29,18 +33,18 @@
 | DB (Supabase PostgreSQL + RLS) | ✅ 완성 (세션 7에서 마이그레이션) |
 | 식물 CRUD | ✅ 완성 |
 | 봉우리 CRUD + 7상태 생애주기 | ✅ 완성 |
-| AI 채팅 (ReAct, 16 스킬, SSE 스트리밍) | ✅ 완성 |
+| AI 채팅 (ReAct, 20 스킬, SSE 스트리밍) | ✅ 완성 |
 | 4가지 채팅 스코프 (global/plant/bud/calendar) | ✅ 완성 |
 | 대화 스코프 변경 제안 배너 | ✅ 완성 (세션 7) |
 | 캘린더 (이벤트 표시, 식물명/시간 포함) | ✅ 완성 |
 | 캘린더 전용 AI 채팅 | ✅ 완성 |
-| 픽셀아트 정원 (스프라이트, 슬롯, 캐러셀) | ✅ 완성 |
+| 픽셀아트 정원 (봉우리별 성장 레이어, 가변 폭 정원) | ✅ 완성 |
 | 화살표 키 네비게이션 (딜레이 없음) | ✅ 완성 |
 | 알림 (시들/썩음/마감 임박) | ✅ 완성 |
-| 테마 (light/dark/system + 4종 강조색) | ✅ 완성 |
+| 테마 (light/dark/system) | ✅ 완성 |
 | 설정 (5탭, API 키 암호화) | ✅ 완성 |
 | 10분 주기 자동 전이 (APScheduler) | ✅ 완성 |
-| requirements.txt + README (venv 설명) | ✅ 완성 |
+| Poetry 로컬 환경 + requirements.txt(Render) + README | ✅ 완성 |
 | 대화 기록 브라우저 (/history) | ✅ 완성 |
 | ChatPanel 드래그 리사이즈 | ✅ 완성 |
 | BudDetailDrawer + ChatPanel 공존 | ✅ 완성 |
@@ -78,9 +82,8 @@ plant-counselor/
 │   │   │   ├── llm_client.py         ← Gemini API 래퍼 (DEFAULT_MODEL 런타임 교체 가능)
 │   │   │   ├── prompt_builder.py     ← 시스템 프롬프트 + rs.today() (타임 트래블 연동)
 │   │   │   ├── skill_registry.py     ← 스킬 등록 + catalog
-│   │   │   └── skills/               ← 16개 스킬 각 파일
+│   │   │   └── skills/               ← 20개 스킬 각 파일
 │   │   ├── db/
-│   │   │   ├── models/               ← SQLAlchemy ORM 모델 (타입 정의용, DB 접근은 supabase-py)
 │   │   │   └── supa.py               ← Supabase PostgREST 클라이언트 싱글톤
 │   │   ├── routers/
 │   │   │   ├── admin.py              ← 관리자 API (require_admin 보호)
@@ -93,7 +96,7 @@ plant-counselor/
 │   │   ├── config.py                 ← pydantic-settings
 │   │   └── main.py                   ← FastAPI app
 │   ├── run.py                        ← uvicorn (reload_excludes: *.json, logs/**)
-│   └── .env.example                  ← 환경변수 템플릿
+│   └── migrations/                   ← Supabase 적용 SQL
 │
 ├── frontend/
 │   ├── app/
@@ -130,27 +133,21 @@ plant-counselor/
 ```bash
 # 백엔드
 cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1   # Windows
-# source .venv/bin/activate  # Mac/Linux
-pip install -e .              # psycopg2-binary, fastapi 등 전체 설치
-cp .env.example .env
-# .env 편집: 아래 필수 환경변수 참고
-python run.py                 # → http://localhost:8000
+poetry config virtualenvs.in-project true --local
+poetry install
+# backend/.env 직접 생성 후 아래 환경변수 입력
+poetry run python run.py      # → http://localhost:8000
 # API 문서: http://localhost:8000/docs
 
 # 프론트엔드 (새 터미널)
 cd frontend
-pnpm install
-pnpm dev                      # → http://localhost:3000
+npm install
+npm run dev                   # → http://localhost:3000
 ```
 
 ### 필수 환경변수 (backend/.env)
 
 ```dotenv
-# Supabase PostgreSQL 연결 (pooler 사용 — psycopg2 fallback이지만 실제로는 supabase-py HTTP 사용)
-DATABASE_URL=postgresql+psycopg2://postgres.PROJECT_REF:PASSWORD@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
-
 # Supabase JWT Legacy Secret (Dashboard → Settings → API → JWT Secret → Legacy)
 SUPABASE_JWT_SECRET=여기에-supabase-legacy-jwt-secret
 
@@ -167,8 +164,8 @@ KEY_ENCRYPTION_SECRET=여기에-32자-이상-랜덤-문자열
 CORS_ALLOW_ORIGIN=http://localhost:3000
 ```
 
-> **⚠ DB 연결 주의**: psycopg2 직접 연결은 IPv6 전용 / pooler ENOTFOUND 문제로 작동하지 않습니다.
-> 실제 DB 접근은 `supabase-py` PostgREST HTTP로 이루어집니다 (`SUPABASE_SERVICE_ROLE_KEY` 필수).
+> 실제 DB 접근은 `supabase-py` PostgREST HTTP로 이루어집니다
+> (`SUPABASE_SERVICE_ROLE_KEY` 필수). `DATABASE_URL`은 일반 CRUD에 사용하지 않습니다.
 
 ### Google OAuth 설정 (Supabase Dashboard에서 수동 설정 필요)
 
@@ -211,7 +208,7 @@ invalidateQueries({ queryKey: ["plants"] })  // onDone에서 SKILL_INVALIDATIONS
 // 전역 상태: Zustand
 useChatStore()    // open, scope, openWith()
 useAuthStore()    // user, token, setSession()
-useThemeStore()   // mode, accent, setMode()
+useThemeStore()   // mode, resolved, setMode()
 ```
 
 ### 6.3 채팅 스코프
@@ -290,14 +287,14 @@ useEffect(() => {  // React 재렌더 완료 후 실행 → setTimeout 불필요
 | 결정 | 이유 | 파일 |
 |------|------|------|
 | `google-genai` SDK (Gemini) | pyproject.toml에 anthropic 잘못 기재되어 있었음 → 수정 완료 | backend/pyproject.toml |
-| 동기 SSE 제너레이터 | SQLAlchemy 동기 세션과 자연스럽게 결합 | chat_orchestrator.py |
+| 동기 SSE 제너레이터 | 동기 Gemini 호출과 스트리밍 흐름을 단순하게 유지 | chat_orchestrator.py |
 | Anthropic IR → Gemini 변환 | 향후 Claude 전환 시 llm_client.py만 교체 | llm_client.py |
 | detail 필드에 시간 저장 | DB 스키마 변경 없이 MVP에서 시간 정보 표현 | bud 모델 |
 | setTimeout 제거 | state update와 DOM effect를 useEffect로 분리 | plants/page.tsx |
 | ULID PK | URL-safe, 정렬 가능, UUID보다 디버깅 쉬움 | 모든 모델 |
 | Supabase Auth (Google OAuth) | 자체 인증 구현 제거, 소셜 로그인 UX 개선 | deps.py, login/page.tsx |
 | python-jose 로컬 JWT 검증 | 매 요청마다 Supabase API 호출 없이 검증 (성능) | deps.py |
-| `user_id = text` 타입 | SQLAlchemy `String` 유지, PG UUID FK 없이 RLS와 호환 | 모든 모델 |
+| `user_id = text` 타입 | Supabase Auth `sub`를 repository 격리 키로 사용 | repositories |
 | DB 트리거 + fallback | `handle_new_auth_user()` 트리거로 자동 프로필 생성, 백엔드 fallback 포함 | deps.py |
 | Supabase `onAuthStateChange` | 마운트 시 즉시 세션 로드 + 자동 갱신 (httpOnly 쿠키 불필요) | layout.tsx |
 | 스코프 변경 제안 → 배너(non-blocking) | 모달 대신 배너로 UX 흐름 방해 최소화 | ChatPanel.tsx |
@@ -514,7 +511,7 @@ list_plants, list_buds, get_statistics, get_garden_briefing, search_conversation
 suggest_scope_change, create_calendar_event, list_calendar_events,
 update_calendar_event, delete_calendar_event)
 
-**문서: `Plant-Counselor_Documents/`**
+**문서: 현재 `docs/`로 이동됨**
 - `DEMO_GUIDE.md` — 모든 기능의 파트별 테스트 시나리오 + 동작 원리
 - `DEPLOYMENT_GUIDE.md` — Vercel(프론트) + Render/AWS(백엔드) 무료 플랜 배포 가이드
 
@@ -537,7 +534,7 @@ update_calendar_event, delete_calendar_event)
 - `CalEvent` 타입 확장 (stats.ts)
 
 ### 세션 4 (문서화 + 버그 수정, 2026-05-27)
-- MVP 문서 10편 작성 (`Plant-Counselor_Documents/MVP_Documents/`)
+- MVP 문서 10편 작성 (현재 `docs/MVP/`로 이동됨)
 - `.gitignore` + `README.md` 작성 (root)
 - `requirements.txt` 생성, `pyproject.toml` 의존성 수정
 - **화살표 키 딜레이 버그 수정** (`setTimeout` → `useEffect` 분리)
@@ -725,16 +722,16 @@ update_calendar_event, delete_calendar_event)
 
 ---
 
-## 10. 다음 Claude 세션을 위한 가이드
+## 10. 후속 작업 참고
 
 ### 작업을 시작하기 전에
 
-1. **환경변수 확인**: `backend/.env`에 `DATABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `LLM_API_KEY` 모두 설정됐는지 확인
+1. **환경변수 확인**: `backend/.env`에 `SUPABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `LLM_API_KEY`, `KEY_ENCRYPTION_SECRET`이 설정됐는지 확인
 2. **Google OAuth 설정**: Supabase Dashboard에서 Google provider가 활성화돼 있는지 확인 (Section 5 참고)
-3. **서버 실행**: 반드시 `backend/` 디렉터리에서 `python run.py` 실행 (전역 pip 설치 완료)
+3. **서버 실행**: 반드시 `backend/` 디렉터리에서 `poetry run python run.py` 실행
    - **⚠ 중요**: 코드 변경 후 반드시 수동 재시작 — `reload=True`는 신뢰 불가
-   - 재시작 방법: 모든 Python 프로세스 종료 → `__pycache__` 삭제 → `python run.py`
-4. **프론트엔드**: `pnpm dev` (Next.js 16)
+   - 재시작 방법: Python 프로세스 종료 → `poetry run python run.py`
+4. **프론트엔드**: `npm run dev` (Next.js 16)
 5. **DB 접근 방식**: supabase-py HTTP (psycopg2 직접 연결 사용 안 함)
 
 ### 새 기능 추가 시 체크리스트

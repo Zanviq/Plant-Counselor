@@ -10,100 +10,15 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
+import { GardenPlantVisual, LAYER_H, POT_H } from "@/components/plants/GardenPlantVisual";
 
 // ── Garden pixel assets (Figma 05 Plant Pixel Assets) ──────
 
-const PLANT_W = 178;
-const POT_H = 46;
-const LAYER_H = 64;
 const BOARD_MIN_W = 1800;
 const BOARD_MIN_H = 1160;
 const GARDEN_BASELINE = 696;
 const VIEWPORT_GROUND_ROOM = 240;
 const FOREGROUND_GRASS_H = 120;
-
-const PIXEL = {
-  stem: "#4D8542",
-  leaf: "#75A859",
-  leafLight: "#9CCB8C",
-  budUpper: "#C8D96B",
-  budTip: "#DDE8A2",
-  budSepalLeft: "#9FC45D",
-  budSepalRight: "#8FB655",
-  budSepalCenter: "#6FA04D",
-  potLip: "#735740",
-  potBody: "#8A694F",
-  flower: "#ED708C",
-  flowerCenter: "#F7C740",
-  fruit: "#E05A2E",
-  fruitShine: "#FFB26B",
-  rot: "#94482B",
-  rotBruise: "#2E1F14",
-  wiltStem: "#7A6D55",
-  wiltLeaf: "#A5946D",
-};
-
-function Pixel({ x, y, w, h, color, radius = 0 }: {
-  x: number; y: number; w: number; h: number; color: string; radius?: number;
-}) {
-  return <span style={{ position: "absolute", left: x, top: y, width: w, height: h, background: color, borderRadius: radius }} />;
-}
-
-function GrowthLayer({ bud, index }: { bud: Bud; index: number }) {
-  const status = bud.status;
-  const stem = status === "wilting" || status === "rot" ? PIXEL.wiltStem : PIXEL.stem;
-  const leaf = status === "wilting" || status === "rot" ? PIXEL.wiltLeaf : PIXEL.leaf;
-  const flip = index % 2 === 1;
-
-  return (
-    <div title={bud.title} style={{ position: "absolute", left: 0, bottom: POT_H + index * LAYER_H, width: PLANT_W, height: LAYER_H }}>
-      <Pixel x={84} y={0} w={12} h={64} color={stem} />
-      <Pixel x={flip ? 94 : 52} y={34} w={34} h={16} color={leaf} />
-      <Pixel x={flip ? 52 : 96} y={22} w={36} h={16} color={leaf} />
-
-      {(status === "seed" || status === "bud") && <>
-        <Pixel x={79} y={0} w={22} h={18} color={PIXEL.budUpper} />
-        <Pixel x={83} y={-10} w={14} h={10} color={PIXEL.budTip} />
-        <Pixel x={75} y={10} w={8} h={14} color={PIXEL.budSepalLeft} />
-        <Pixel x={101} y={10} w={8} h={14} color={PIXEL.budSepalRight} />
-        <Pixel x={83} y={18} w={14} h={12} color={PIXEL.budSepalCenter} />
-      </>}
-      {status === "flower" && <>
-        <Pixel x={83} y={0} w={14} h={16} color={PIXEL.flower} />
-        <Pixel x={67} y={16} w={16} h={14} color={PIXEL.flower} />
-        <Pixel x={97} y={16} w={16} h={14} color={PIXEL.flower} />
-        <Pixel x={83} y={30} w={14} h={16} color={PIXEL.flower} />
-        <Pixel x={83} y={16} w={14} h={14} color={PIXEL.flowerCenter} />
-      </>}
-      {status === "fruit" && <>
-        <Pixel x={57} y={25} w={18} h={18} color={PIXEL.fruit} />
-        <Pixel x={108} y={13} w={20} h={20} color={PIXEL.fruit} />
-        <Pixel x={61} y={29} w={6} h={6} color={PIXEL.fruitShine} />
-        <Pixel x={112} y={17} w={6} h={6} color={PIXEL.fruitShine} />
-      </>}
-      {status === "rot" && <>
-        <Pixel x={105} y={17} w={24} h={22} color={PIXEL.rot} />
-        <Pixel x={109} y={21} w={8} h={8} color={PIXEL.rotBruise} />
-        <Pixel x={121} y={31} w={6} h={6} color={PIXEL.rotBruise} />
-      </>}
-      {status === "wilting" && <>
-        <Pixel x={92} y={2} w={24} h={10} color={PIXEL.wiltLeaf} />
-        <Pixel x={108} y={10} w={10} h={20} color={PIXEL.wiltStem} />
-      </>}
-    </div>
-  );
-}
-
-function PixelPlant({ buds }: { buds: Bud[] }) {
-  return (
-    <div style={{ position: "relative", width: PLANT_W, height: POT_H + Math.max(1, buds.length) * LAYER_H, imageRendering: "pixelated" }}>
-      {buds.map((bud, index) => <GrowthLayer key={bud.id} bud={bud} index={index} />)}
-      {buds.length === 0 && <GrowthLayer bud={{ id: "empty", plant_id: "", title: "새싹", detail: "", type: "concern", status: "harvested", progress: 0, deadline: null, last_progress_at: null, disappeared_at: null, created_at: "" }} index={0} />}
-      <Pixel x={50} y={POT_H + Math.max(1, buds.length) * LAYER_H - POT_H} w={70} h={18} color={PIXEL.potLip} />
-      <Pixel x={60} y={POT_H + Math.max(1, buds.length) * LAYER_H - 28} w={50} h={28} color={PIXEL.potBody} />
-    </div>
-  );
-}
 
 // ── Status bar (list view) ─────────────────────────────────
 
@@ -153,7 +68,6 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
   const visibleBuds = buds
     .filter((bud) => !bud.disappeared_at)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const status = dominantStatus(visibleBuds);
 
   return (
     <div
@@ -166,25 +80,14 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
         filter: selected ? "drop-shadow(0 10px 10px rgba(30, 48, 24, 0.12))" : "none",
       }}
     >
-      <PixelPlant buds={visibleBuds} />
-
-      <div style={{
-        width: 194, minHeight: 78, marginTop: 12, padding: "11px 12px 9px",
-        borderRadius: 14, border: "1px solid var(--border)",
-        background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 9px rgba(20,26,15,0.08)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <strong style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#3D4A2A", fontSize: 15 }}>{plant.name}</strong>
-          <span className={STATUS_PILL[status]} style={{ flexShrink: 0 }}>{STATUS_LABEL[status]}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 5 }}>
-          <span style={{ color: "#577054", fontSize: 12 }}>{visibleBuds.length}개 봉우리</span>
-          <span style={{ display: "flex", gap: 3 }}>
+      <GardenPlantVisual
+        name={plant.name}
+        buds={visibleBuds}
+        actions={<>
             <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onDetail(); }} style={{ padding: "0 5px" }}>상세</button>
             <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onChat(); }} style={{ padding: "0 5px" }}>상담</button>
-          </span>
-        </div>
-      </div>
+        </>}
+      />
     </div>
   );
 }

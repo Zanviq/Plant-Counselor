@@ -2,7 +2,7 @@
 
 > 후속 작업자를 위한 저장소 핸드오프 문서
 >
-> 최종 점검: 2026-06-01
+> 최종 점검: 2026-06-02
 >
 > 이 문서는 현재 코드 상태를 기준으로 작성했다. 오래된 설계 문서와 실제 코드가
 > 충돌하면 이 문서와 실제 코드를 우선한다.
@@ -59,13 +59,14 @@ seed -> bud -> flower -> fruit -> harvested
 
 ### 문서 불일치 주의
 
-일부 기존 문서는 최신 코드보다 오래됐다.
+일부 역사 자료는 최신 코드보다 오래됐다.
 
-- `README.md`와 `CLAUDE.md` 상단 일부에는 AI 스킬이 16개라고 적혀 있지만 실제로는
-  **20개**다.
-- `Plant-Counselor_Documents/MVP_Documents/01_Architecture.md`에는 제거된 SQLAlchemy
-  계층과 쿠키 기반 인증 설명이 남아 있다.
-- `Plant-Counselor_Documents/해야할일.md`에는 이미 완료된 작업이 미완료로 남아 있다.
+- `docs/MVP/`는 2026-05-27 시점 초기 웹 MVP 스냅샷이다. 제거된 SQLAlchemy 계층,
+  쿠키 기반 인증, 강조색 선택, 15개 스킬 설명이 남아 있다.
+- `docs/해야할일.md`는 과거 작업 메모다. 완료 여부는 이 문서의 현재 구현 상태와 실제
+  코드를 우선한다.
+- `docs/superpowers/plans/`는 당시 구현 계획이므로 완료 후 달라진 코드를 판단하는
+  기준으로 사용하지 않는다.
 - 현재 웹 MVP용 자동 테스트 묶음은 없다. `scripts/test_ui_infra.py`는 이전 Pygame
   프로토타입용이며 현재 웹 앱 회귀 테스트로 사용하면 안 된다.
 
@@ -73,9 +74,10 @@ seed -> bud -> flower -> fruit -> harvested
 
 1. 실제 코드
 2. 이 문서
-3. `CLAUDE.md`의 세션 12, 13 기록
-4. `Plant-Counselor_Documents/DEMO_GUIDE.md`
-5. 나머지 문서
+3. `docs/README.md`와 `docs/Web/`
+4. `CLAUDE.md`의 세션 12, 13 기록
+5. `docs/DEMO_GUIDE.md`
+6. 나머지 문서
 
 ---
 
@@ -155,7 +157,7 @@ Plant-Counselor/
 │
 ├── assets/sprites/
 ├── scripts/
-└── Plant-Counselor_Documents/
+└── docs/
 ```
 
 ### 프론트엔드 하위 지침
@@ -334,7 +336,7 @@ delete_calendar_event
 3. `frontend/components/chat/ChatPanel.tsx`의 `SKILLS_INFO`
 4. 변이 스킬이면 `SKILL_INVALIDATIONS`
 5. 세션별 권한이 필요하면 `backend/app/ai/permissions.py`
-6. `Plant-Counselor_Documents/DEMO_GUIDE.md`
+6. `docs/DEMO_GUIDE.md`
 
 ### 채팅 스코프 권한
 
@@ -392,7 +394,7 @@ delete_calendar_event
 | 서버 데이터 | TanStack Query | plants, buds, stats, calendar, notifications |
 | 인증 | `lib/store/authStore.ts` | access token, profile |
 | 채팅 | `lib/store/chatStore.ts` | 열림 상태, scope, 너비, 세션 이관 |
-| 테마 | `lib/store/themeStore.ts` | mode, accent, DOM 반영 |
+| 테마 | `lib/store/themeStore.ts` | mode, resolved mode, DOM 반영 |
 
 ### Query key 규칙
 
@@ -567,8 +569,8 @@ http://localhost:8000/health
 
 ```bash
 cd frontend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
 프론트엔드 주소:
@@ -579,8 +581,7 @@ http://localhost:3000
 
 ### 백엔드 환경변수
 
-현재 저장소에는 `backend/.env.example`이 없다. 기존 `README.md`와 `CLAUDE.md`의
-`cp .env.example .env` 안내를 그대로 실행하지 말고 `backend/.env`를 직접 생성한다.
+현재 저장소에는 `backend/.env.example`이 없다. `backend/.env`를 직접 생성한다.
 
 ```dotenv
 DATABASE_URL=...
@@ -623,8 +624,8 @@ npm run lint
 npm run build
 ```
 
-2026-06-01 기준 `npm run lint`는 기존 프론트엔드 코드에서 실패한다. 현재 기준선은
-11 errors, 22 warnings이며 주요 오류는 effect 내부의 동기 `setState`, 선언 전
+2026-06-02 기준 `npm run lint`는 기존 프론트엔드 코드에서 실패한다. 현재 기준선은
+6 errors, 9 warnings이며 주요 오류는 effect 내부의 동기 `setState`, 선언 전
 `sendText` 참조, JSX 내 escape되지 않은 따옴표다. 기능 변경 시 새 오류를 추가하지
 말고, 관련 파일을 수정한다면 함께 정리한다.
 
@@ -637,7 +638,7 @@ poetry run python -m compileall app
 
 ### 수동 회귀 확인
 
-관련 변경 범위에 따라 `Plant-Counselor_Documents/DEMO_GUIDE.md`의 시나리오를 사용한다.
+관련 변경 범위에 따라 `docs/DEMO_GUIDE.md`의 시나리오를 사용한다.
 
 2026-06-01 로그인 후 Codex 인앱 브라우저로 스모크 테스트했다. `/home`, `/plants`,
 `/calendar`, `/history`, `/settings`, `/plants/{id}`와 공통 AI 패널이 정상
@@ -710,7 +711,7 @@ backend/app/routers/chat.py
 backend/app/ai/prompt_builder.py
 backend/app/ai/permissions.py
 frontend/components/chat/ChatPanel.tsx
-Plant-Counselor_Documents/DEMO_GUIDE.md
+docs/DEMO_GUIDE.md
 ```
 
 ### 캘린더를 수정할 때
@@ -784,8 +785,9 @@ localStorage 기반 세션과 서버 cookie 인증을 섞지 않는다.
 | --- | --- |
 | `CLAUDE.md` | 과거 세션별 변경 이력과 맥락 |
 | `README.md` | 로컬 실행과 배포 시작점 |
-| `Plant-Counselor_Documents/DEMO_GUIDE.md` | 기능별 수동 테스트 시나리오 |
-| `Plant-Counselor_Documents/DEPLOYMENT_GUIDE.md` | Vercel, Render, Supabase 배포 |
+| `docs/README.md` | 최신 문서와 역사 자료 구분 |
+| `docs/DEMO_GUIDE.md` | 기능별 수동 테스트 시나리오 |
+| `docs/DEPLOYMENT_GUIDE.md` | Vercel, Render, Supabase 배포 |
 | `docs/superpowers/specs/2026-05-24-multi-step-orchestrator-design.md` | ReAct 루프 설계 배경 |
 | `frontend/AGENTS.md` | Next.js 16 작업 시 추가 지침 |
 
@@ -817,6 +819,9 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
 - 단순 문구 수정처럼 후속 작업 판단에 영향을 주지 않는 변경은 기록을 생략할 수 있다.
 - 실제 코드와 문서가 충돌하지 않도록 작업 완료 전에 관련 섹션을 확인한다.
 - 기존 설명이 오래되면 새 항목만 덧붙이지 말고 기존 내용을 현재 상태에 맞게 수정한다.
+- 문서를 현대화할 때 오래된 구현 설명은 제거하되, 여전히 유효한 구조, 보안 경계,
+  운영 주의사항, 확장 체크리스트까지 함께 지우지 않는다. 상세를 줄이면 같은 문서
+  또는 명확히 연결된 최신 문서에서 후속 작업자가 찾을 수 있게 보존한다.
 
 ### Figma와 프론트 동기화
 
@@ -885,7 +890,21 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
 - 로그인 전 랜딩 `#preview`의 `나의 정원` 예시는 실제 `/plants`의 픽셀 규칙을
   따른다. 오래된 `plant.png + 6개 슬롯` 합성이나 `sky.png`, `grass.png` 배경으로
   되돌리지 않는다. 화분은 한 번만 렌더링하고 예시 봉우리마다 `64px` 성장 레이어를
-  위로 쌓으며, 배경은 현재 정원의 연한 하늘 그라데이션과 잔디 면을 사용한다.
+  위로 쌓는다. 화분 바닥은 실제 정원처럼 고정된 잔디 기준선에 맞추고, 배경은 현재
+  정원의 연한 하늘 그라데이션, 연한 잔디, 본 잔디, 전경 잔디 레이어를 사용한다.
+  랜딩 카드에서는 식물 아래의 잔디 깊이를 얕게 크롭해 식물이 화면 아래에 묻히거나
+  불필요하게 넓은 지면이 보이지 않게 유지한다. 화분 아래에는 실제 정원처럼 식물명,
+  상태 pill, 봉우리 수, `상세`·`상담` 액션이 있는 흰색 정보 카드를 함께 표시한다.
+  식물 픽셀과 정보 카드는 `frontend/components/plants/GardenPlantVisual.tsx`의
+  `GardenPlantVisual` 합성 컴포넌트를 `/plants`와 랜딩이 함께 사용한다.
+  랜딩에서 모양을 비슷하게 다시 그리는 별도 구현을 만들지 않는다. 랜딩 예시에서도
+  식물과 정보 카드는 실제 크기를 유지하고, 좁은 카드에 맞추기 위해 식물만 따로
+  축소하지 않는다. 지형은 실제 정원의 기준선 주변을 얕게 크롭한다. 익명 랜딩의
+  시스템 테마가 dark여도 정원 예시는 실제 라이트 정원 토큰으로 표시하며, 식물들은
+  퍼센트 좌표가 아니라 하나의 중앙 정렬 그룹으로 배치한다. 오른쪽 정원 미리보기는
+  왼쪽 채팅 카드와 같은 높이로 늘어나며, 늘어난 영역은 하늘로 사용한다. 지면과 식물
+  기준선은 카드 하단 기준으로 고정한다. 카드 아래에는 얕은 잔디 여백을 남기되
+  불필요하게 깊은 땅이 보이지 않게 유지한다.
 - 정원 `/plants`의 정원 보기는 Figma `03 App Screens`의 `Plant / View / Garden`
   프레임과 `05 Plant Pixel Assets` 가이드를 따른다. 작은 카드 안의 고정 합성
   `plant.png`와 6개 슬롯 방식으로 되돌리지 않는다. 화면은 상단 HUD가 있는 넓은

@@ -1,8 +1,14 @@
-# Plant Counselor — MVP 문서 묶음
+# Plant Counselor — 초기 MVP 문서 스냅샷
+
+> **주의**: 이 디렉터리는 2026-05-27 시점 역사 자료다. 현재 구현 명세가 아니다.
+> 최신 작업은 루트 `AGENTS.md`, `docs/README.md`, 실제 코드를 우선한다.
+>
+> 이 문서 묶음에는 제거된 SQLAlchemy/SQLite 계층, 쿠키 기반 refresh 인증,
+> 강조색 선택, 15개 스킬 설명이 남아 있다.
 
 > **"고민과 일정을 식물 생애주기에 비유해 함께 가꾸는 AI 정원사."**
 
-본 디렉터리는 Plant Counselor MVP의 모든 구현 내용을 빠짐없이 기술한 문서 묶음입니다.
+본 디렉터리는 초기 Plant Counselor 웹 MVP 구현 내용을 기록한 문서 묶음입니다.
 
 ---
 

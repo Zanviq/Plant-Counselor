@@ -1,70 +1,29 @@
-# Bud 테이블
+# buds 테이블
 
-관련 문서: [[DB_스키마]], [[Plant]], [[Web/02_기능/봉우리_생애주기]]
+봉우리는 식물 아래의 고민, 목표, 추적 일정이다.
 
----
+| 필드 | 의미 |
+| --- | --- |
+| `id` | ULID PK |
+| `user_id` | 사용자 격리 키 |
+| `plant_id` | 소속 식물 |
+| `title`, `detail` | 제목과 설명 |
+| `type` | `concern` 또는 `schedule` |
+| `status` | `seed`, `bud`, `flower`, `fruit`, `harvested`, `wilting`, `rot` |
+| `progress` | 0~100 진행률 |
+| `deadline` | 선택 마감일 |
+| `last_progress_at` | 최근 상태 또는 진행률 갱신 |
+| `disappeared_at` | 썩어 사라진 시각 |
+| `created_at`, `updated_at` | 생성, 수정 시각 |
 
-## 컬럼
+## bud_history
 
-| 컬럼 | 타입 | 비고 |
-|---|---|---|
-| `id` | string | PK |
-| `user_id` | string | FK |
-| `plant_id` | string | FK |
-| `title` | string | 1~60자 |
-| `detail` | text | nullable |
-| `type` | enum | `concern` / `schedule` |
-| `status` | enum | `seed` / `bud` / `flower` / `fruit` / `harvested` / `wilting` / `rot` |
-| `progress` | int | 0~100 |
-| `deadline` | date | nullable |
-| `last_progress_at` | timestamptz | |
-| `disappeared_at` | timestamptz | rot 만료 시각, UI에서 숨김 |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
+상태 변경은 append-only 이력으로 남긴다.
 
----
-
-## `bud_history` (별도 테이블)
-
-| 컬럼 | 타입 | 비고 |
-|---|---|---|
-| `id` | string | PK |
-| `bud_id` | string | FK |
-| `from_status` | enum | |
-| `to_status` | enum | |
-| `at` | timestamptz | |
-| `reason` | string | `auto:...` / `user:...` |
-
-`bud_history`는 봉우리당 append-only.
-
----
-
-## 인덱스
-
-- `(user_id, status)`
-- `(user_id, deadline)` (마감 임박 검색용)
-- `(plant_id, status)`
-- `(user_id, last_progress_at)` (시듦 검사용)
-
----
-
-## 응답 예시 (`GET /buds/{id}`)
-
-```
-{
-  "id": "01HZX-BD-07",
-  "plant_id": "01HZX-PL-01",
-  "title": "기말 프로젝트 마무리",
-  "detail": "데이터 시각화 과제 보고서까지 포함",
-  "type": "schedule",
-  "status": "fruit",
-  "progress": 80,
-  "deadline": "2026-05-25",
-  "last_progress_at": "2026-05-17T18:42:11Z",
-  "history": [
-    {"from": "seed", "to": "bud",    "at": "...", "reason": "auto:initial"},
-    {"from": "bud",  "to": "flower", "at": "...", "reason": "user:본격적으로 시작"},
-    {"from": "flower","to": "fruit",  "at": "...", "reason": "auto:progress>=75"}
-  ]
-}
-```
+| 필드 | 의미 |
+| --- | --- |
+| `id` | ULID PK |
+| `bud_id` | 대상 봉우리 |
+| `from_status`, `to_status` | 이전, 다음 상태 |
+| `at` | 전이 시각 |
+| `reason` | 변경 이유 |

@@ -44,10 +44,11 @@
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → **service_role** (비공개) |
 | `LLM_API_KEY` | Google AI Studio Gemini 키 |
 | `KEY_ENCRYPTION_SECRET` | 32자 이상 랜덤 문자열 (기존 값 유지 권장) |
-| `CORS_ALLOW_ORIGIN` | ②에서 만들 Vercel 주소 (지금은 일단 비우거나 localhost) |
+| `CORS_ALLOW_ORIGIN` | ②에서 만들 Vercel 주소. 초기에도 `http://localhost:3000`처럼 명시적 origin 사용 |
 
 → **실값은 `backend/.env.render`에 전부 채워져 있음. 그걸 복사.**
-(`CORS_ALLOW_ORIGIN`만 ② 이후 실제 Vercel 주소로 갱신 — ④ 단계)
+(`CORS_ALLOW_ORIGIN`만 ② 이후 실제 Vercel 주소로 갱신 — ④ 단계. 빈 값, `*`,
+`null`은 서버 시작 시 거부됨.)
 
 ---
 
@@ -91,6 +92,9 @@ Supabase 대시보드 → **Authentication → URL Configuration**
 - [ ] Render → Environment → `CORS_ALLOW_ORIGIN` 를 실제 Vercel 주소로 설정
       (로컬 병행 시 콤마로: `http://localhost:3000,https://<프로젝트>.vercel.app`)
 - [ ] 저장하면 Render가 자동 재배포 → 반영됨
+
+`CORS_ALLOW_ORIGIN`은 정확한 `http://` 또는 `https://` origin만 허용한다. path,
+query, fragment, wildcard, `null`, 빈 설정은 사용하지 않는다.
 
 ---
 

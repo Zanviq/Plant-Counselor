@@ -3,29 +3,26 @@
 // The preview blocks below are purely presentational mock-ups: they reuse the
 // real sprite assets and chat styling, but nothing here is interactive.
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import AuthRedirect from "./_components/AuthRedirect";
+import { GardenPlantVisual, LAYER_H, POT_H } from "@/components/plants/GardenPlantVisual";
 
 // ── Garden pixel constants (mirror the current /plants renderer) ─────────────
 
-const DEMO_PLANT_W = 178;
-const DEMO_POT_H = 46;
-const DEMO_LAYER_H = 64;
-const DEMO_PIXEL = {
-  stem: "#4D8542",
-  leaf: "#75A859",
-  leafLight: "#9CCB8C",
-  budUpper: "#C8D96B",
-  budTip: "#DDE8A2",
-  budSepalLeft: "#9FC45D",
-  budSepalRight: "#8FB655",
-  budSepalCenter: "#6FA04D",
-  potLip: "#735740",
-  potBody: "#8A694F",
-  flower: "#ED708C",
-  flowerCenter: "#F7C740",
-  fruit: "#E05A2E",
-  fruitShine: "#FFB26B",
-};
+const DEMO_GARDEN_GROUND_ROOM = 124;
+const PREVIEW_LIGHT_TOKENS = {
+  "--border": "#DDD9CE",
+  "--fg": "#2A2A24",
+  "--fg-muted": "#7A7A6E",
+  "--bg-hover": "#E2DED5",
+  "--st-seed": "#A5A598",
+  "--st-bud": "#7A8A5A",
+  "--st-flower": "#8BAA5A",
+  "--st-fruit": "#5C6B3F",
+  "--st-harvest": "#C49A2A",
+  "--st-wilting": "#BDA040",
+  "--st-rot": "#B54A3A",
+} as CSSProperties;
 
 // ── SVG icons ──────────────────────────────────────────────────────────────
 
@@ -106,68 +103,11 @@ function IconGoogle() {
 
 // ── Preview mock-ups (non-interactive) ──────────────────────────────────────
 
-function DemoPixel({ x, y, w, h, color }: { x: number; y: number; w: number; h: number; color: string }) {
-  return <span style={{ position: "absolute", left: x, top: y, width: w, height: h, background: color }} />;
-}
-
-function DemoGrowthLayer({ status, index }: { status: string; index: number }) {
-  const flip = index % 2 === 1;
-  return (
-    <div style={{ position: "absolute", left: 0, bottom: DEMO_POT_H + index * DEMO_LAYER_H, width: DEMO_PLANT_W, height: DEMO_LAYER_H }}>
-      <DemoPixel x={84} y={0} w={12} h={64} color={DEMO_PIXEL.stem} />
-      <DemoPixel x={flip ? 94 : 52} y={34} w={34} h={16} color={DEMO_PIXEL.leaf} />
-      <DemoPixel x={flip ? 52 : 96} y={22} w={36} h={16} color={DEMO_PIXEL.leaf} />
-      {(status === "seed" || status === "bud") && <>
-        <DemoPixel x={79} y={0} w={22} h={18} color={DEMO_PIXEL.budUpper} />
-        <DemoPixel x={83} y={-10} w={14} h={10} color={DEMO_PIXEL.budTip} />
-        <DemoPixel x={75} y={10} w={8} h={14} color={DEMO_PIXEL.budSepalLeft} />
-        <DemoPixel x={101} y={10} w={8} h={14} color={DEMO_PIXEL.budSepalRight} />
-        <DemoPixel x={83} y={18} w={14} h={12} color={DEMO_PIXEL.budSepalCenter} />
-      </>}
-      {status === "flower" && <>
-        <DemoPixel x={83} y={0} w={14} h={16} color={DEMO_PIXEL.flower} />
-        <DemoPixel x={67} y={16} w={16} h={14} color={DEMO_PIXEL.flower} />
-        <DemoPixel x={97} y={16} w={16} h={14} color={DEMO_PIXEL.flower} />
-        <DemoPixel x={83} y={30} w={14} h={16} color={DEMO_PIXEL.flower} />
-        <DemoPixel x={83} y={16} w={14} h={14} color={DEMO_PIXEL.flowerCenter} />
-      </>}
-      {status === "fruit" && <>
-        <DemoPixel x={57} y={25} w={18} h={18} color={DEMO_PIXEL.fruit} />
-        <DemoPixel x={108} y={13} w={20} h={20} color={DEMO_PIXEL.fruit} />
-        <DemoPixel x={61} y={29} w={6} h={6} color={DEMO_PIXEL.fruitShine} />
-        <DemoPixel x={112} y={17} w={6} h={6} color={DEMO_PIXEL.fruitShine} />
-      </>}
-    </div>
-  );
-}
-
-// Static preview using the same one-bud-per-layer composition as /plants.
-function DemoPlant({ name, caption, buds, scale = 1 }: {
-  name: string; caption: string; scale?: number;
-  buds: { status: string; title: string }[];
-}) {
-  const h = DEMO_POT_H + Math.max(1, buds.length) * DEMO_LAYER_H;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-      <div style={{ width: DEMO_PLANT_W * scale, height: h * scale }}>
-        <div style={{ position: "relative", width: DEMO_PLANT_W, height: h, imageRendering: "pixelated", transform: `scale(${scale})`, transformOrigin: "top left" }}>
-          {buds.map((bud, index) => <DemoGrowthLayer key={`${bud.title}-${index}`} status={bud.status} index={index} />)}
-          <DemoPixel x={50} y={h - DEMO_POT_H} w={70} h={18} color={DEMO_PIXEL.potLip} />
-          <DemoPixel x={60} y={h - 28} w={50} h={28} color={DEMO_PIXEL.potBody} />
-        </div>
-      </div>
-      <div style={{ textAlign: "center", marginTop: 2, position: "relative", zIndex: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#23301a", textShadow: "0 1px 3px rgba(255,255,255,0.7)" }}>{name}</div>
-        <div style={{ fontSize: 11, color: "rgba(35,48,26,0.65)", textShadow: "0 1px 2px rgba(255,255,255,0.6)", marginTop: 1 }}>{caption}</div>
-      </div>
-    </div>
-  );
-}
-
 // The garden preview mirrors the current 2D grass field used by /plants.
 function GardenPreview() {
   return (
     <div style={{
+      ...PREVIEW_LIGHT_TOKENS,
       position: "relative", overflow: "hidden",
       borderRadius: "var(--r-xl)", border: "1px solid var(--border)",
       boxShadow: "var(--shadow-md)", minHeight: 372,
@@ -176,7 +116,7 @@ function GardenPreview() {
       {/* Sky */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 64%, #FCFDF9 100%)",
+        background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 54%, #FCFDF9 100%)",
         zIndex: 0,
       }} />
       {/* Caption chip */}
@@ -190,35 +130,42 @@ function GardenPreview() {
           <IconSeedling /> 나의 정원
         </span>
       </div>
-      {/* Plants */}
+      {/* Terrain layers */}
+      <div style={{ position: "absolute", top: `calc(100% - ${DEMO_GARDEN_GROUND_ROOM + 8}px)`, left: 0, right: 0, height: 118, zIndex: 1, pointerEvents: "none", background: "#D7E8B2" }} />
+      <div style={{ position: "absolute", top: `calc(100% - ${DEMO_GARDEN_GROUND_ROOM - 64}px)`, left: 0, right: 0, bottom: 0, zIndex: 1, pointerEvents: "none", background: "#B2CF85" }} />
+      {/* Plants: pot bottoms share the same ground baseline as /plants. */}
       <div style={{
-        position: "relative", zIndex: 2, flex: 1,
-        display: "flex", alignItems: "flex-end", justifyContent: "center",
-        gap: 28, padding: "8px 24px 60px",
-        overflowX: "auto", scrollbarWidth: "none",
+        position: "absolute", left: 0, right: 0, top: `calc(100% - ${DEMO_GARDEN_GROUND_ROOM + POT_H + 3 * LAYER_H}px)`,
+        zIndex: 2, display: "flex", justifyContent: "center", alignItems: "flex-start", gap: 18,
       }}>
-        <DemoPlant
-          name="취업"
-          caption="3개 봉우리"
-          scale={0.92}
-          buds={[
-            { status: "fruit", title: "디자인 면접 준비" },
-            { status: "flower", title: "포트폴리오 정리" },
-            { status: "bud", title: "자기소개서 작성" },
-          ]}
-        />
-        <DemoPlant
-          name="건강"
-          caption="2개 봉우리"
-          scale={0.92}
-          buds={[
-            { status: "harvested", title: "주 3회 러닝" },
-            { status: "seed", title: "수면 패턴 교정" },
-          ]}
-        />
+        <div>
+          <GardenPlantVisual
+            name="취업"
+            buds={[
+              { id: "career-1", status: "fruit", title: "디자인 면접 준비" },
+              { id: "career-2", status: "flower", title: "포트폴리오 정리" },
+              { id: "career-3", status: "bud", title: "자기소개서 작성" },
+            ]}
+            actions={<>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ padding: "0 5px" }}>상세</button>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ padding: "0 5px" }}>상담</button>
+            </>}
+          />
+        </div>
+        <div style={{ marginTop: LAYER_H }}>
+          <GardenPlantVisual
+            name="건강"
+            buds={[
+              { id: "health-1", status: "harvested", title: "주 3회 러닝" },
+              { id: "health-2", status: "seed", title: "수면 패턴 교정" },
+            ]}
+            actions={<>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ padding: "0 5px" }}>상세</button>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ padding: "0 5px" }}>상담</button>
+            </>}
+          />
+        </div>
       </div>
-      {/* Grass field */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 72, zIndex: 1, pointerEvents: "none", background: "#B2CF85" }} />
     </div>
   );
 }

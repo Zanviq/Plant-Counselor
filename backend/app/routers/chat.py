@@ -85,9 +85,13 @@ def chat_message(req: ChatRequest, user=Depends(require_user), db: Client = Depe
         "calendar": CalendarService(db),
     }
     orchestrator = ChatOrchestrator(llm, _REGISTRY, _PROMPT_BUILDER, services)
+    user_tone = getattr(user, "tone", None) or "counselor"
 
     def generate():
-        yield from orchestrator.run(user.id, req.text, req.scope, req.scope_id, req.current_screen, db)
+        yield from orchestrator.run(
+            user.id, req.text, req.scope, req.scope_id, req.current_screen, db,
+            tone=user_tone,
+        )
 
     return StreamingResponse(generate(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

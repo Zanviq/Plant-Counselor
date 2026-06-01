@@ -34,6 +34,7 @@ class ChatOrchestrator:
         scope_id,
         current_screen: str,
         db,
+        tone: str = "counselor",
     ):
         """동기 제너레이터: SSE 이벤트 문자열을 yield합니다."""
         rec = LogRecorder(user_id, text)
@@ -83,7 +84,7 @@ class ChatOrchestrator:
         system = self.builder.build_system(
             ctx, current_screen, stats, plants,
             scope=scope, scope_id=scope_id, scope_plant_name=scope_plant_name,
-            scope_bud_title=scope_bud_title,
+            scope_bud_title=scope_bud_title, tone=tone,
         )
         rec.set_system(system)
 
@@ -205,6 +206,6 @@ class ChatOrchestrator:
             )
 
         rec.log_event("done", f"response_len={len(response_text)}")
-        rec.save()
+        rec.save(db)
 
         yield "event: done\ndata: {}\n\n"

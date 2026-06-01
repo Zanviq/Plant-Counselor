@@ -5,7 +5,7 @@
 네 항목으로 구성된다. 동작 원리에는 어떤 시스템 프롬프트 규칙이 적용되는지, 어떤
 스킬과 API 엔드포인트가 호출되는지를 명시한다.
 
-작성 기준일: 2026-05-30 (세션 12)
+작성 기준일: 2026-06-02
 
 ---
 
@@ -113,8 +113,8 @@
 
 ### 0.2 실행 환경 준비
 
-- 백엔드: `backend/` 에서 `python run.py` 실행 (http://localhost:8000)
-- 프론트엔드: `frontend/` 에서 `pnpm dev` 실행 (http://localhost:3000)
+- 백엔드: `backend/` 에서 `poetry run python run.py` 실행 (http://localhost:8000)
+- 프론트엔드: `frontend/` 에서 `npm run dev` 실행 (http://localhost:3000)
 - 환경변수(`backend/.env`)에 `SUPABASE_URL`, `SUPABASE_JWT_SECRET`,
   `SUPABASE_SERVICE_ROLE_KEY`, `LLM_API_KEY`, `KEY_ENCRYPTION_SECRET` 설정
 - 프론트(`frontend/.env.local`)에 `NEXT_PUBLIC_SUPABASE_URL`,
@@ -126,13 +126,13 @@
 
 백엔드 코드(스킬, 프롬프트, 라우터, 권한, 타임존 등)를 변경한 뒤에는 반드시 서버를
 수동 재시작해야 반영된다. uvicorn 자동 reload는 신뢰도가 낮다. 권장 절차는 모든
-Python 프로세스 종료 후 `__pycache__` 삭제, 그리고 `python run.py` 재실행이다.
+Python 프로세스 종료 후 `poetry run python run.py`를 다시 실행한다.
 프론트엔드 변경은 브라우저 새로고침으로 반영된다.
 
 ### 0.4 계정 구분
 
 - 일반 사용자: 로그인 후 `/home`으로 진입한다.
-- 관리자: `profiles.role = "admin"` 인 계정(기본값 `zanviq.dev@gmail.com`)은
+- 관리자: `profiles.role = "admin"` 인 계정은
   로그인 직후 `/admin`으로 자동 이동한다. 관리자 전용 페이지(`/admin/*`)는
   백엔드 `require_admin` 의존성과 프론트 가드로 이중 보호된다.
 
@@ -839,13 +839,13 @@ user_id, db, 각 서비스 인스턴스, 그리고 현재 scope/scope_id가 담�
 
 - 사전 조건: 없음.
 - 절차:
-  1. `/settings`의 테마 탭에서 light / dark / system과 강조색을 변경
+  1. `/settings`의 테마 탭에서 light / dark / system을 변경
   2. 다크 모드 상태로 `/plants` 정원 뷰에서 식물 이름이 잘 보이는지 확인
 - 기대 결과: 테마가 즉시 적용되고, 다크 모드에서도 정원의 식물 이름이 또렷하게 보인다.
-- 동작 원리: 테마는 data-theme/data-accent 속성과 CSS 변수로 적용되며, 하이드레이션
-  전 인라인 스크립트(next/script, beforeInteractive)로 깜빡임을 방지한다. 정원 배경은
-  테마와 무관하게 밝은 하늘 이미지이므로, 식물 이름은 테마 독립적인 어두운색에 흰색
-  halo(text-shadow)를 적용해 라이트/다크 모두 가독성을 확보한다(12.2 참고).
+- 동작 원리: 테마는 `data-theme` 속성과 CSS 변수로 적용되며, 하이드레이션
+  전 인라인 스크립트로 깜빡임을 방지한다. 정원은 테마와 무관하게 연한 하늘
+  그라데이션과 잔디 레이어를 유지하고, 픽셀 식물과 정보 카드는
+  `GardenPlantVisual.tsx`가 렌더링한다.
 
 ### 10.2 설정 탭과 API 키
 

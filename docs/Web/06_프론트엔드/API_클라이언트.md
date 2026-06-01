@@ -1,80 +1,48 @@
 # API 클라이언트
 
+> 최종 점검: 2026-06-02
+
 관련 문서: [[API_엔드포인트]], [[인증_세션]], [[상태관리]], [[채팅_스트리밍]]
 
----
+## 공통 래퍼
 
-## 기본 fetch 래퍼 (`lib/api/client.ts`)
+`frontend/lib/api/client.ts`가 `NEXT_PUBLIC_API_BASE`를 기준으로 백엔드에 직접
+요청한다. Next.js `proxy.ts`는 API proxy가 아니다.
 
-책임:
+`configureClient()`는 앱 레이아웃에서 Supabase 세션 접근자를 연결한다.
 
-1. 베이스 URL 부착 (`NEXT_PUBLIC_API_BASE`).
-2. `authStore`의 액세스 토큰을 `Authorization: Bearer` 헤더에 자동 부착.
-3. 401 응답 수신 → `POST /auth/refresh` 호출 → 새 토큰 Zustand 저장 → 원래 요청 한 번 재시도.
-4. JSON 응답을 `{ ok, data, error }` 형태로 표준화.
-5. 네트워크 오류는 표준 에러 객체로 감싸 throw.
+1. 현재 access token을 `Authorization: Bearer ...`로 추가한다.
+2. 일반 API가 401을 반환하면 `supabase.auth.refreshSession()`을 한 번 시도한다.
+3. 네트워크 오류를 `{ ok: false, error }` 형태로 변환한다.
+4. 관리자 백업 다운로드는 Bearer 헤더를 보낼 수 있도록 blob으로 가져온다.
 
 ```typescript
-type ApiResponse<T> =
+type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } }
 ```
 
----
-
 ## 자원별 모듈
 
-- `lib/api/plants.ts` — `listPlants`, `getPlant`, `updatePlant`, `deletePlant`
-- `lib/api/buds.ts` — `listBuds`, `getBud`, `patchBud`
-- `lib/api/stats.ts` — `getSummary`, `getFullStats`, `getCalendar`, `getBriefing`
-- `lib/api/auth.ts` — `signup`, `login`, `refreshToken`, `logout`, `apiGet` (용도: /me 등)
-- `lib/api/client.ts` — 공통 `streamChat` 포함
+- `lib/api/plants.ts`
+- `lib/api/buds.ts`
+- `lib/api/stats.ts`
+- `lib/api/admin.ts`
+- `lib/api/client.ts`: 공통 요청과 `streamChat()`
 
----
+## SSE
 
-## SSE 파서 (`streamChat`)
+`streamChat()`은 `fetch`와 `ReadableStream`으로 `/chat/message` 응답을 파싱한다.
+일반 JSON 래퍼와 별도 코드 경로이므로 인증이나 오류 정책을 바꿀 때 둘 다 확인한다.
 
-`fetch`로 POST 요청 후 `response.body`를 `ReadableStream`으로 받아 `TextDecoder`로 SSE 프레임 분해.
+## 오류 처리
 
-```typescript
-streamChat(
-  { text, scope, scope_id, current_screen },
-  {
-    onToken: (chunk) => void,
-    onToolResult: (name) => void,
-    onDone: () => void,
-    onError: (code, message) => void,
-  }
-)
-```
+| 상황 | 처리 |
+| --- | --- |
+| 일반 fetch 네트워크 오류 | `{ ok: false, error: { code: "network", ... } }` |
+| 일반 API 401 | Supabase refresh 후 한 번 재시도 |
+| 다운로드 실패 | 사용자에게 문자열 오류 반환 |
+| SSE 연결 실패 | `onError("network", ...)`와 `onDone()` 호출 |
 
-`onConfirmationRequired` 콜백은 **존재하지 않는다** — 동의 확인은 LLM의 텍스트 응답으로 처리.
-
----
-
-## 에러 처리 정책
-
-| 코드 | 처리 |
-|---|---|
-| `401` | 자동 리프레시 후 1회 재시도. 그래도 실패 시 `/login` 리다이렉트 |
-| `403` | 토스트 + 안내 |
-| `404` | Next.js 404 라우트로 위임 |
-| `422` | 의존성 주입 단계 오류 (인증 미구현 구간) — `deps.py` 수정으로 대부분 해결됨 |
-| `429` | 지수 백오프 재시도 |
-| `5xx` | 토스트 + 재시도 버튼 |
-
----
-
-## 인증 복원 흐름
-
-```
-앱 로드
-  ↓
-(app)/layout.tsx restore()
-  ↓
-refreshToken() → { access_token }
-  ↓
-useAuthStore.setState({ accessToken })  ← 먼저 저장
-  ↓
-apiGet("/me")  ← 이제 헤더에 토큰이 담김
-```
+`streamChat()`은 일반 `apiFetch()`와 별도 경로이므로 인증 재시도 정책을 변경할 때
+채팅 스트림도 따로 확인한다.

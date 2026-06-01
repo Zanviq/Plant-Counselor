@@ -1,91 +1,67 @@
-# DB 스키마
+# DB 스키마 개요
 
-> SQLAlchemy 2.x 모델로 정의. SQLite(개발) / PostgreSQL(운영) 모두 호환.
+> 최종 점검: 2026-06-02
 
-관련 문서: [[User]], [[Plant]], [[Bud]], [[GardenState]], [[ConversationLog]], [[아키텍처_개요]]
+관련 문서: [[아키텍처_개요]], [[User]], [[Plant]], [[Bud]], [[GardenState]],
+[[ConversationLog]]
 
----
+Supabase PostgreSQL을 사용한다. 백엔드는 SQLAlchemy 모델이나 Alembic을 사용하지
+않고 `supabase-py` PostgREST HTTP 클라이언트로 접근한다.
 
-## ER 다이어그램(개념)
+## 주요 테이블
 
+| 테이블 | 역할 |
+| --- | --- |
+| `profiles` | Supabase Auth 사용자 프로필, 역할, 정원 규칙, 암호화된 API 키 |
+| `plants` | 사용자별 식물 |
+| `buds` | 식물별 봉우리 |
+| `bud_history` | 봉우리 상태 변경 이력 |
+| `garden_state` | 사용자별 정원 상태 |
+| `calendar_events` | 진행률 없는 독립 일정 |
+| `conversations` | 스코프별 대화 세션 |
+| `conversation_messages` | 세션 메시지 |
+| `notifications` | 사용자 알림 |
+
+## 관계
+
+```text
+profiles
+  ├── plants
+  │     └── buds
+  │           └── bud_history
+  ├── garden_state
+  ├── calendar_events
+  ├── conversations
+  │     └── conversation_messages
+  └── notifications
 ```
-users ──< plants ──< buds ──< bud_history
-   │                            
-   ├─< garden_states (1:1)
-   ├─< conversations
-   │     └─< conversation_messages
-   ├─< notifications
-   ├─< snapshots
-   └─< llm_usage(선택)
-```
 
----
+관리자 백업은 위 테이블을 ZIP의 `data.json`에 기록한다. 백업 ZIP 메타데이터는
+`meta.json`에 저장한다.
 
-## 공통 컬럼
+## 사용자 격리
 
-- 모든 테이블에 `id` (UUID/ULID 문자열, PK), `created_at`, `updated_at`(timestamptz).
-- 사용자 종속 테이블은 `user_id` FK + 인덱스.
+- 사용자 종속 행에는 `user_id`를 사용한다.
+- repository 쿼리에서 사용자 ID 필터를 강제한다.
+- 서비스 롤 키는 RLS를 우회하므로 repository 필터가 실제 애플리케이션 경계다.
+- 관리자 API는 별도 `require_admin()` 검사 뒤에만 전체 범위 작업을 수행한다.
 
----
+## `calendar_events` 예외
 
-## 테이블 요약
-
-### `users`
-- 인증·프로필·사용자 설정. 자세히는 [[User]].
-
-### `garden_states`
-- 사용자 1:1. 요약 캐시와 오늘의 브리핑 캐시. 자세히는 [[GardenState]].
-
-### `plants`
-- 분야 단위 식물. 자세히는 [[Plant]].
-- 인덱스: `(user_id, status)`, `(user_id, last_activity_at)`.
-
-### `buds`
-- 봉우리(개별 고민/일정). 자세히는 [[Bud]].
-- 인덱스: `(user_id, status)`, `(user_id, deadline)`, `(plant_id, status)`.
-
-### `bud_history`
-- 봉우리 상태 전이 이력. 컬럼: `id`, `bud_id`(FK), `from_status`, `to_status`, `at`, `reason`.
-- 인덱스: `(bud_id, at)`.
-
-### `conversations`
-- 대화 스코프. 컬럼: `id`, `user_id`, `scope`(`global`/`plant`/`bud`), `scope_id`(nullable).
-- 유니크: `(user_id, scope, scope_id)`.
-
-### `conversation_messages`
-- 대화 메시지. 컬럼: `id`, `conversation_id`(FK), `at`, `role`(`user`/`assistant`/`tool`), `text`, `skill_call`(JSON).
-- 인덱스: `(conversation_id, at)`.
-
-### `notifications`
-- 알림 큐. 컬럼: `id`, `user_id`, `kind`, `payload`(JSON), `created_at`, `acked_at`(nullable).
-- 인덱스: `(user_id, acked_at)`.
-
-### `snapshots`
-- 자동/수동 백업 스냅샷 메타. 본체는 객체 스토리지/파일 시스템.
-- 컬럼: `id`, `user_id`, `kind`(`auto`/`manual`), `path`, `size`, `created_at`.
-
-### `llm_usage` (선택)
-- 호출 로그. 컬럼: `id`, `user_id`, `model`, `input_tokens`, `output_tokens`, `cost`, `at`.
-
----
+현재 `calendar_events`는 Supabase PostgREST 스키마 캐시 문제 때문에
+`exec_admin_query` RPC를 사용한다. repository는 값 리터럴을 escape하고 테이블명과
+컬럼명을 하드코딩한다. 스키마 캐시가 정상 노출되면 일반 PostgREST 방식으로 전환할 수
+있다.
 
 ## 마이그레이션
 
-- **Alembic** 사용.
-- 모든 스키마 변경은 마이그레이션 파일로 관리.
-- 운영 적용 전 SQLite 환경에서 검증.
+현재 저장소에는 독립 일정용 `backend/migrations/001_calendar_events.sql`이 있다.
+스키마 변경은 Supabase에 적용할 SQL과 코드 변경을 함께 관리한다.
 
----
+## 삭제
 
-## 인덱싱 원칙
-
-- 사용자 단위 쿼리가 압도적으로 많으므로 `user_id`를 모든 인덱스의 선행 컬럼에 둔다.
-- 상태/시각/마감일 등 자주 필터링되는 열은 복합 인덱스 후속 컬럼.
-
----
-
-## 삭제 정책
-
-- 식물 삭제는 기본 **soft delete**(`status='archived'`). 봉우리도 함께 archived 처리.
-- 계정 삭제는 **hard delete**(관련 행 전부 제거). 별도 확인 절차.
-- rot 만료 봉우리는 `disappeared_at` 세팅으로 UI에서만 숨김(데이터는 유지).
+- 식물 삭제 기본 동작은 archive다.
+- 봉우리 삭제는 hard delete다.
+- 계정 삭제는 사용자 종속 데이터, AI 로그, 프로필, Supabase Auth 사용자 삭제를
+  순서대로 시도한다.
+- 관리자 복원은 기존 PK를 덮어쓰지 않는다.

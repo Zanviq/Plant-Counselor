@@ -1,62 +1,23 @@
-# User 테이블
+# profiles 테이블
 
-> 인증과 사용자별 설정.
+Supabase Auth 사용자의 애플리케이션 프로필이다.
 
-관련 문서: [[DB_스키마]], [[인증_세션]], [[Web/01_페이지/설정]]
+## 주요 필드
 
----
+| 필드 | 의미 |
+| --- | --- |
+| `id` | Supabase Auth JWT의 `sub` |
+| `email` | Google 계정 이메일 |
+| `nickname` | 표시 이름 |
+| `role` | `user` 또는 `admin` |
+| `tone` | AI 응답 톤 |
+| `ai_model` | 사용자별 모델 override |
+| `garden_rules` | 자동 전이 기준 |
+| `appearance` | 사용자 표시 설정 |
+| `encrypted_api_key` | Fernet으로 암호화한 사용자 Gemini API 키 |
+| `created_at` | 생성 시각 |
 
-## 컬럼
+프로필이 없는 사용자의 유효한 Supabase JWT가 처음 들어오면 `require_user()`가 이메일과
+메타데이터로 프로필을 생성한다.
 
-| 컬럼 | 타입 | 비고 |
-|---|---|---|
-| `id` | string | PK (ULID) |
-| `email` | string | UNIQUE, NOT NULL |
-| `nickname` | string | UNIQUE, 2~16자 |
-| `password_hash` | string | argon2id |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
-| `address` | string | AI 호칭(기본 = nickname) |
-| `tone` | enum | `counselor` / `assistant` / `friend` |
-| `timezone` | string | IANA TZ. 기본 `Asia/Seoul` |
-| `appearance` | JSON | `{ theme, animation }` |
-| `sound` | JSON | `{ sfx, bgm, volume }` |
-| `garden_rules` | JSON | `{ wilting_days, wilting_review_extra_days, rot_disappear_days, deadline_warn_days, auto_transition }` |
-| `ai` | JSON | `{ model, proactive }` |
-| `encrypted_api_key` | bytes | LLM API 키(서버 측 대칭암호화) |
-| `last_login_at` | timestamptz | |
-
----
-
-## 예시 JSON 응답 (`GET /me`)
-
-```
-{
-  "id": "01HZX...",
-  "email": "jaemin@example.com",
-  "nickname": "jaemin",
-  "address": "재민",
-  "tone": "counselor",
-  "timezone": "Asia/Seoul",
-  "appearance": { "theme": "auto", "animation": "subtle" },
-  "sound": { "sfx": true, "bgm": false, "volume": 0.6 },
-  "garden_rules": {
-    "wilting_days": 7,
-    "wilting_review_extra_days": 7,
-    "rot_disappear_days": 14,
-    "deadline_warn_days": 3,
-    "auto_transition": true
-  },
-  "ai": { "proactive": true },
-  "api_key_set": true
-}
-```
-
-`password_hash`, `encrypted_api_key` 등은 응답에 포함되지 않는다. `api_key_set`은 키 보유 여부만 부울로.
-
----
-
-## 인덱스
-
-- `email` UNIQUE
-- `nickname` UNIQUE
+`encrypted_api_key` 평문은 API 응답으로 반환하지 않는다.

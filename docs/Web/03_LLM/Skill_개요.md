@@ -1,90 +1,61 @@
-# Skill 개요
+# AI Skill 개요
 
-> LLM이 백엔드 데이터를 안전하게 조회/조작하기 위해 호출하는 도구 집합.
+> 최종 점검: 2026-06-02
 
-관련 문서: [[Web/03_LLM/LLM_흐름]], [[Web/03_LLM/시스템_프롬프트]], [[Web/05_백엔드/AI_연동]], [[도메인_서비스]]
+관련 문서: [[Web/03_LLM/LLM_흐름]], [[Web/03_LLM/시스템_프롬프트]],
+[[Web/05_백엔드/AI_연동]]
 
----
+AI 정원사는 Gemini function calling으로 등록된 스킬을 ReAct 루프 안에서 연속
+실행한다. 기본 최대 단계는 10이며 런타임 설정으로 변경할 수 있다.
 
-## Skill의 구성 요소
+## 등록된 스킬 20개
 
-각 Skill은 다음을 가진다.
-
-- **이름** (snake_case)
-- **설명** (LLM 결정 보조용 자연어 — Gemini function description으로 전달)
-- **파라미터** (JSON Schema → Gemini function parameters로 변환)
-- **반환** (`ok: bool`, `message: str`, `data: dict`, 실패 시 `error_code: str`)
-- **연결되는 서비스 메서드** ([[도메인_서비스]])
-
-`requires_confirmation` 필드는 **존재하지 않는다**. 동의 확인은 LLM이 대화 흐름 안에서 처리한다.
-
----
-
-## 등록된 Skill 목록 (14개)
-
-| Skill | 설명 |
-|---|---|
-| `match_plant` | 기존 식물 중 유사한 것 검색. 새 식물 생성 전 먼저 호출. |
-| `create_plant` | 새 식물(분야) 생성 |
-| `delete_plant` | 식물과 하위 봉우리 삭제 |
-| `create_bud` | 봉우리(고민/일정) 생성 |
-| `update_bud_status` | 봉우리 상태 변경 (씨앗→꽃 등) |
-| `update_bud_progress` | 봉우리 진행률(%) 업데이트 |
-| `set_deadline` | 마감일 설정 |
-| `abandon_bud` | 봉우리 포기 (썩음 상태) |
-| `harvest_bud` | 봉우리 수확 완료 처리 |
-| `list_plants` | 식물 목록 조회 |
-| `list_buds` | 봉우리 목록 조회 |
-| `get_statistics` | 정원 통계 조회 |
-| `get_garden_briefing` | 오늘의 정원 브리핑 |
-| `search_conversation` | 대화 이력 검색 |
-
----
-
-## 카탈로그 제공 방식
-
-- `SkillRegistry.build_catalog()` → Gemini function 스키마 배열.
-- `LLMClient._to_gemini_tools(tools)` → Gemini API `Tool` 형식으로 변환.
-- 매 LLM 호출 시 `tools` 파라미터로 전달.
-
----
-
-## 등록
-
-- `app/ai/skills/__init__.py`에서 모든 Skill 클래스를 import, `register(skill)`로 등록.
-
----
-
-## 권한 가드
-
-- Skill 인자에 들어온 `plant_id`/`bud_id`가 `ctx.user_id` 소유인지 검사 후 dispatch.
-- 위반 시 `error_code="forbidden"` 반환.
-
----
-
-## 에러 코드
-
-- `invalid_argument`, `not_found`, `forbidden`, `conflict`, `internal`
-
----
-
-## Skill 베이스 클래스
-
-```python
-class SkillBase(ABC):
-    name: str = ""
-    description: str = ""
-    parameters: dict = {}        # JSON Schema
-
-    @abstractmethod
-    def run(self, args: dict, ctx: SkillContext) -> SkillResult: ...
-
-    def to_tool_spec(self) -> dict:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "input_schema": self.parameters,
-        }
+```text
+think
+match_plant
+create_plant
+delete_plant
+create_bud
+update_bud_status
+update_bud_progress
+set_deadline
+abandon_bud
+harvest_bud
+list_plants
+list_buds
+get_statistics
+get_garden_briefing
+search_conversation
+suggest_scope_change
+create_calendar_event
+list_calendar_events
+update_calendar_event
+delete_calendar_event
 ```
 
-`SkillContext`는 `user_id`, `db`, `plant_service`, `bud_service`, `garden_state_service`, `conversation_service`를 가진다.
+## 등록과 권한
+
+- 등록 진입점: `backend/app/routers/chat.py`의 `_build_registry()`
+- 카탈로그 변환: `backend/app/ai/skill_registry.py`
+- 스코프별 권한: `backend/app/ai/permissions.py`
+- 시스템 프롬프트: `backend/app/ai/prompt_builder.py`
+
+| 스코프 | 기존 데이터 변경 범위 |
+| --- | --- |
+| `global` | 전체 식물, 봉우리, 독립 일정 |
+| `plant` | 해당 식물과 하위 봉우리 |
+| `bud` | 해당 봉우리 |
+| `calendar` | 독립 일정 전체. 봉우리는 생성과 조회만 허용 |
+
+스킬을 추가하거나 제거하면 프론트 `ChatPanel.tsx`의 스킬 안내와 mutation 이후 query
+cache invalidation도 함께 확인한다.
+
+## 스킬 추가 체크리스트
+
+1. `backend/app/ai/skills/`에 구현한다.
+2. `backend/app/routers/chat.py`의 `_build_registry()`에 등록한다.
+3. 필요한 프롬프트 규칙을 `prompt_builder.py`에 반영한다.
+4. 스코프 제약이 있으면 `permissions.py`를 수정한다.
+5. 프론트 `ChatPanel.tsx`의 `SKILLS_INFO`를 수정한다.
+6. 변이 스킬이면 `SKILL_INVALIDATIONS`를 수정한다.
+7. `docs/DEMO_GUIDE.md`의 시나리오와 스킬 목록을 갱신한다.

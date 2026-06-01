@@ -65,6 +65,7 @@ const SKILLS_INFO = [
   { name: "get_statistics",       desc: "통계 데이터 조회" },
   { name: "get_garden_briefing",  desc: "정원 브리핑 생성" },
   { name: "search_conversation",  desc: "대화 검색" },
+  { name: "suggest_scope_change", desc: "관련 대화 세션 이동 제안" },
 ];
 
 const SKILL_INVALIDATIONS: Record<string, string[]> = {

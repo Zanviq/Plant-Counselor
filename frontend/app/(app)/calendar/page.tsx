@@ -91,7 +91,6 @@ export default function CalendarPage() {
   function next() { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); setSelected(null); }
 
   const selectedKey = selected ? ymd(year, month, selected) : null;
-  const selectedEvents: CalEvent[] = selectedKey ? (events[selectedKey] ?? []) : [];
   const todayKey = ymd(today.getFullYear(), today.getMonth(), today.getDate());
   const todayEvents: CalEvent[] = events[todayKey] ?? [];
 
@@ -119,23 +118,20 @@ export default function CalendarPage() {
   }
 
   return (
-    <div style={{ padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>
-      <header className="animate-in" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+    <div style={{ padding: "24px 36px", maxWidth: 1200, margin: "0 auto" }}>
+      <header className="animate-in" style={{ marginBottom: 16 }}>
         <div>
           <h1 className="t-display" style={{ color: "var(--fg)" }}>캘린더</h1>
           <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginTop: 4 }}>
             마감 일정을 한눈에 보고 오늘 할 일을 정리합니다.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => openAdd()}>
-          + 일정 추가
-        </button>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gridTemplateRows: "480px", alignItems: "stretch", gap: 16, marginBottom: 12 }}>
         {/* Calendar card */}
         {loadingCal ? <CalendarSkeleton /> : null}
-        <section className="card" style={{ padding: 18, display: loadingCal ? "none" : undefined }}>
+        <section className="card" style={{ padding: 18, height: "100%", minHeight: 0, overflow: "hidden", display: loadingCal ? "none" : undefined }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
               <div className="t-h1" style={{ color: "var(--fg)" }}>{year}년 {MONTHS[month]}</div>
@@ -163,7 +159,7 @@ export default function CalendarPage() {
               const sel = selected === d;
               return (
                 <button key={key} onClick={() => setSelected(sel ? null : d)} style={{
-                  minHeight: 64, padding: "6px 7px", borderRadius: "var(--r-md)",
+                  minHeight: 56, padding: "6px 7px", borderRadius: "var(--r-md)",
                   border: "1px solid", borderColor: t ? "var(--accent)" : sel ? "var(--accent)" : "transparent",
                   background: t ? "var(--accent-muted)" : sel ? "var(--bg-subtle)" : "transparent",
                   cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 3,
@@ -188,9 +184,9 @@ export default function CalendarPage() {
         </section>
 
         {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 14, overflow: "hidden" }}>
           {/* Today's schedule */}
-          <section className="card" style={{ padding: 16 }}>
+          <section className="card" style={{ padding: 16, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 10 }}>
               <div className="t-h3" style={{ color: "var(--fg)" }}>오늘 일정</div>
               <div className="t-caption" style={{ color: "var(--fg-muted)" }}>{today.getMonth() + 1}월 {today.getDate()}일</div>
@@ -198,7 +194,7 @@ export default function CalendarPage() {
             {todayEvents.length === 0 ? (
               <p className="t-caption" style={{ color: "var(--fg-muted)" }}>오늘 일정이 없습니다.</p>
             ) : (
-              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1, display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 0 }}>
                 {todayEvents.map(ev => (
                   <EventCard key={ev.id} ev={ev}
                     onClick={() => ev.plant_id && router.push(`/plants/${ev.plant_id}`)}
@@ -233,41 +229,21 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Selected day events */}
-      {selected !== null && (
-        <section className="card animate-in" style={{ padding: 16, marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div className="t-label" style={{ color: "var(--fg-muted)" }}>
-              {month + 1}월 {selected}일 일정
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => openAdd(selectedKey ?? undefined)}>+ 이 날짜에 추가</button>
-          </div>
-          {selectedEvents.length === 0 ? (
-            <p className="t-caption" style={{ color: "var(--fg-muted)" }}>이 날짜에 일정이 없습니다.</p>
-          ) : (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-              {selectedEvents.map(ev => (
-                <EventCard key={ev.id} ev={ev}
-                  onClick={() => ev.plant_id && router.push(`/plants/${ev.plant_id}`)}
-                  onDelete={ev.source === "event" ? () => handleDeleteEvent(ev.id) : undefined} />
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
       {/* Summary */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stagger">
-        {!summaryRes ? (
-          <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
-        ) : (
-          <>
-            <SmallStat label="진행 중인 일정" value={summary?.active_schedules ?? 0} accent="default" />
-            <SmallStat label="진행 중인 고민" value={summary?.active_concerns ?? 0} accent="default" />
-            <SmallStat label="주의 필요"     value={summary?.wilting_count ?? 0} accent="warning" />
-            <SmallStat label="이번 달 수확"   value={summary?.harvested_this_month ?? 0} accent="positive" />
-          </>
-        )}
+      <section className="card" style={{ padding: 14 }}>
+        <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 12 }}>일정 상태 요약</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stagger">
+          {!summaryRes ? (
+            <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
+          ) : (
+            <>
+              <SmallStat label="진행 중인 일정" value={summary?.active_schedules ?? 0} accent="default" sub="활성 일정 봉우리" />
+              <SmallStat label="진행 중인 고민" value={summary?.active_concerns ?? 0} accent="info" sub="활성 고민 봉우리" />
+              <SmallStat label="주의 필요"     value={summary?.wilting_count ?? 0} accent="warning" sub="시들고 있는 봉우리" />
+              <SmallStat label="이번 달 수확"   value={summary?.harvested_this_month ?? 0} accent="positive" sub="완료된 봉우리" />
+            </>
+          )}
+        </div>
       </section>
 
       {addOpen && (
@@ -442,15 +418,20 @@ function EventCard({ ev, onClick, onDelete }: { ev: CalEvent; onClick: () => voi
   );
 }
 
-function SmallStat({ label, value, accent }: { label: string; value: number; accent: "default" | "warning" | "positive" }) {
-  const color = accent === "warning" ? "var(--warning)" : accent === "positive" ? "var(--positive)" : "var(--fg-muted)";
+function SmallStat({ label, value, accent, sub }: { label: string; value: number; accent: "default" | "info" | "warning" | "positive"; sub: string }) {
+  const color =
+    accent === "warning" ? "var(--warning)"
+    : accent === "positive" ? "var(--positive)"
+    : accent === "info" ? "var(--info)"
+    : "var(--accent)";
   return (
-    <div className="card" style={{ padding: "16px 18px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <span className="dot" style={{ background: color }} />
-        <span className="t-label" style={{ color: "var(--fg-muted)" }}>{label}</span>
+    <div style={{ minHeight: 96, padding: "14px 14px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", background: "var(--calendar-stat-bg, var(--bg-subtle))", display: "flex", gap: 12 }}>
+      <span style={{ width: 5, height: 42, marginTop: 2, borderRadius: "var(--r-pill)", background: color, flexShrink: 0 }} />
+      <div>
+        <div className="t-numeral" style={{ color: "var(--fg)", lineHeight: 1 }}>{value}개</div>
+        <div className="t-label" style={{ color: "var(--fg-secondary)", marginTop: 10 }}>{label}</div>
+        <div className="t-caption" style={{ color: "var(--fg-muted)", marginTop: 8 }}>{sub}</div>
       </div>
-      <div className="t-numeral" style={{ color: "var(--fg)" }}>{value}</div>
     </div>
   );
 }

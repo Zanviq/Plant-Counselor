@@ -31,21 +31,13 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("ko-KR");
 }
 
-function scopeLabel(scope: string): string {
-  if (scope === "global") return "전체 대화";
-  if (scope === "calendar") return "캘린더";
-  if (scope === "plant") return "식물 대화";
-  if (scope === "bud") return "봉우리 대화";
-  return scope;
-}
-
 // ── tree data model ───────────────────────────────────────────
 
 interface TreeItem {
   key: string;          // unique key for selection
   conv: ConversationSummary;
   label: string;
-  icon: string;
+  icon: "global" | "calendar" | "plant" | "concern" | "schedule";
   indent: number;       // visual indent only: 0=root/plant, 1=bud
   nodeType: "root" | "plant" | "bud";
   plantId?: string;
@@ -65,7 +57,6 @@ function buildTree(
     byScope.set(`${c.scope}:${c.scope_id ?? ""}`, c);
   }
 
-  const plantById = new Map(plants.map((p) => [p.id, p]));
   const budById   = new Map(buds.map((b) => [b.id, b]));
 
   const items: TreeItem[] = [];
@@ -73,14 +64,14 @@ function buildTree(
   // ── Global ──────────────────────────────────────────────────
   const global = byScope.get("global:");
   if (global) {
-    const item: TreeItem = { key: global.id, conv: global, label: "전체 대화", icon: "🌍", indent: 0, nodeType: "root" };
+    const item: TreeItem = { key: global.id, conv: global, label: "전체 대화", icon: "global", indent: 0, nodeType: "root" };
     if (!q || matchesFilter(item, q)) items.push(item);
   }
 
   // ── Calendar ────────────────────────────────────────────────
   const cal = byScope.get("calendar:");
   if (cal) {
-    const item: TreeItem = { key: cal.id, conv: cal, label: "캘린더", icon: "📅", indent: 0, nodeType: "root" };
+    const item: TreeItem = { key: cal.id, conv: cal, label: "캘린더", icon: "calendar", indent: 0, nodeType: "root" };
     if (!q || matchesFilter(item, q)) items.push(item);
   }
 
@@ -117,7 +108,7 @@ function buildTree(
           key: c.id,
           conv: c,
           label: bud.title,
-          icon: bud.type === "schedule" ? "🗓" : "🌱",
+          icon: bud.type,
           indent: 1,
           nodeType: "bud",
           plantId: plant.id,
@@ -133,7 +124,7 @@ function buildTree(
           key: plantConv.id,
           conv: plantConv,
           label: plant.name,
-          icon: "🌿",
+          icon: "plant",
           indent: 0,
           nodeType: "plant",
           plantId: plant.id,
@@ -150,7 +141,7 @@ function buildTree(
             key: `ghost-plant-${plant.id}`,
             conv: budConvs[0].conv, // proxy for display
             label: plant.name,
-            icon: "🌿",
+            icon: "plant",
             indent: 0,
             nodeType: "plant",
             plantId: plant.id,
@@ -262,6 +253,25 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+function TreeIcon({ kind }: { kind: TreeItem["icon"] }) {
+  const common = {
+    width: 16, height: 16, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const, "aria-hidden": true,
+  };
+
+  if (kind === "global") {
+    return <svg {...common}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /></svg>;
+  }
+  if (kind === "calendar" || kind === "schedule") {
+    return <svg {...common}><path d="M8 2v4M16 2v4M3 10h18" /><rect x="3" y="4" width="18" height="17" rx="2" /></svg>;
+  }
+  if (kind === "plant") {
+    return <svg {...common}><path d="M12 22v-8M7 10c-2.8 0-5-2.2-5-5 2.8 0 5 2.2 5 5ZM17 14c2.8 0 5-2.2 5-5-2.8 0-5 2.2-5 5ZM12 14c-3.3 0-6-2.7-6-6 3.3 0 6 2.7 6 6ZM12 18c3.3 0 6-2.7 6-6-3.3 0-6 2.7-6 6Z" /></svg>;
+  }
+  return <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor", display: "block" }} />;
+}
+
 // ── TreeRow ───────────────────────────────────────────────────
 
 function TreeRow({
@@ -270,21 +280,27 @@ function TreeRow({
   onClick,
   onPrefetch,
   hasToggle,
+  childCount,
 }: {
   item: TreeItem;
   selected: boolean;
   onClick: () => void;
   onPrefetch?: () => void;
   hasToggle?: boolean;
+  childCount?: number;
 }) {
   const isGhost = item.key.startsWith("ghost-plant-");
+  const meta = item.nodeType === "plant" && childCount
+    ? `${childCount}개 봉우리 · ${relativeTime(item.conv.updated_at)}`
+    : `${item.conv.message_count}개 메시지 · ${relativeTime(item.conv.updated_at)}`;
   return (
     <button
       onClick={isGhost ? undefined : onClick}
       disabled={isGhost}
       style={{
         width: "100%", textAlign: "left", border: "none",
-        padding: `7px ${hasToggle ? 58 : 12}px 7px ${12 + item.indent * 16}px`,
+        position: "relative",
+        padding: `8px ${hasToggle ? 58 : 12}px 8px ${12 + item.indent * 22}px`,
         background: selected ? "var(--accent-muted)" : "transparent",
         cursor: isGhost ? "default" : "pointer",
         borderRadius: "var(--r-sm)",
@@ -298,7 +314,20 @@ function TreeRow({
       }}
       onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = "transparent"; }}
     >
+      {item.nodeType === "bud" && (
+        <span style={{
+          position: "absolute", left: 18, top: 0, bottom: 0,
+          width: 1, background: "var(--border)",
+        }} />
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+        <span style={{
+          width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+          color: selected ? "var(--accent)" : item.nodeType === "bud" ? "var(--fg-muted)" : "var(--accent)",
+        }}>
+          <TreeIcon kind={item.icon} />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             className="t-body-sm"
@@ -321,10 +350,7 @@ function TreeRow({
                 fontSize: 11,
               }}
             >
-              {item.conv.message_count}개 · {relativeTime(item.conv.updated_at)}
-              {item.conv.last_message && (
-                <> · {item.conv.last_message.slice(0, 28)}{item.conv.last_message.length > 28 ? "…" : ""}</>
-              )}
+              {meta}
             </div>
           )}
         </div>
@@ -338,11 +364,9 @@ function TreeRow({
 function ThreadPanel({
   item,
   plants,
-  buds,
 }: {
   item: TreeItem;
   plants: Plant[];
-  buds: Bud[];
 }) {
   const { openWith } = useChatStore();
   const router = useRouter();
@@ -458,7 +482,7 @@ function ThreadPanel({
             className="t-caption"
             style={{ color: "var(--fg-muted)", marginBottom: 12, padding: "4px 0" }}
           >
-            "{submittedSearch}" — {messages.length}개 결과
+            &quot;{submittedSearch}&quot; — {messages.length}개 결과
           </div>
         )}
 
@@ -521,9 +545,9 @@ export default function HistoryPage() {
   const { data: plantsRes } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: !!accessToken });
   const { data: budsRes }   = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: !!accessToken });
 
-  const conversations = convsRes?.ok ? convsRes.data.conversations : [];
-  const plants        = plantsRes?.ok ? plantsRes.data.items : [];
-  const buds          = budsRes?.ok ? budsRes.data.items : [];
+  const conversations = useMemo(() => convsRes?.ok ? convsRes.data.conversations : [], [convsRes]);
+  const plants        = useMemo(() => plantsRes?.ok ? plantsRes.data.items : [], [plantsRes]);
+  const buds          = useMemo(() => budsRes?.ok ? budsRes.data.items : [], [budsRes]);
 
   const treeItems = useMemo(
     () => buildTree(conversations, plants, buds, filterQuery),
@@ -542,12 +566,10 @@ export default function HistoryPage() {
   // While filtering, force every plant open so matches are never hidden.
   const filtering = filterQuery.trim().length > 0;
 
-  const selectedItem = treeItems.find((i) => i.key === selectedKey) ?? null;
-  // Auto-select first real item when tree loads
+  // Render the first real item by default without a state-setting effect.
   const firstReal = treeItems.find((i) => !i.key.startsWith("ghost-"));
-  useEffect(() => {
-    if (!selectedKey && firstReal) setSelectedKey(firstReal.key);
-  }, [firstReal?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const effectiveSelectedKey = selectedKey ?? firstReal?.key ?? null;
+  const selectedItem = treeItems.find((i) => i.key === effectiveSelectedKey) ?? null;
 
   const totalConvs = conversations.length;
   const totalMsgs  = conversations.reduce((s, c) => s + c.message_count, 0);
@@ -655,10 +677,11 @@ export default function HistoryPage() {
                 <div key={item.key} style={{ position: "relative" }}>
                   <TreeRow
                     item={item}
-                    selected={selectedKey === item.key}
+                    selected={effectiveSelectedKey === item.key}
                     onClick={() => setSelectedKey(item.key)}
                     onPrefetch={() => prefetchThread(item)}
                     hasToggle={hasToggle}
+                    childCount={budCount}
                   />
                   {hasToggle && (
                     <button
@@ -668,7 +691,7 @@ export default function HistoryPage() {
                       aria-label={open ? `${item.label} 봉우리 접기` : `${item.label} 봉우리 펼치기`}
                       title={open ? "봉우리 접기" : `봉우리 ${budCount}개 펼치기`}
                       style={{
-                        position: "absolute", right: 8, bottom: 7,
+                        position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
                         display: "flex", alignItems: "center", gap: 3,
                         padding: "2px 6px", borderRadius: 999,
                         border: "1px solid var(--border)", background: "var(--bg-elevated)",
@@ -693,7 +716,7 @@ export default function HistoryPage() {
         {/* ── Right: thread panel ── */}
         <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {selectedItem && !selectedItem.key.startsWith("ghost-") ? (
-            <ThreadPanel item={selectedItem} plants={plants} buds={buds} />
+            <ThreadPanel item={selectedItem} plants={plants} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 10, color: "var(--fg-muted)" }}>
               <div className="t-body-sm">왼쪽에서 대화를 선택하세요</div>

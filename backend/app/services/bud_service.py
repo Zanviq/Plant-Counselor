@@ -83,6 +83,11 @@ class BudService:
             raise ValueError(f"봉우리를 찾을 수 없습니다: {bud_id}")
         return bud
 
+    def delete(self, user_id: str, bud_id: str) -> None:
+        self.get(user_id, bud_id)
+        if not self._repo.delete(user_id, bud_id):
+            raise ValueError(f"봉우리를 삭제할 수 없습니다: {bud_id}")
+
     def abandon(self, user_id: str, bud_id: str, reason: str = "") -> SimpleNamespace:
         return self.update_status(user_id, bud_id, "rot", reason or "포기")
 

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 // a flash of the wrong theme. Uses next/script with `beforeInteractive` (the
 // App Router way to inline a pre-hydration script); it is injected into <head>
 // regardless of placement, so it must NOT be rendered as a raw <script> tag.
-const themeInitScript = `(function(){try{var r=localStorage.getItem("pc-theme");var s=r?JSON.parse(r).state:null;var m=(s&&s.mode)||"system";var a=(s&&s.accent)||"emerald";var v=m==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):m;var d=document.documentElement;d.setAttribute("data-theme",v);if(a!=="emerald")d.setAttribute("data-accent",a);}catch(e){}})();`;
+const themeInitScript = `(function(){try{var r=localStorage.getItem("pc-theme");var s=r?JSON.parse(r).state:null;var m=(s&&s.mode)||"system";var v=m==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):m;var d=document.documentElement;d.setAttribute("data-theme",v);d.removeAttribute("data-accent");}catch{}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

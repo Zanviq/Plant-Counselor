@@ -23,6 +23,10 @@ dependencies = [
     "cryptography>=42.0.0",
 ]
 
+[tool.poetry]
+# This repository runs app.main directly and is not published as a Python package.
+package-mode = false
+
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.0.0",

@@ -26,6 +26,8 @@ const KIND_META: Record<string, KindMeta> = {
   warning:          { label: "경고",                      color: "var(--warning)" },
 };
 
+const NOTIFICATION_LIST_MAX_H = 210;
+
 function kindMeta(kind: string): KindMeta {
   return KIND_META[kind] ?? { label: kind, color: "var(--fg-muted)" };
 }
@@ -239,7 +241,7 @@ export default function NotificationsPopover({ onClose }: { onClose: () => void 
         </div>
       </header>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: 1, minHeight: 0, maxHeight: NOTIFICATION_LIST_MAX_H, overflowY: "auto" }}>
         {items.length === 0 ? (
           <div style={{ padding: "28px 16px", textAlign: "center" }}>
             <div className="t-body-sm" style={{ color: "var(--fg-muted)" }}>

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch } from "./client";
+import { apiDelete, apiGet, apiPatch } from "./client";
 
 export const listBuds = (params: { plant_id?: string; wilting_only?: boolean } = {}) => {
   const q = new URLSearchParams();
@@ -12,6 +12,9 @@ export const getBud = (id: string) =>
 
 export const patchBud = (id: string, fields: { title?: string; detail?: string }) =>
   apiPatch<Bud>(`/buds/${id}`, fields);
+
+export const deleteBud = (id: string) =>
+  apiDelete<{ deleted_id: string }>(`/buds/${id}`);
 
 /** Manually set a bud's progress (slider). `note` carries the user's reason. */
 export const setBudProgress = (id: string, progress: number, note = "") =>

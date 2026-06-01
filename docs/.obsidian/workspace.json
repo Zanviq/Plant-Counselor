@@ -1,0 +1,243 @@
+{
+  "main": {
+    "id": "70f081d330eeb725",
+    "type": "split",
+    "children": [
+      {
+        "id": "1fe601b55d677bf4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e226fb7a41d3ab72",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "MVP_Documents/06_API_Reference.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "06_API_Reference"
+            }
+          },
+          {
+            "id": "9a1a16d6b711641d",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Idea-note.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Idea-note"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "60faa6ed9fd98738",
+    "type": "split",
+    "children": [
+      {
+        "id": "f9f99d9a0d2d4e06",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "725e1e56852518c8",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "파일 탐색기"
+            }
+          },
+          {
+            "id": "e0869b98f130649e",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "검색"
+            }
+          },
+          {
+            "id": "3d49a629aba8bfd3",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "북마크"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 276.5004348754883
+  },
+  "right": {
+    "id": "c35b341df81abeee",
+    "type": "split",
+    "children": [
+      {
+        "id": "4b67df14bbbaddd6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c7907d6d77215c98",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Documents/04_데이터/GardenState_JSON.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "GardenState_JSON 의 백링크"
+            }
+          },
+          {
+            "id": "be1001af320f28ef",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Documents/04_데이터/GardenState_JSON.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "GardenState_JSON 의 나가는 링크"
+            }
+          },
+          {
+            "id": "bcf479dd73d7221d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "태그"
+            }
+          },
+          {
+            "id": "2bb472843703f2ab",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "모든 속성"
+            }
+          },
+          {
+            "id": "217f0b47513cd40d",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Documents/04_데이터/GardenState_JSON.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "GardenState_JSON 의 개요"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:빠른 전환기 열기": false,
+      "graph:그래프 뷰 열기": false,
+      "canvas:새 캔버스 만들기": false,
+      "daily-notes:오늘의 일일 노트 열기": false,
+      "templates:템플릿 삽입": false,
+      "command-palette:명령어 팔레트 열기": false,
+      "bases:새 베이스 생성하기": false
+    }
+  },
+  "active": "9a1a16d6b711641d",
+  "lastOpenFiles": [
+    "DEPLOYMENT_GUIDE.md",
+    "DEMO_GUIDE.md",
+    "해야할일.md",
+    "구체화.md",
+    "Archive",
+    "Web/02_기능/상태_자동전이.md",
+    "Web/02_기능/데이터_백업_복구.md",
+    "MVP/05_Backend_Code_Walkthrough.md",
+    "MVP/04_AI_Chat_And_Skills.md",
+    "superpowers/plans/2026-05-21-backend-ai-auth-routers-scheduler.md",
+    "MVP/00_Overview.md",
+    "MVP/02_UI_Pages_And_Components.md",
+    "MVP/README.md",
+    "MVP/10_Complete_Implementation_State.md",
+    "MVP/09_Summary.md",
+    "MVP/08_Operations.md",
+    "MVP/07_System_Test_Plan.md",
+    "MVP/06_API_Reference.md",
+    "MVP/03_Theme_System.md",
+    "MVP/01_Architecture.md",
+    "MVP_Documents/09_Summary.md.tmp.3276.ad33671c9eb3",
+    "MVP_Documents/09_Summary.md.tmp.3276.4d78394c8eb5",
+    "MVP_Documents/00_Overview.md.tmp.3276.2c305020b879",
+    "MVP_Documents/00_Overview.md.tmp.3276.8a83b6f0ae3a",
+    "MVP_Documents/00_Overview.md.tmp.3276.2f4cb0c9b84d",
+    "MVP_Documents/06_API_Reference.md.tmp.3276.b5994df3ce39",
+    "MVP_Documents/04_AI_Chat_And_Skills.md.tmp.3276.40f173c24438",
+    "MVP_Documents/04_AI_Chat_And_Skills.md.tmp.3276.582a5152a651",
+    "MVP_Documents/04_AI_Chat_And_Skills.md.tmp.3276.3f1f77ff7937",
+    "Web/02_기능/알림.md",
+    "Web/01_페이지/공통_AI대화창.md",
+    "Web/04_데이터/DB_스키마.md",
+    "Web_Documents/03_LLM/Skills/abandon_bud.md",
+    "Web/02_기능/통계_시스템.md",
+    "Web/02_기능/캘린더.md",
+    "Web/05_백엔드/API_엔드포인트.md",
+    "Web_Documents/09_목업/이미지/image copy 2.png",
+    "Web_Documents/09_목업/이미지/image copy.png",
+    "Web_Documents/09_목업/이미지/image.png"
+  ]
+}

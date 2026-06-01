@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
-import { listBuds, getBud, setBudProgress, Bud } from "@/lib/api/buds";
+import { listBuds, getBud, setBudProgress, deleteBud, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
@@ -75,6 +75,8 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
   const [reasonFor, setReasonFor] = useState<number | null>(null); // value awaiting a reason
   const [reasonText, setReasonText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Reset transient slider/popup state when the drawer switches to another bud.
   useEffect(() => {
     setDraft(null); setReasonFor(null); setReasonText("");
@@ -120,6 +122,20 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
         `다음에 무엇을 하면 좋을지 알려줘.`;
       openWith({ kind: "bud", id: budId }, { send: prompt });
     }
+  }
+
+  async function removeBud() {
+    setDeleting(true);
+    const result = await deleteBud(budId);
+    setDeleting(false);
+    if (!result.ok) return;
+    qc.removeQueries({ queryKey: QK.bud(budId) });
+    qc.invalidateQueries({ queryKey: QK.plantBuds(bud!.plant_id) });
+    qc.invalidateQueries({ queryKey: ["buds"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["briefing"] });
+    setConfirmingDelete(false);
+    onClose();
   }
 
   // When the chat panel is open the drawer shifts left to sit beside it.
@@ -267,8 +283,28 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
           >
             AI에게 이 봉우리 상담받기
           </button>
+          <button className="btn btn-danger btn-sm" disabled={deleting} onClick={() => setConfirmingDelete(true)}>
+            {deleting ? "삭제 중…" : "봉우리 삭제"}
+          </button>
         </footer>
       </aside>
+
+      {confirmingDelete && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="card" style={{ width: 380, maxWidth: "92vw", padding: "22px 24px", boxShadow: "var(--shadow-lg)" }}>
+            <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 8 }}>봉우리를 삭제할까요?</div>
+            <p className="t-body-sm" style={{ color: "var(--fg-muted)", lineHeight: 1.6 }}>
+              <strong style={{ color: "var(--fg)" }}>{bud.title}</strong> 봉우리와 정원에서 연결된 줄기가 함께 사라집니다.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+              <button className="btn btn-ghost" disabled={deleting} onClick={() => setConfirmingDelete(false)}>취소</button>
+              <button className="btn btn-danger" disabled={deleting} onClick={removeBud}>
+                {deleting ? "삭제 중…" : "정말 삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* "왜 변경하였나요?" reason popup — appears after a manual slider change */}
       {reasonFor !== null && (

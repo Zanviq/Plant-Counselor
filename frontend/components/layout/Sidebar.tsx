@@ -32,23 +32,26 @@ const stroke = "currentColor";
 
 function HomeIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1v-9.5z" />
+    <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+    <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
   </svg>
 );}
 
 function PlantsIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M12 20V11" />
-    <path d="M12 11C12 8 9.5 6 7.5 6c0 3 1 5 4.5 5z" />
-    <path d="M12 11c0-3 2.5-5 4.5-5 0 3-1 5-4.5 5z" />
-    <path d="M6 20h12" />
+    <path d="M7 15h10v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4z" />
+    <path d="M12 9a6 6 0 0 0-6-6H3v2a6 6 0 0 0 6 6h3" />
+    <path d="M12 12a6 6 0 0 1 6-6h3v1a6 6 0 0 1-6 6h-3" />
+    <path d="M12 15V9" />
   </svg>
 );}
 
 function CalendarIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <path d="M3 10h18M8 3v4M16 3v4" />
+    <path d="M8 2v4" />
+    <path d="M16 2v4" />
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M3 10h18" />
   </svg>
 );}
 
@@ -61,21 +64,22 @@ function SettingsIcon() { return (
 
 function HistoryIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M12 8v4l2.5 2.5" />
-    <path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4" />
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 4v6h6" />
+    <path d="M12 7v5l4 2" />
   </svg>
 );}
 
 function ChatIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M21 12a8 8 0 01-11.5 7.2L3 21l1.8-6.5A8 8 0 1121 12z" />
+    <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
   </svg>
 );}
 
 function BellIcon() { return (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9" />
-    <path d="M10.3 21a1.94 1.94 0 003.4 0" />
+    <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+    <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
   </svg>
 );}
 

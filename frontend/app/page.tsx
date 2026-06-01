@@ -5,27 +5,26 @@
 import Link from "next/link";
 import AuthRedirect from "./_components/AuthRedirect";
 
-// ── Sprite constants (mirror /sprites/manifest.json v5) ─────────────────────
+// ── Garden pixel constants (mirror the current /plants renderer) ─────────────
 
-const S = "/sprites";
-const PLANT_IMG = { file: `${S}/plant.png`, w: 140, h: 240 };
-const SLOTS = [
-  { x: 28, y: 12 }, { x: 108, y: 12 },
-  { x: 20, y: 56 }, { x: 116, y: 56 },
-  { x: 32, y: 108 }, { x: 104, y: 108 },
-];
-// anchor (ax, ay) = center of each bud sprite, so it sits centered on its slot.
-const BUD_SPRITES: Record<string, { file: string; w: number; h: number; ax: number; ay: number }> = {
-  seed:      { file: `${S}/bud_seed.png`,      w: 20, h: 28, ax: 10, ay: 14 },
-  sprout:    { file: `${S}/bud_sprout.png`,    w: 36, h: 28, ax: 18, ay: 14 },
-  flower:    { file: `${S}/bud_flower.png`,    w: 36, h: 32, ax: 18, ay: 16 },
-  fruit:     { file: `${S}/bud_fruit.png`,     w: 28, h: 32, ax: 14, ay: 16 },
-  wilted:    { file: `${S}/bud_wilted.png`,    w: 28, h: 24, ax: 14, ay: 12 },
-  harvested: { file: `${S}/bud_harvested.png`, w: 28, h: 20, ax: 14, ay: 10 },
-};
-const STATUS_MAP: Record<string, string> = {
-  seed: "seed", bud: "sprout", flower: "flower", fruit: "fruit",
-  wilting: "wilted", rot: "wilted", harvested: "harvested",
+const DEMO_PLANT_W = 178;
+const DEMO_POT_H = 46;
+const DEMO_LAYER_H = 64;
+const DEMO_PIXEL = {
+  stem: "#4D8542",
+  leaf: "#75A859",
+  leafLight: "#9CCB8C",
+  budUpper: "#C8D96B",
+  budTip: "#DDE8A2",
+  budSepalLeft: "#9FC45D",
+  budSepalRight: "#8FB655",
+  budSepalCenter: "#6FA04D",
+  potLip: "#735740",
+  potBody: "#8A694F",
+  flower: "#ED708C",
+  flowerCenter: "#F7C740",
+  fruit: "#E05A2E",
+  fruitShine: "#FFB26B",
 };
 
 // ── SVG icons ──────────────────────────────────────────────────────────────
@@ -107,43 +106,56 @@ function IconGoogle() {
 
 // ── Preview mock-ups (non-interactive) ──────────────────────────────────────
 
-// A single static plant composite (plant.png + buds at their slot positions).
+function DemoPixel({ x, y, w, h, color }: { x: number; y: number; w: number; h: number; color: string }) {
+  return <span style={{ position: "absolute", left: x, top: y, width: w, height: h, background: color }} />;
+}
+
+function DemoGrowthLayer({ status, index }: { status: string; index: number }) {
+  const flip = index % 2 === 1;
+  return (
+    <div style={{ position: "absolute", left: 0, bottom: DEMO_POT_H + index * DEMO_LAYER_H, width: DEMO_PLANT_W, height: DEMO_LAYER_H }}>
+      <DemoPixel x={84} y={0} w={12} h={64} color={DEMO_PIXEL.stem} />
+      <DemoPixel x={flip ? 94 : 52} y={34} w={34} h={16} color={DEMO_PIXEL.leaf} />
+      <DemoPixel x={flip ? 52 : 96} y={22} w={36} h={16} color={DEMO_PIXEL.leaf} />
+      {(status === "seed" || status === "bud") && <>
+        <DemoPixel x={79} y={0} w={22} h={18} color={DEMO_PIXEL.budUpper} />
+        <DemoPixel x={83} y={-10} w={14} h={10} color={DEMO_PIXEL.budTip} />
+        <DemoPixel x={75} y={10} w={8} h={14} color={DEMO_PIXEL.budSepalLeft} />
+        <DemoPixel x={101} y={10} w={8} h={14} color={DEMO_PIXEL.budSepalRight} />
+        <DemoPixel x={83} y={18} w={14} h={12} color={DEMO_PIXEL.budSepalCenter} />
+      </>}
+      {status === "flower" && <>
+        <DemoPixel x={83} y={0} w={14} h={16} color={DEMO_PIXEL.flower} />
+        <DemoPixel x={67} y={16} w={16} h={14} color={DEMO_PIXEL.flower} />
+        <DemoPixel x={97} y={16} w={16} h={14} color={DEMO_PIXEL.flower} />
+        <DemoPixel x={83} y={30} w={14} h={16} color={DEMO_PIXEL.flower} />
+        <DemoPixel x={83} y={16} w={14} h={14} color={DEMO_PIXEL.flowerCenter} />
+      </>}
+      {status === "fruit" && <>
+        <DemoPixel x={57} y={25} w={18} h={18} color={DEMO_PIXEL.fruit} />
+        <DemoPixel x={108} y={13} w={20} h={20} color={DEMO_PIXEL.fruit} />
+        <DemoPixel x={61} y={29} w={6} h={6} color={DEMO_PIXEL.fruitShine} />
+        <DemoPixel x={112} y={17} w={6} h={6} color={DEMO_PIXEL.fruitShine} />
+      </>}
+    </div>
+  );
+}
+
+// Static preview using the same one-bud-per-layer composition as /plants.
 function DemoPlant({ name, caption, buds, scale = 1 }: {
   name: string; caption: string; scale?: number;
   buds: { status: string; title: string }[];
 }) {
-  const w = PLANT_IMG.w * scale;
-  const h = PLANT_IMG.h * scale;
+  const h = DEMO_POT_H + Math.max(1, buds.length) * DEMO_LAYER_H;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-      <div style={{ position: "relative", width: w, height: h, imageRendering: "pixelated" }}>
-        <img src={PLANT_IMG.file} alt={name} width={w} height={h}
-          style={{ imageRendering: "pixelated", display: "block" }} draggable={false} />
-        {buds.slice(0, SLOTS.length).map((b, i) => {
-          const slot = SLOTS[i];
-          const meta = BUD_SPRITES[STATUS_MAP[b.status] ?? "seed"];
-          if (!slot || !meta) return null;
-          return (
-            <img
-              key={i}
-              src={meta.file}
-              alt={b.title}
-              title={b.title}
-              width={meta.w * scale}
-              height={meta.h * scale}
-              draggable={false}
-              style={{
-                position: "absolute",
-                left: slot.x * scale - meta.ax * scale,
-                top: slot.y * scale - meta.ay * scale,
-                imageRendering: "pixelated",
-                zIndex: 3,
-              }}
-            />
-          );
-        })}
+      <div style={{ width: DEMO_PLANT_W * scale, height: h * scale }}>
+        <div style={{ position: "relative", width: DEMO_PLANT_W, height: h, imageRendering: "pixelated", transform: `scale(${scale})`, transformOrigin: "top left" }}>
+          {buds.map((bud, index) => <DemoGrowthLayer key={`${bud.title}-${index}`} status={bud.status} index={index} />)}
+          <DemoPixel x={50} y={h - DEMO_POT_H} w={70} h={18} color={DEMO_PIXEL.potLip} />
+          <DemoPixel x={60} y={h - 28} w={50} h={28} color={DEMO_PIXEL.potBody} />
+        </div>
       </div>
-      {/* Dark, theme-independent label (the garden sits on a fixed light sky). */}
       <div style={{ textAlign: "center", marginTop: 2, position: "relative", zIndex: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#23301a", textShadow: "0 1px 3px rgba(255,255,255,0.7)" }}>{name}</div>
         <div style={{ fontSize: 11, color: "rgba(35,48,26,0.65)", textShadow: "0 1px 2px rgba(255,255,255,0.6)", marginTop: 1 }}>{caption}</div>
@@ -152,7 +164,7 @@ function DemoPlant({ name, caption, buds, scale = 1 }: {
   );
 }
 
-// The garden preview — sky + plants + grass strip, mirroring the real /plants view.
+// The garden preview mirrors the current 2D grass field used by /plants.
 function GardenPreview() {
   return (
     <div style={{
@@ -164,8 +176,7 @@ function GardenPreview() {
       {/* Sky */}
       <div style={{
         position: "absolute", inset: 0,
-        backgroundImage: `url(${S}/sky.png)`,
-        backgroundSize: "cover", backgroundPosition: "center bottom",
+        background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 64%, #FCFDF9 100%)",
         zIndex: 0,
       }} />
       {/* Caption chip */}
@@ -206,16 +217,8 @@ function GardenPreview() {
           ]}
         />
       </div>
-      {/* Grass + soil */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 52, zIndex: 1, pointerEvents: "none" }}>
-        <div style={{
-          height: 32,
-          backgroundImage: `url(${S}/grass.png)`,
-          backgroundRepeat: "repeat-x", backgroundSize: "auto 32px",
-          backgroundPosition: "bottom", imageRendering: "pixelated",
-        }} />
-        <div style={{ height: 20, background: "linear-gradient(180deg, #7AB050 0%, #5A8A30 50%, #4A7228 100%)" }} />
-      </div>
+      {/* Grass field */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 72, zIndex: 1, pointerEvents: "none", background: "#B2CF85" }} />
     </div>
   );
 }
@@ -414,8 +417,9 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* ── Hero ─────────────────────────────────────────────────── */}
-        <section style={{
+        <main style={{ flex: 1 }}>
+          {/* ── Hero ─────────────────────────────────────────────────── */}
+          <section style={{
           flex: "none",
           padding: "84px 32px 64px",
           textAlign: "center",
@@ -509,10 +513,10 @@ export default function LandingPage() {
               </a>
             </div>
           </div>
-        </section>
+          </section>
 
-        {/* ── Live preview (garden + chat) ─────────────────────────── */}
-        <section
+          {/* ── Live preview (garden + chat) ─────────────────────────── */}
+          <section
           id="preview"
           style={{
             padding: "80px 32px",
@@ -551,10 +555,10 @@ export default function LandingPage() {
               <GardenPreview />
             </div>
           </div>
-        </section>
+          </section>
 
-        {/* ── Features ─────────────────────────────────────────────── */}
-        <section
+          {/* ── Features ─────────────────────────────────────────────── */}
+          <section
           id="features"
           style={{
             padding: "80px 32px",
@@ -619,10 +623,10 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-        </section>
+          </section>
 
-        {/* ── How it works ─────────────────────────────────────────── */}
-        <section style={{ padding: "80px 32px", borderBottom: "1px solid var(--border)" }}>
+          {/* ── How it works ─────────────────────────────────────────── */}
+          <section style={{ padding: "80px 32px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ maxWidth: 1080, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 52 }}>
               <p style={{
@@ -676,10 +680,10 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-        </section>
+          </section>
 
-        {/* ── Bottom CTA ───────────────────────────────────────────── */}
-        <section style={{
+          {/* ── Bottom CTA ───────────────────────────────────────────── */}
+          <section style={{
           padding: "88px 32px",
           textAlign: "center",
           background: "var(--bg-subtle)",
@@ -717,7 +721,8 @@ export default function LandingPage() {
               Google로 시작하기
             </Link>
           </div>
-        </section>
+          </section>
+        </main>
 
         {/* ── Footer ───────────────────────────────────────────────── */}
         <footer style={{

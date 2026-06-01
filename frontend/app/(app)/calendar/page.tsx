@@ -128,10 +128,10 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", alignItems: "stretch", gap: 16, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gridTemplateRows: "480px", alignItems: "stretch", gap: 16, marginBottom: 12 }}>
         {/* Calendar card */}
         {loadingCal ? <CalendarSkeleton /> : null}
-        <section className="card" style={{ padding: 18, minHeight: 480, display: loadingCal ? "none" : undefined }}>
+        <section className="card" style={{ padding: 18, height: "100%", minHeight: 0, overflow: "hidden", display: loadingCal ? "none" : undefined }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
               <div className="t-h1" style={{ color: "var(--fg)" }}>{year}년 {MONTHS[month]}</div>
@@ -184,9 +184,9 @@ export default function CalendarPage() {
         </section>
 
         {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 480 }}>
+        <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 14, overflow: "hidden" }}>
           {/* Today's schedule */}
-          <section className="card" style={{ padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <section className="card" style={{ padding: 16, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 10 }}>
               <div className="t-h3" style={{ color: "var(--fg)" }}>오늘 일정</div>
               <div className="t-caption" style={{ color: "var(--fg-muted)" }}>{today.getMonth() + 1}월 {today.getDate()}일</div>
@@ -194,7 +194,7 @@ export default function CalendarPage() {
             {todayEvents.length === 0 ? (
               <p className="t-caption" style={{ color: "var(--fg-muted)" }}>오늘 일정이 없습니다.</p>
             ) : (
-              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 0 }}>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1, display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 0 }}>
                 {todayEvents.map(ev => (
                   <EventCard key={ev.id} ev={ev}
                     onClick={() => ev.plant_id && router.push(`/plants/${ev.plant_id}`)}

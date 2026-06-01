@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { listPlants, Plant } from "@/lib/api/plants";
@@ -17,22 +17,20 @@ const PLANT_W = 178;
 const POT_H = 46;
 const LAYER_H = 64;
 const BOARD_MIN_W = 1800;
-const BOARD_MIN_H = 1580;
-const GRASS_TUFTS = Array.from({ length: 42 }, (_, index) => ({
-  left: 28 + index * 72,
-  top: 736 + (index % 3) * 8,
-  height: 18 + (index % 5) * 5,
-  color: index % 2 === 0 ? "#D7E8B2" : "#8BB463",
-}));
-const GROUND_SHADOWS = Array.from({ length: 13 }, (_, index) => ({
-  left: 76 + index * 226,
-  top: 912 + (index % 3) * 18,
-}));
+const BOARD_MIN_H = 1160;
+const GARDEN_BASELINE = 696;
+const VIEWPORT_GROUND_ROOM = 240;
+const FOREGROUND_GRASS_H = 120;
 
 const PIXEL = {
   stem: "#4D8542",
   leaf: "#75A859",
   leafLight: "#9CCB8C",
+  budUpper: "#C8D96B",
+  budTip: "#DDE8A2",
+  budSepalLeft: "#9FC45D",
+  budSepalRight: "#8FB655",
+  budSepalCenter: "#6FA04D",
   potLip: "#735740",
   potBody: "#8A694F",
   flower: "#ED708C",
@@ -43,7 +41,6 @@ const PIXEL = {
   rotBruise: "#2E1F14",
   wiltStem: "#7A6D55",
   wiltLeaf: "#A5946D",
-  harvest: "#E6B94E",
 };
 
 function Pixel({ x, y, w, h, color, radius = 0 }: {
@@ -64,9 +61,12 @@ function GrowthLayer({ bud, index }: { bud: Bud; index: number }) {
       <Pixel x={flip ? 94 : 52} y={34} w={34} h={16} color={leaf} />
       <Pixel x={flip ? 52 : 96} y={22} w={36} h={16} color={leaf} />
 
-      {status === "bud" && <>
-        <Pixel x={78} y={3} w={24} h={18} color={PIXEL.leafLight} />
-        <Pixel x={82} y={0} w={16} h={10} color={PIXEL.leaf} />
+      {(status === "seed" || status === "bud") && <>
+        <Pixel x={79} y={0} w={22} h={18} color={PIXEL.budUpper} />
+        <Pixel x={83} y={-10} w={14} h={10} color={PIXEL.budTip} />
+        <Pixel x={75} y={10} w={8} h={14} color={PIXEL.budSepalLeft} />
+        <Pixel x={101} y={10} w={8} h={14} color={PIXEL.budSepalRight} />
+        <Pixel x={83} y={18} w={14} h={12} color={PIXEL.budSepalCenter} />
       </>}
       {status === "flower" && <>
         <Pixel x={83} y={0} w={14} h={16} color={PIXEL.flower} />
@@ -90,8 +90,6 @@ function GrowthLayer({ bud, index }: { bud: Bud; index: number }) {
         <Pixel x={92} y={2} w={24} h={10} color={PIXEL.wiltLeaf} />
         <Pixel x={108} y={10} w={10} h={20} color={PIXEL.wiltStem} />
       </>}
-      {status === "harvested" && <Pixel x={102} y={15} w={18} h={18} color={PIXEL.harvest} />}
-      {status === "seed" && <Pixel x={79} y={4} w={22} h={14} color={PIXEL.leafLight} />}
     </div>
   );
 }
@@ -100,7 +98,7 @@ function PixelPlant({ buds }: { buds: Bud[] }) {
   return (
     <div style={{ position: "relative", width: PLANT_W, height: POT_H + Math.max(1, buds.length) * LAYER_H, imageRendering: "pixelated" }}>
       {buds.map((bud, index) => <GrowthLayer key={bud.id} bud={bud} index={index} />)}
-      {buds.length === 0 && <GrowthLayer bud={{ id: "empty", plant_id: "", title: "새싹", detail: "", type: "concern", status: "seed", progress: 0, deadline: null, last_progress_at: null, disappeared_at: null, created_at: "" }} index={0} />}
+      {buds.length === 0 && <GrowthLayer bud={{ id: "empty", plant_id: "", title: "새싹", detail: "", type: "concern", status: "harvested", progress: 0, deadline: null, last_progress_at: null, disappeared_at: null, created_at: "" }} index={0} />}
       <Pixel x={50} y={POT_H + Math.max(1, buds.length) * LAYER_H - POT_H} w={70} h={18} color={PIXEL.potLip} />
       <Pixel x={60} y={POT_H + Math.max(1, buds.length) * LAYER_H - 28} w={50} h={28} color={PIXEL.potBody} />
     </div>
@@ -195,6 +193,8 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
 
 type ViewMode = "garden" | "list";
 
+const subscribeHydration = () => () => {};
+
 function ViewToggle({ current, onChange }: { current: ViewMode; onChange: (m: ViewMode) => void }) {
   return (
     <div style={{ display: "inline-flex", padding: 2, background: "var(--bg-subtle)", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
@@ -215,13 +215,16 @@ export default function PlantsPage() {
   const router = useRouter();
   const { openWith, scope } = useChatStore();
   const { accessToken } = useAuthStore();
+  const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const [view, setView] = useState<ViewMode>("garden");
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: !!accessToken });
-  const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: !!accessToken });
+  const queryEnabled = hydrated && !!accessToken;
+  const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: queryEnabled });
+  const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: queryEnabled });
+  const showLoading = !queryEnabled || isLoading;
 
   const plants = useMemo(() => plantsRes?.ok ? plantsRes.data.items : [], [plantsRes]);
   const allBuds = useMemo(() => budsRes?.ok ? budsRes.data.items : [], [budsRes]);
@@ -231,17 +234,33 @@ export default function PlantsPage() {
     return m;
   }, [allBuds]);
 
+  const orderedPlants = useMemo(
+    () => [...plants].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    [plants],
+  );
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? plants.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)) : [...plants];
-  }, [plants, query]);
+    return q ? orderedPlants.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)) : orderedPlants;
+  }, [orderedPlants, query]);
 
   const activeCount = allBuds.filter(b => isActive(b.status)).length;
-  const wiltingCount = allBuds.filter((bud) => bud.status === "wilting").length;
   const maxVisibleBuds = Math.max(1, ...filtered.map((plant) => (budsByPlant.get(plant.id) ?? []).filter((bud) => !bud.disappeared_at).length));
-  const boardWidth = Math.max(BOARD_MIN_W, filtered.length * 256 + 260);
-  const gardenBaseline = Math.max(912, 220 + maxVisibleBuds * LAYER_H);
-  const boardHeight = Math.max(BOARD_MIN_H, gardenBaseline + 300);
+  // Include the add-card and a calm right margin inside the painted field.
+  // Otherwise the card extends past the board background and exposes a hard edge.
+  const boardWidth = Math.max(BOARD_MIN_W, filtered.length * 256 + 450);
+  const grassTufts = Array.from({ length: Math.ceil(boardWidth / 72) + 1 }, (_, index) => ({
+    left: 28 + index * 72,
+    top: 736 + (index % 3) * 8,
+    height: 18 + (index % 5) * 5,
+    color: index % 2 === 0 ? "#D7E8B2" : "#8BB463",
+  })).filter((tuft) => tuft.left + 38 <= boardWidth);
+  const groundShadows = Array.from({ length: Math.ceil(boardWidth / 226) }, (_, index) => ({
+    left: 76 + index * 226,
+    top: 912 + (index % 3) * 18,
+  })).filter((shadow) => shadow.left + 154 <= boardWidth);
+  const skyExtension = Math.max(0, 220 + maxVisibleBuds * LAYER_H - GARDEN_BASELINE);
+  const gardenBaseline = GARDEN_BASELINE + skyExtension;
+  const boardHeight = BOARD_MIN_H + skyExtension;
   const scopeSelectedIdx = scope.kind === "plant" && scope.id ? filtered.findIndex((plant) => plant.id === scope.id) : -1;
   const effectiveSelectedIdx = scopeSelectedIdx >= 0
     ? scopeSelectedIdx
@@ -260,7 +279,7 @@ export default function PlantsPage() {
     if (!viewport || !el) return;
     el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     viewport.scrollTo({
-      top: Math.max(0, gardenBaseline - viewport.clientHeight + 160),
+      top: Math.max(0, gardenBaseline - viewport.clientHeight + VIEWPORT_GROUND_ROOM),
       behavior: "smooth",
     });
   }, [effectiveSelectedIdx, filtered.length, gardenBaseline, view]);
@@ -301,26 +320,14 @@ export default function PlantsPage() {
 
       {/* Toolbar */}
       <div style={view === "garden" ? {
-        position: "absolute", top: 24, right: 24, zIndex: 5,
+        position: "absolute", top: 110, left: 24, zIndex: 5,
       } : { display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <ViewToggle current={view} onChange={setView} />
         {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
       </div>
 
-      {view === "garden" && !isLoading && (
-        <div style={{
-          position: "absolute", top: 110, left: 24, zIndex: 5,
-          display: "flex", alignItems: "center", gap: 8, padding: "11px 13px",
-          border: "1px solid var(--border)", borderRadius: 18,
-          background: "rgba(255,255,255,0.94)", boxShadow: "0 8px 10px rgba(23,31,20,0.05)",
-        }}>
-          <span className="pill pill-bud">{plants.length}개 식물</span>
-          <span className="pill pill-wilting">시듦 {wiltingCount}</span>
-        </div>
-      )}
-
       {/* Loading skeleton */}
-      {isLoading && (
+      {showLoading && (
         <div>
           {view === "garden" ? (
             <GardenSkeleton />
@@ -333,8 +340,8 @@ export default function PlantsPage() {
         </div>
       )}
 
-      {/* Empty */}
-      {!isLoading && plants.length === 0 && (
+      {/* Empty list view */}
+      {!showLoading && plants.length === 0 && view === "list" && (
         <div className="card" style={{ padding: "56px 32px", textAlign: "center", background: "var(--bg-subtle)", border: "1px dashed var(--border-strong)" }}>
           <h2 className="t-h1" style={{ color: "var(--fg)", marginBottom: 8 }}>정원이 비어 있어요</h2>
           <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginBottom: 20 }}>AI 정원사에게 말해보세요.</p>
@@ -343,21 +350,21 @@ export default function PlantsPage() {
       )}
 
       {/* Garden view — Figma-style bidirectional field */}
-      {!isLoading && plants.length > 0 && view === "garden" && (
+      {!showLoading && view === "garden" && (
         <div ref={scrollRef} style={{ position: "absolute", inset: 0, overflow: "auto", background: "#E6F3E8" }}>
           <div style={{
             position: "relative", width: boardWidth, height: boardHeight,
             background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 54%, #FCFDF9 100%)",
           }}>
-            <div style={{ position: "absolute", left: 0, right: 0, top: 688, height: 118, background: "#D7E8B2" }} />
-            <div style={{ position: "absolute", left: 0, right: 0, top: 760, bottom: 0, background: "#B2CF85" }} />
-            <div style={{ position: "absolute", left: 0, right: 0, top: 1090, bottom: 0, background: "#8BB463" }} />
-            {GRASS_TUFTS.map((tuft, index) => <span key={`tuft-${index}`} style={{
-              position: "absolute", left: tuft.left, top: tuft.top, width: 38, height: tuft.height,
+            <div style={{ position: "absolute", left: 0, right: 0, top: 688 + skyExtension, height: 118, background: "#D7E8B2" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, top: 760 + skyExtension, bottom: 0, background: "#B2CF85" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: FOREGROUND_GRASS_H, background: "#8BB463" }} />
+            {grassTufts.map((tuft, index) => <span key={`tuft-${index}`} style={{
+              position: "absolute", left: tuft.left, top: tuft.top + skyExtension, width: 38, height: tuft.height,
               borderRadius: 10, background: tuft.color,
             }} />)}
-            {GROUND_SHADOWS.map((shadow, index) => <span key={`shadow-${index}`} style={{
-              position: "absolute", left: shadow.left, top: shadow.top, width: 154, height: 22,
+            {groundShadows.map((shadow, index) => <span key={`shadow-${index}`} style={{
+              position: "absolute", left: shadow.left, top: shadow.top + skyExtension, width: 154, height: 22,
               borderRadius: 999, background: "#68874D",
             }} />)}
             {filtered.map((plant, i) => {
@@ -365,12 +372,8 @@ export default function PlantsPage() {
               const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at).length;
               const plantHeight = POT_H + Math.max(1, visibleBudCount) * LAYER_H;
               return <div key={plant.id} data-garden-plant={i} style={{
-                position: "absolute", left: 80 + i * 256, top: gardenBaseline - plantHeight + (i % 3) * 18,
+                position: "absolute", left: 80 + i * 256, top: gardenBaseline - plantHeight + (i % 2) * 10,
               }}>
-                <div style={{
-                  position: "absolute", left: 28, top: plantHeight - 20, width: 154, height: 22,
-                  borderRadius: 999, background: "#68874D",
-                }} />
                 <GardenPlant
                   plant={plant}
                   buds={plantBuds}
@@ -381,21 +384,22 @@ export default function PlantsPage() {
                 />
               </div>;
             })}
-            <div style={{
+            <button type="button" onClick={() => openWith()} style={{
               position: "absolute", left: 80 + filtered.length * 256, top: gardenBaseline - 180,
               width: 210, height: 286, padding: "72px 18px 0", textAlign: "center",
               borderRadius: 18, border: "1px solid var(--border)", background: "rgba(255,255,255,0.72)",
+              cursor: "pointer", fontFamily: "inherit",
             }}>
               <div style={{ color: "var(--accent)", fontSize: 34, lineHeight: 1 }}>+</div>
-              <strong style={{ display: "block", marginTop: 18, color: "var(--fg)", fontSize: 15 }}>새 식물 자리</strong>
-              <span style={{ display: "block", marginTop: 10, color: "var(--fg-muted)", fontSize: 12, lineHeight: 1.5 }}>고민이 추가되면 이곳에 배치됩니다.</span>
-            </div>
+              <strong style={{ display: "block", marginTop: 18, color: "var(--fg)", fontSize: 15 }}>{plants.length === 0 ? "첫 식물 심기" : "새 식물 자리"}</strong>
+              <span style={{ display: "block", marginTop: 10, color: "var(--fg-muted)", fontSize: 12, lineHeight: 1.5 }}>{plants.length === 0 ? "AI 정원사와 대화해 첫 고민을 심어보세요." : "고민이 추가되면 이곳에 배치됩니다."}</span>
+            </button>
           </div>
         </div>
       )}
 
       {/* List view */}
-      {!isLoading && plants.length > 0 && view === "list" && (
+      {!showLoading && plants.length > 0 && view === "list" && (
         <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {filtered.map(p => (
             <PlantCard key={p.id} plant={p} buds={budsByPlant.get(p.id) ?? []}

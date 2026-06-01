@@ -2,6 +2,25 @@ from __future__ import annotations
 from app.ai.skill_base import SkillContext
 
 
+# 사용자가 설정 → AI → "응답 톤"에서 고른 값 → 시스템 프롬프트 지시문.
+# 키는 프론트 settings의 TONES.key와 일치해야 한다 (counselor/assistant/friend).
+_TONE_GUIDE: dict[str, str] = {
+    "counselor": (
+        "따뜻한 상담사 말투. 먼저 사용자의 감정·상황에 공감하고 격려를 곁들여 "
+        "부드럽게 안내한다. 다정한 존댓말을 쓴다."
+    ),
+    "assistant": (
+        "담백한 비서 말투. 군더더기 없이 간결하고 명확하게 핵심만 전달한다. "
+        "차분한 존댓말을 쓰고 과한 감탄사·이모지는 자제한다."
+    ),
+    "friend": (
+        "친한 친구 말투. 편하고 캐주얼한 반말로 친근하게 답한다. 너무 격식을 "
+        "차리지 않되 무례하지 않게, 가볍게 응원하듯 말한다."
+    ),
+}
+_DEFAULT_TONE = "counselor"
+
+
 class PromptBuilder:
     def build_system(
         self,
@@ -13,9 +32,11 @@ class PromptBuilder:
         scope_id: str | None = None,
         scope_plant_name: str = "",
         scope_bud_title: str = "",
+        tone: str = _DEFAULT_TONE,
     ) -> str:
         stats = stats or {}
         plant_list = plants or []
+        tone_guide = _TONE_GUIDE.get(tone or _DEFAULT_TONE, _TONE_GUIDE[_DEFAULT_TONE])
 
         plant_summary = ""
         if plant_list:
@@ -48,6 +69,10 @@ class PromptBuilder:
 사용자의 고민, 목표, 일정을 식물과 봉우리로 시각화하여 함께 가꿉니다.
 오늘 날짜: {today_str}
 현재 화면: {current_screen}{scope_line}
+
+## 응답 톤 (사용자 설정 — 모든 답변에 일관 적용)
+{tone_guide}
+단, 말투와 무관하게 스킬 실행·일정 처리·정보의 정확성은 동일하게 지킨다.
 
 ## 정원 현황
 - 활성 고민: {stats.get('active_concerns', 0)}개 | 활성 일정: {stats.get('active_schedules', 0)}개

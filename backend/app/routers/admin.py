@@ -3,15 +3,13 @@
 Provides:
   - User management (list, role update, detail)
   - Aggregate stats (users, AI calls, plants/buds)
-  - AI chat log browser (reads JSON files from backend/logs/chat/)
+  - AI chat log browser (reads from Supabase ai_logs via app.ai.log_store)
   - Notification dispatch (send to any user)
 """
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,14 +19,13 @@ from supabase import Client
 from ulid import ULID
 
 import app.runtime_settings as rs
+from app.ai import log_store
 from app.deps import get_db, require_admin
 from app.services.backup_service import BackupService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-LOG_DIR = Path(__file__).parent.parent.parent / "logs" / "chat"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -38,42 +35,14 @@ def _all_users(db: Client) -> list[dict]:
     return res.data or []
 
 
-def _log_files() -> list[Path]:
-    if not LOG_DIR.exists():
-        return []
-    return sorted(LOG_DIR.glob("*.json"), reverse=True)
-
-
-def _parse_log_meta(path: Path) -> dict:
-    """Extract light metadata from a log file without reading the whole file."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        skill_calls = data.get("skill_calls", [])
-        llm_calls = data.get("llm_calls", [])
-        # Rough token estimate: 4 chars ≈ 1 token for each message text
-        token_est = sum(
-            len(str(m.get("content", "")))
-            for call in llm_calls
-            for m in call.get("messages", [])
-        ) // 4
-        llm_errors = data.get("llm_errors", [])
-        last_error = llm_errors[-1] if llm_errors else None
-        return {
-            "filename": path.name,
-            "timestamp": data.get("timestamp"),
-            "user_id": data.get("user_id"),
-            "user_input": (data.get("user_input") or "")[:100],
-            "llm_call_count": len(llm_calls),
-            "skill_call_count": len(skill_calls),
-            "skill_names": [s.get("name") for s in skill_calls],
-            "token_estimate": token_est,
-            "error_count": len(llm_errors),
-            "error_kind": (last_error or {}).get("kind") if last_error else None,
-            "last_error": (last_error or {}).get("error") if last_error else None,
-        }
-    except Exception:
-        return {"filename": path.name, "error": "parse error"}
+def _log_user_id(row: dict) -> str:
+    """Full user_id for a log row (DB rows have it; legacy file rows fall back to
+    the uid8 embedded in the filename)."""
+    uid = row.get("user_id")
+    if uid:
+        return uid
+    parts = (row.get("filename") or "").split("_")
+    return parts[3].replace(".json", "") if len(parts) >= 4 else ""
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
@@ -89,20 +58,19 @@ def get_stats(admin=Depends(require_admin), db: Client = Depends(get_db)):
     plants_res = db.table("plants").select("id", count="exact").execute()
     buds_res = db.table("buds").select("id", count="exact").execute()
 
-    # Log file counts (proxy for AI sessions)
-    logs = _log_files()
-    total_sessions = len(logs)
+    # AI log rows (Supabase ai_logs, file fallback) — proxy for AI sessions
+    rows = log_store.list_rows(db)
+    total_sessions = len(rows)
 
-    # Sessions in last 7 days — compare YYYYMMDD prefix directly.
+    # Sessions in last 7 days — compare YYYYMMDD filename prefix directly.
     cutoff_date = (datetime.utcnow() - timedelta(days=7)).strftime("%Y%m%d")
-    recent_sessions = sum(1 for p in logs if p.stem[:8] >= cutoff_date)
+    recent_sessions = sum(1 for r in rows if (r.get("filename") or "")[:8] >= cutoff_date)
 
     # Token estimate across all logs
     total_tokens = 0
-    for p in logs:
+    for r in rows:
         try:
-            meta = _parse_log_meta(p)
-            total_tokens += meta.get("token_estimate", 0)
+            total_tokens += log_store.parse_meta(r["data"], r["filename"]).get("token_estimate", 0)
         except Exception:
             pass
 
@@ -127,12 +95,12 @@ def list_users(admin=Depends(require_admin), db: Client = Depends(get_db)):
     """All users with plant/bud counts."""
     users = _all_users(db)
 
-    # Log files → per-user session counts (by user_id prefix in filename)
+    # AI logs → per-user session counts (keyed by full user_id)
     log_counts: dict[str, int] = {}
-    for p in _log_files():
-        parts = p.stem.split("_")
-        if len(parts) >= 4:
-            log_counts[parts[3]] = log_counts.get(parts[3], 0) + 1
+    for row in log_store.list_rows(db):
+        uid = _log_user_id(row)
+        if uid:
+            log_counts[uid] = log_counts.get(uid, 0) + 1
 
     # Bulk fetch user_ids from plants/buds in two queries (vs 2*N before).
     plants_res = db.table("plants").select("user_id").execute()
@@ -155,7 +123,7 @@ def list_users(admin=Depends(require_admin), db: Client = Depends(get_db)):
             **u,
             "plant_count": plant_counts.get(uid, 0),
             "bud_count": bud_counts.get(uid, 0),
-            "ai_session_count": log_counts.get(uid[:8], 0),
+            "ai_session_count": log_counts.get(uid, 0),
         })
     return {"ok": True, "data": {"items": result}}
 
@@ -171,10 +139,16 @@ def get_user_detail(user_id: str, admin=Depends(require_admin), db: Client = Dep
     buds_res = db.table("buds").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
     convs_res = db.table("conversations").select("*").eq("user_id", user_id).execute()
 
-    # Token estimate from logs
+    # Token estimate from AI logs (ai_logs table, file fallback)
     uid8 = user_id[:8]
-    user_logs = [p for p in _log_files() if uid8 in p.stem]
-    token_total = sum(_parse_log_meta(p).get("token_estimate", 0) for p in user_logs)
+    user_logs = [
+        r for r in log_store.list_rows(db)
+        if r.get("user_id") == user_id or uid8 in (r.get("filename") or "")
+    ]
+    token_total = sum(
+        log_store.parse_meta(r["data"], r["filename"]).get("token_estimate", 0)
+        for r in user_logs
+    )
 
     return {
         "ok": True,
@@ -232,41 +206,37 @@ def list_logs(
     limit: int = 50,
     offset: int = 0,
     admin=Depends(require_admin),
+    db: Client = Depends(get_db),
 ):
-    """List AI chat log files with metadata."""
-    logs = _log_files()
+    """List AI chat logs (Supabase ai_logs, file fallback) with metadata."""
+    rows = log_store.list_rows(db)
 
-    # Filter by user_id prefix
+    # Filter by user_id (exact, or uid8 embedded in legacy filenames)
     if user_id:
         uid8 = user_id[:8]
-        logs = [p for p in logs if uid8 in p.stem]
+        rows = [r for r in rows if r.get("user_id") == user_id or uid8 in (r.get("filename") or "")]
 
-    # Filter by date prefix
+    # Filter by date prefix (YYYYMMDD of the filename)
     if date:
-        logs = [p for p in logs if p.stem.startswith(date)]
+        rows = [r for r in rows if (r.get("filename") or "").startswith(date)]
 
-    total = len(logs)
-    page = logs[offset : offset + limit]
-    items = [_parse_log_meta(p) for p in page]
+    total = len(rows)
+    page = rows[offset : offset + limit]
+    items = [log_store.parse_meta(r["data"], r["filename"]) for r in page]
 
     return {"ok": True, "data": {"total": total, "items": items}}
 
 
 @router.get("/logs/{filename}")
-def get_log_detail(filename: str, admin=Depends(require_admin)):
-    """Full content of one AI chat log file."""
+def get_log_detail(filename: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Full content of one AI chat log."""
     # Sanitize filename
     if "/" in filename or ".." in filename or not filename.endswith(".json"):
         raise HTTPException(400, "유효하지 않은 파일명입니다.")
-    path = LOG_DIR / filename
-    if not path.exists():
-        raise HTTPException(404, "로그 파일을 찾을 수 없습니다.")
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        return {"ok": True, "data": data}
-    except Exception as e:
-        raise HTTPException(500, f"로그 읽기 실패: {e}")
+    data = log_store.get(db, filename)
+    if data is None:
+        raise HTTPException(404, "로그를 찾을 수 없습니다.")
+    return {"ok": True, "data": data}
 
 
 # ── Notifications ─────────────────────────────────────────────────────────────
@@ -501,16 +471,7 @@ def delete_user_conversations(user_id: str, include_logs: bool = True,
     conv_res = db.table("conversations").delete().eq("user_id", user_id).execute()
     deleted_convs = len(conv_res.data or [])
 
-    deleted_logs = 0
-    if include_logs and LOG_DIR.exists():
-        uid8 = user_id[:8]
-        for p in LOG_DIR.glob("*.json"):
-            if uid8 in p.stem:
-                try:
-                    p.unlink()
-                    deleted_logs += 1
-                except Exception:
-                    pass
+    deleted_logs = log_store.delete_for_user(db, user_id) if include_logs else 0
 
     return {
         "ok": True,
@@ -530,14 +491,7 @@ def delete_all_conversations(include_logs: bool = True,
     conv_res = db.table("conversations").delete().neq("id", "").execute()
     deleted_convs = len(conv_res.data or [])
 
-    deleted_logs = 0
-    if include_logs and LOG_DIR.exists():
-        for p in LOG_DIR.glob("*.json"):
-            try:
-                p.unlink()
-                deleted_logs += 1
-            except Exception:
-                pass
+    deleted_logs = log_store.delete_all(db) if include_logs else 0
 
     return {
         "ok": True,
@@ -549,16 +503,9 @@ def delete_all_conversations(include_logs: bool = True,
 
 
 @router.delete("/controller/logs/all")
-def delete_all_log_files(admin=Depends(require_admin)):
-    """Delete all AI chat log JSON files from disk (keep DB conversations)."""
-    deleted = 0
-    if LOG_DIR.exists():
-        for p in LOG_DIR.glob("*.json"):
-            try:
-                p.unlink()
-                deleted += 1
-            except Exception:
-                pass
+def delete_all_log_files(admin=Depends(require_admin), db: Client = Depends(get_db)):
+    """Delete all AI chat logs (ai_logs table + local files), keep DB conversations."""
+    deleted = log_store.delete_all(db)
     return {"ok": True, "data": {"deleted_log_files": deleted}}
 
 

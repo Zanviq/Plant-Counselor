@@ -1,24 +1,26 @@
 from __future__ import annotations
-import json
 import logging
-import os
 from datetime import datetime
-from pathlib import Path
+
+from app.ai import log_store
 
 logger = logging.getLogger(__name__)
 
-LOG_DIR = Path(__file__).parent.parent.parent / "logs" / "chat"
-
 
 class LogRecorder:
-    """채팅 한 턴의 전체 컨텍스트를 JSON 파일로 저장."""
+    """채팅 한 턴의 전체 컨텍스트를 저장 (Supabase ai_logs 테이블 + 로컬 파일 미러).
+
+    저장은 log_store가 담당한다: DB가 가능하면 DB가 정본, 아니면 파일로 폴백.
+    Render 무료처럼 디스크가 휘발성인 환경에서도 로그가 살아남게 하기 위함.
+    """
 
     def __init__(self, user_id: str, text: str):
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:22]
-        self._path = LOG_DIR / f"{ts}_{user_id[:8]}.json"
+        now = datetime.now()
+        self._filename = f"{now.strftime('%Y%m%d_%H%M%S_%f')[:22]}_{user_id[:8]}.json"
+        self._user_id = user_id
+        self._created_at = now.isoformat()
         self._data: dict = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": self._created_at,
             "user_id": user_id,
             "user_input": text,
             "system_prompt": "",
@@ -85,10 +87,10 @@ class LogRecorder:
     def set_final(self, response_text: str) -> None:
         self._data["final_response"] = response_text
 
-    def save(self) -> None:
+    def save(self, db=None) -> None:
+        """Persist the turn. Pass the Supabase client so the log survives restarts."""
         try:
-            with open(self._path, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, ensure_ascii=False, indent=2, default=str)
-            logger.info("Chat log saved: %s", self._path.name)
+            log_store.save(db, self._filename, self._user_id, self._created_at, self._data)
+            logger.info("Chat log saved: %s", self._filename)
         except Exception as e:
             logger.error("Chat log save failed: %s", e)

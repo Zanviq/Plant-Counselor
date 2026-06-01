@@ -118,8 +118,8 @@ export default function CalendarPage() {
   }
 
   return (
-    <div style={{ padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>
-      <header className="animate-in" style={{ marginBottom: 24 }}>
+    <div style={{ padding: "24px 36px", maxWidth: 1200, margin: "0 auto" }}>
+      <header className="animate-in" style={{ marginBottom: 16 }}>
         <div>
           <h1 className="t-display" style={{ color: "var(--fg)" }}>캘린더</h1>
           <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginTop: 4 }}>
@@ -128,10 +128,10 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", alignItems: "stretch", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", alignItems: "stretch", gap: 16, marginBottom: 12 }}>
         {/* Calendar card */}
         {loadingCal ? <CalendarSkeleton /> : null}
-        <section className="card" style={{ padding: 18, minHeight: 540, display: loadingCal ? "none" : undefined }}>
+        <section className="card" style={{ padding: 18, minHeight: 480, display: loadingCal ? "none" : undefined }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
               <div className="t-h1" style={{ color: "var(--fg)" }}>{year}년 {MONTHS[month]}</div>
@@ -159,7 +159,7 @@ export default function CalendarPage() {
               const sel = selected === d;
               return (
                 <button key={key} onClick={() => setSelected(sel ? null : d)} style={{
-                  minHeight: 64, padding: "6px 7px", borderRadius: "var(--r-md)",
+                  minHeight: 56, padding: "6px 7px", borderRadius: "var(--r-md)",
                   border: "1px solid", borderColor: t ? "var(--accent)" : sel ? "var(--accent)" : "transparent",
                   background: t ? "var(--accent-muted)" : sel ? "var(--bg-subtle)" : "transparent",
                   cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 3,
@@ -184,7 +184,7 @@ export default function CalendarPage() {
         </section>
 
         {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 540 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 480 }}>
           {/* Today's schedule */}
           <section className="card" style={{ padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 10 }}>
@@ -230,8 +230,8 @@ export default function CalendarPage() {
       </div>
 
       {/* Summary */}
-      <section className="card" style={{ padding: 18 }}>
-        <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 16 }}>일정 상태 요약</div>
+      <section className="card" style={{ padding: 14 }}>
+        <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 12 }}>일정 상태 요약</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stagger">
           {!summaryRes ? (
             <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
@@ -425,7 +425,7 @@ function SmallStat({ label, value, accent, sub }: { label: string; value: number
     : accent === "info" ? "var(--info)"
     : "var(--accent)";
   return (
-    <div style={{ minHeight: 118, padding: "18px 18px 16px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", background: "var(--bg-elevated)", display: "flex", gap: 14 }}>
+    <div style={{ minHeight: 96, padding: "14px 14px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", background: "var(--calendar-stat-bg, var(--bg-subtle))", display: "flex", gap: 12 }}>
       <span style={{ width: 5, height: 42, marginTop: 2, borderRadius: "var(--r-pill)", background: color, flexShrink: 0 }} />
       <div>
         <div className="t-numeral" style={{ color: "var(--fg)", lineHeight: 1 }}>{value}개</div>

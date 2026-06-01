@@ -685,9 +685,6 @@ export default function LandingPage() {
           background: "var(--bg-subtle)",
         }}>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            <div style={{ marginBottom: 16 }}>
-              <LogoMark />
-            </div>
             <h2 style={{
               fontSize: "clamp(1.4rem, 3vw, 1.9rem)",
               fontWeight: 700, color: "var(--fg)",

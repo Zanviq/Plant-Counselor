@@ -17,6 +17,7 @@
   --bg-muted:        #E8E4DB;
   --bg-hover:        #E2DED5;
   --bg-overlay:      rgba(40, 38, 30, 0.30);
+  --calendar-stat-bg: #FAFCF7;
 
   /* Sidebar — dark olive */
   --bg-sidebar:      #3D4A30;
@@ -91,6 +92,7 @@
   --bg-muted:        #2E3228;
   --bg-hover:        #353A2E;
   --bg-overlay:      rgba(0,0,0,0.55);
+  --calendar-stat-bg: var(--bg-subtle);
 
   --bg-sidebar:      #1A1E14;
   --sidebar-fg:      #8A9478;

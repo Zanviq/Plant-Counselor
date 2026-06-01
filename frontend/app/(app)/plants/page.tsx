@@ -11,31 +11,101 @@ import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, 
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
 
-// ── Sprite constants (from manifest.json v5) ───────────────
+// ── Garden pixel assets (Figma 05 Plant Pixel Assets) ──────
 
-const S = "/sprites";
-const PLANT_IMG = { file: `${S}/plant.png`, w: 140, h: 240 };
-const SLOTS = [
-  { x: 28, y: 12 }, { x: 108, y: 12 },
-  { x: 20, y: 56 }, { x: 116, y: 56 },
-  { x: 32, y: 108 }, { x: 104, y: 108 },
-];
-const MAX_BUDS = 6;
+const PLANT_W = 178;
+const POT_H = 46;
+const LAYER_H = 64;
+const BOARD_MIN_W = 1800;
+const BOARD_MIN_H = 1580;
+const GRASS_TUFTS = Array.from({ length: 42 }, (_, index) => ({
+  left: 28 + index * 72,
+  top: 736 + (index % 3) * 8,
+  height: 18 + (index % 5) * 5,
+  color: index % 2 === 0 ? "#D7E8B2" : "#8BB463",
+}));
+const GROUND_SHADOWS = Array.from({ length: 13 }, (_, index) => ({
+  left: 76 + index * 226,
+  top: 912 + (index % 3) * 18,
+}));
 
-interface BudMeta { file: string; w: number; h: number; ax: number; ay: number }
-// anchor = center of each bud image, so the bud sits centered on the slot point
-const BUD_SPRITES: Record<string, BudMeta> = {
-  seed:      { file: `${S}/bud_seed.png`,      w: 20, h: 28, ax: 10, ay: 14 },
-  sprout:    { file: `${S}/bud_sprout.png`,     w: 36, h: 28, ax: 18, ay: 14 },
-  flower:    { file: `${S}/bud_flower.png`,     w: 36, h: 32, ax: 18, ay: 16 },
-  fruit:     { file: `${S}/bud_fruit.png`,      w: 28, h: 32, ax: 14, ay: 16 },
-  wilted:    { file: `${S}/bud_wilted.png`,     w: 28, h: 24, ax: 14, ay: 12 },
-  harvested: { file: `${S}/bud_harvested.png`,  w: 28, h: 20, ax: 14, ay: 10 },
+const PIXEL = {
+  stem: "#4D8542",
+  leaf: "#75A859",
+  leafLight: "#9CCB8C",
+  potLip: "#735740",
+  potBody: "#8A694F",
+  flower: "#ED708C",
+  flowerCenter: "#F7C740",
+  fruit: "#E05A2E",
+  fruitShine: "#FFB26B",
+  rot: "#94482B",
+  rotBruise: "#2E1F14",
+  wiltStem: "#7A6D55",
+  wiltLeaf: "#A5946D",
+  harvest: "#E6B94E",
 };
-const STATUS_MAP: Record<string, string> = {
-  seed: "seed", bud: "sprout", flower: "flower", fruit: "fruit",
-  wilting: "wilted", rot: "wilted", harvested: "harvested",
-};
+
+function Pixel({ x, y, w, h, color, radius = 0 }: {
+  x: number; y: number; w: number; h: number; color: string; radius?: number;
+}) {
+  return <span style={{ position: "absolute", left: x, top: y, width: w, height: h, background: color, borderRadius: radius }} />;
+}
+
+function GrowthLayer({ bud, index }: { bud: Bud; index: number }) {
+  const status = bud.status;
+  const stem = status === "wilting" || status === "rot" ? PIXEL.wiltStem : PIXEL.stem;
+  const leaf = status === "wilting" || status === "rot" ? PIXEL.wiltLeaf : PIXEL.leaf;
+  const flip = index % 2 === 1;
+
+  return (
+    <div title={bud.title} style={{ position: "absolute", left: 0, bottom: POT_H + index * LAYER_H, width: PLANT_W, height: LAYER_H }}>
+      <Pixel x={84} y={0} w={12} h={64} color={stem} />
+      <Pixel x={flip ? 94 : 52} y={34} w={34} h={16} color={leaf} />
+      <Pixel x={flip ? 52 : 96} y={22} w={36} h={16} color={leaf} />
+
+      {status === "bud" && <>
+        <Pixel x={78} y={3} w={24} h={18} color={PIXEL.leafLight} />
+        <Pixel x={82} y={0} w={16} h={10} color={PIXEL.leaf} />
+      </>}
+      {status === "flower" && <>
+        <Pixel x={83} y={0} w={14} h={16} color={PIXEL.flower} />
+        <Pixel x={67} y={16} w={16} h={14} color={PIXEL.flower} />
+        <Pixel x={97} y={16} w={16} h={14} color={PIXEL.flower} />
+        <Pixel x={83} y={30} w={14} h={16} color={PIXEL.flower} />
+        <Pixel x={83} y={16} w={14} h={14} color={PIXEL.flowerCenter} />
+      </>}
+      {status === "fruit" && <>
+        <Pixel x={57} y={25} w={18} h={18} color={PIXEL.fruit} />
+        <Pixel x={108} y={13} w={20} h={20} color={PIXEL.fruit} />
+        <Pixel x={61} y={29} w={6} h={6} color={PIXEL.fruitShine} />
+        <Pixel x={112} y={17} w={6} h={6} color={PIXEL.fruitShine} />
+      </>}
+      {status === "rot" && <>
+        <Pixel x={105} y={17} w={24} h={22} color={PIXEL.rot} />
+        <Pixel x={109} y={21} w={8} h={8} color={PIXEL.rotBruise} />
+        <Pixel x={121} y={31} w={6} h={6} color={PIXEL.rotBruise} />
+      </>}
+      {status === "wilting" && <>
+        <Pixel x={92} y={2} w={24} h={10} color={PIXEL.wiltLeaf} />
+        <Pixel x={108} y={10} w={10} h={20} color={PIXEL.wiltStem} />
+      </>}
+      {status === "harvested" && <Pixel x={102} y={15} w={18} h={18} color={PIXEL.harvest} />}
+      {status === "seed" && <Pixel x={79} y={4} w={22} h={14} color={PIXEL.leafLight} />}
+    </div>
+  );
+}
+
+function PixelPlant({ buds }: { buds: Bud[] }) {
+  return (
+    <div style={{ position: "relative", width: PLANT_W, height: POT_H + Math.max(1, buds.length) * LAYER_H, imageRendering: "pixelated" }}>
+      {buds.map((bud, index) => <GrowthLayer key={bud.id} bud={bud} index={index} />)}
+      {buds.length === 0 && <GrowthLayer bud={{ id: "empty", plant_id: "", title: "새싹", detail: "", type: "concern", status: "seed", progress: 0, deadline: null, last_progress_at: null, disappeared_at: null, created_at: "" }} index={0} />}
+      <Pixel x={50} y={POT_H + Math.max(1, buds.length) * LAYER_H - POT_H} w={70} h={18} color={PIXEL.potLip} />
+      <Pixel x={60} y={POT_H + Math.max(1, buds.length) * LAYER_H - 28} w={50} h={28} color={PIXEL.potBody} />
+    </div>
+  );
+}
 
 // ── Status bar (list view) ─────────────────────────────────
 
@@ -82,73 +152,40 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
   plant: Plant; buds: Bud[]; selected: boolean;
   onSelect: () => void; onDetail: () => void; onChat: () => void;
 }) {
-  const activeBuds = buds.filter(b => !b.disappeared_at).slice(0, MAX_BUDS);
-  const scale = 1.1; // display scale
-  const w = PLANT_IMG.w * scale;
-  const h = PLANT_IMG.h * scale;
+  const visibleBuds = buds
+    .filter((bud) => !bud.disappeared_at)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const status = dominantStatus(visibleBuds);
 
   return (
     <div
       onClick={onSelect}
       style={{
+        position: "relative", width: 210, cursor: "pointer",
         display: "flex", flexDirection: "column", alignItems: "center",
-        cursor: "pointer", flexShrink: 0,
-        transition: "transform 0.3s ease",
-        transform: selected ? "scale(1.08)" : "scale(0.92)",
-        opacity: selected ? 1 : 0.7,
-        filter: selected ? "none" : "brightness(0.92)",
+        transition: "transform 0.18s ease, filter 0.18s ease",
+        transform: selected ? "translateY(-8px)" : "none",
+        filter: selected ? "drop-shadow(0 10px 10px rgba(30, 48, 24, 0.12))" : "none",
       }}
     >
-      <div style={{ position: "relative", width: w, height: h, imageRendering: "pixelated" }}>
-        {/* Plant composite (stem+leaves+pot) */}
-        <img src={PLANT_IMG.file} alt={plant.name} width={w} height={h}
-          style={{ imageRendering: "pixelated", display: "block" }} draggable={false} />
+      <PixelPlant buds={visibleBuds} />
 
-        {/* Buds at slot positions */}
-        {activeBuds.map((bud, i) => {
-          const slot = SLOTS[i];
-          if (!slot) return null;
-          const sprKey = STATUS_MAP[bud.status] ?? "seed";
-          const meta = BUD_SPRITES[sprKey];
-          if (!meta) return null;
-          const bx = slot.x * scale - meta.ax * scale;
-          const by = slot.y * scale - meta.ay * scale;
-          return (
-            <div key={bud.id} title={bud.title} style={{
-              position: "absolute", left: bx, top: by,
-              width: meta.w * scale, height: meta.h * scale,
-              zIndex: 3, cursor: "pointer",
-            }}>
-              <img src={meta.file} alt={bud.title}
-                width={meta.w * scale} height={meta.h * scale}
-                style={{ imageRendering: "pixelated", display: "block" }} draggable={false} />
-              <span className="bud-tooltip" style={{
-                position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
-                background: "var(--fg)", color: "var(--bg-elevated)",
-                fontSize: 11, fontWeight: 500, whiteSpace: "nowrap",
-                padding: "3px 8px", borderRadius: 5, pointerEvents: "none",
-                marginBottom: 4, boxShadow: "var(--shadow-md)",
-              }}>{bud.title}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Label + actions — z-index above ground layers.
-          The garden sits on a fixed light sky image, so use dark, theme-independent
-          text (with a light halo) — otherwise the name is invisible in dark mode. */}
-      <div style={{ textAlign: "center", marginTop: 6, position: "relative", zIndex: 10 }}>
-        <div className="t-h3" style={{
-          color: selected ? "#23301a" : "rgba(35,48,26,0.6)",
-          textShadow: "0 1px 3px rgba(255,255,255,0.6)",
-        }}>{plant.name}</div>
-        <div className="t-caption" style={{ color: "rgba(35,48,26,0.5)", marginTop: 2, textShadow: "0 1px 2px rgba(255,255,255,0.5)" }}>{activeBuds.length}개 봉우리</div>
-        {selected && (
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); onDetail(); }}>상세</button>
-            <button className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); onChat(); }}>상담</button>
-          </div>
-        )}
+      <div style={{
+        width: 194, minHeight: 78, marginTop: 12, padding: "11px 12px 9px",
+        borderRadius: 14, border: "1px solid var(--border)",
+        background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 9px rgba(20,26,15,0.08)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <strong style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#3D4A2A", fontSize: 15 }}>{plant.name}</strong>
+          <span className={STATUS_PILL[status]} style={{ flexShrink: 0 }}>{STATUS_LABEL[status]}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 5 }}>
+          <span style={{ color: "#577054", fontSize: 12 }}>{visibleBuds.length}개 봉우리</span>
+          <span style={{ display: "flex", gap: 3 }}>
+            <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onDetail(); }} style={{ padding: "0 5px" }}>상세</button>
+            <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onChat(); }} style={{ padding: "0 5px" }}>상담</button>
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -186,8 +223,8 @@ export default function PlantsPage() {
   const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: !!accessToken });
   const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: !!accessToken });
 
-  const plants = plantsRes?.ok ? plantsRes.data.items : [];
-  const allBuds = budsRes?.ok ? budsRes.data.items : [];
+  const plants = useMemo(() => plantsRes?.ok ? plantsRes.data.items : [], [plantsRes]);
+  const allBuds = useMemo(() => budsRes?.ok ? budsRes.data.items : [], [budsRes]);
   const budsByPlant = useMemo(() => {
     const m = new Map<string, Bud[]>();
     for (const b of allBuds) { const a = m.get(b.plant_id) ?? []; a.push(b); m.set(b.plant_id, a); }
@@ -200,6 +237,15 @@ export default function PlantsPage() {
   }, [plants, query]);
 
   const activeCount = allBuds.filter(b => isActive(b.status)).length;
+  const wiltingCount = allBuds.filter((bud) => bud.status === "wilting").length;
+  const maxVisibleBuds = Math.max(1, ...filtered.map((plant) => (budsByPlant.get(plant.id) ?? []).filter((bud) => !bud.disappeared_at).length));
+  const boardWidth = Math.max(BOARD_MIN_W, filtered.length * 256 + 260);
+  const gardenBaseline = Math.max(912, 220 + maxVisibleBuds * LAYER_H);
+  const boardHeight = Math.max(BOARD_MIN_H, gardenBaseline + 300);
+  const scopeSelectedIdx = scope.kind === "plant" && scope.id ? filtered.findIndex((plant) => plant.id === scope.id) : -1;
+  const effectiveSelectedIdx = scopeSelectedIdx >= 0
+    ? scopeSelectedIdx
+    : Math.min(selectedIdx, Math.max(0, filtered.length - 1));
 
   // 상태만 업데이트 — 스크롤은 아래 effect가 처리
   const navigate = useCallback((dir: number) => {
@@ -209,13 +255,19 @@ export default function PlantsPage() {
   // selectedIdx가 바뀐 뒤(React 재렌더 완료 후) 스크롤 — setTimeout 불필요
   useEffect(() => {
     if (view !== "garden") return;
-    const el = scrollRef.current?.children[selectedIdx] as HTMLElement | undefined;
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [selectedIdx, view]);
+    const viewport = scrollRef.current;
+    const el = viewport?.querySelector<HTMLElement>(`[data-garden-plant="${effectiveSelectedIdx}"]`);
+    if (!viewport || !el) return;
+    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    viewport.scrollTo({
+      top: Math.max(0, gardenBaseline - viewport.clientHeight + 160),
+      behavior: "smooth",
+    });
+  }, [effectiveSelectedIdx, filtered.length, gardenBaseline, view]);
 
-  // 현재 selectedIdx를 ref로 유지해 키보드 핸들러에서 stale closure 방지
-  const selectedIdxRef = useRef(selectedIdx);
-  useEffect(() => { selectedIdxRef.current = selectedIdx; }, [selectedIdx]);
+  // 현재 선택값을 ref로 유지해 키보드 핸들러에서 stale closure 방지
+  const selectedIdxRef = useRef(effectiveSelectedIdx);
+  useEffect(() => { selectedIdxRef.current = effectiveSelectedIdx; }, [effectiveSelectedIdx]);
 
   useEffect(() => {
     if (view !== "garden") return;
@@ -233,42 +285,39 @@ export default function PlantsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [view, navigate, filtered, router]);
 
-  useEffect(() => {
-    if (selectedIdx >= filtered.length) setSelectedIdx(Math.max(0, filtered.length - 1));
-  }, [filtered.length, selectedIdx]);
-
-  // When the chat session switches to a plant, surface that plant in the garden
-  // carousel (the scroll effect above then centers it).
-  useEffect(() => {
-    if (scope.kind !== "plant" || !scope.id) return;
-    const idx = filtered.findIndex((p) => p.id === scope.id);
-    if (idx >= 0) setSelectedIdx(idx);
-  }, [scope.kind, scope.id, filtered]);
-
   return (
-    <div style={{ padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>
+    <div style={view === "garden"
+      ? { position: "relative", height: "100vh", overflow: "hidden" }
+      : { padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>
       {/* Header */}
-      <header className="animate-in" style={{ marginBottom: 18 }}>
+      <header className="animate-in" style={view === "garden" ? {
+        position: "absolute", top: 22, left: 24, zIndex: 5,
+        width: 262, padding: "9px 15px 10px", borderRadius: 12,
+        border: "1px solid var(--border)", background: "rgba(255,255,255,0.94)",
+      } : { marginBottom: 18 }}>
         <h1 className="t-display" style={{ color: "var(--fg)" }}>정원</h1>
         <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginTop: 4 }}>{plants.length}개 분야 · {activeCount}개 진행 중</p>
       </header>
 
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={view === "garden" ? {
+        position: "absolute", top: 24, right: 24, zIndex: 5,
+      } : { display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <ViewToggle current={view} onChange={setView} />
         {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
-        {view === "garden" && !isLoading && filtered.length > 1 && (
-          <div style={{
-            marginLeft: "auto", display: "flex", gap: 8, alignItems: "center",
-            background: "var(--bg-subtle)", border: "1px solid var(--border)",
-            padding: "4px 10px", borderRadius: "var(--r-pill)",
-          }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ padding: "0 6px", fontSize: 16 }}>‹</button>
-            <span className="t-caption" style={{ color: "var(--fg-secondary)", fontWeight: 600 }}>{selectedIdx + 1} / {filtered.length}</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate(1)} style={{ padding: "0 6px", fontSize: 16 }}>›</button>
-          </div>
-        )}
       </div>
+
+      {view === "garden" && !isLoading && (
+        <div style={{
+          position: "absolute", top: 110, left: 24, zIndex: 5,
+          display: "flex", alignItems: "center", gap: 8, padding: "11px 13px",
+          border: "1px solid var(--border)", borderRadius: 18,
+          background: "rgba(255,255,255,0.94)", boxShadow: "0 8px 10px rgba(23,31,20,0.05)",
+        }}>
+          <span className="pill pill-bud">{plants.length}개 식물</span>
+          <span className="pill pill-wilting">시듦 {wiltingCount}</span>
+        </div>
+      )}
 
       {/* Loading skeleton */}
       {isLoading && (
@@ -293,58 +342,54 @@ export default function PlantsPage() {
         </div>
       )}
 
-      {/* Garden view — inside a card with sky background */}
+      {/* Garden view — Figma-style bidirectional field */}
       {!isLoading && plants.length > 0 && view === "garden" && (
-        <div className="card" style={{
-          padding: 0, overflow: "hidden", position: "relative",
-          borderRadius: "var(--r-xl)", minHeight: 480,
-        }}>
-          {/* Sky background */}
+        <div ref={scrollRef} style={{ position: "absolute", inset: 0, overflow: "auto", background: "#E6F3E8" }}>
           <div style={{
-            position: "absolute", inset: 0,
-            backgroundImage: `url(${S}/sky.png)`,
-            backgroundSize: "cover", backgroundPosition: "center bottom",
-            zIndex: 0,
-          }} />
-
-          {/* Scrollable plant row */}
-          <div ref={scrollRef} style={{
-            flex: 1, display: "flex", alignItems: "flex-end",
-            justifyContent: filtered.length <= 3 ? "center" : "flex-start",
-            gap: 64, padding: "48px 80px 100px",
-            overflowX: "auto", overflowY: "hidden",
-            scrollSnapType: "x mandatory", scrollbarWidth: "none",
-            position: "relative", zIndex: 2,
+            position: "relative", width: boardWidth, height: boardHeight,
+            background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 54%, #FCFDF9 100%)",
           }}>
-            {filtered.map((plant, i) => (
-              <div key={plant.id} style={{ scrollSnapAlign: "center", flexShrink: 0 }}>
+            <div style={{ position: "absolute", left: 0, right: 0, top: 688, height: 118, background: "#D7E8B2" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, top: 760, bottom: 0, background: "#B2CF85" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, top: 1090, bottom: 0, background: "#8BB463" }} />
+            {GRASS_TUFTS.map((tuft, index) => <span key={`tuft-${index}`} style={{
+              position: "absolute", left: tuft.left, top: tuft.top, width: 38, height: tuft.height,
+              borderRadius: 10, background: tuft.color,
+            }} />)}
+            {GROUND_SHADOWS.map((shadow, index) => <span key={`shadow-${index}`} style={{
+              position: "absolute", left: shadow.left, top: shadow.top, width: 154, height: 22,
+              borderRadius: 999, background: "#68874D",
+            }} />)}
+            {filtered.map((plant, i) => {
+              const plantBuds = budsByPlant.get(plant.id) ?? [];
+              const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at).length;
+              const plantHeight = POT_H + Math.max(1, visibleBudCount) * LAYER_H;
+              return <div key={plant.id} data-garden-plant={i} style={{
+                position: "absolute", left: 80 + i * 256, top: gardenBaseline - plantHeight + (i % 3) * 18,
+              }}>
+                <div style={{
+                  position: "absolute", left: 28, top: plantHeight - 20, width: 154, height: 22,
+                  borderRadius: 999, background: "#68874D",
+                }} />
                 <GardenPlant
                   plant={plant}
-                  buds={budsByPlant.get(plant.id) ?? []}
-                  selected={selectedIdx === i}
-                  onSelect={() => selectedIdx === i ? router.push(`/plants/${plant.id}`) : setSelectedIdx(i)}
+                  buds={plantBuds}
+                  selected={effectiveSelectedIdx === i}
+                  onSelect={() => effectiveSelectedIdx === i ? router.push(`/plants/${plant.id}`) : setSelectedIdx(i)}
                   onDetail={() => router.push(`/plants/${plant.id}`)}
                   onChat={() => openWith({ kind: "plant", id: plant.id })}
                 />
-              </div>
-            ))}
-          </div>
-
-          {/* Grass + soil — absolute at bottom so they don't push buttons out */}
-          <div style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, height: 52, zIndex: 1,
-            pointerEvents: "none",
-          }}>
+              </div>;
+            })}
             <div style={{
-              height: 32,
-              backgroundImage: `url(${S}/grass.png)`,
-              backgroundRepeat: "repeat-x", backgroundSize: "auto 32px",
-              backgroundPosition: "bottom", imageRendering: "pixelated",
-            }} />
-            <div style={{
-              height: 20,
-              background: "linear-gradient(180deg, #7AB050 0%, #5A8A30 50%, #4A7228 100%)",
-            }} />
+              position: "absolute", left: 80 + filtered.length * 256, top: gardenBaseline - 180,
+              width: 210, height: 286, padding: "72px 18px 0", textAlign: "center",
+              borderRadius: 18, border: "1px solid var(--border)", background: "rgba(255,255,255,0.72)",
+            }}>
+              <div style={{ color: "var(--accent)", fontSize: 34, lineHeight: 1 }}>+</div>
+              <strong style={{ display: "block", marginTop: 18, color: "var(--fg)", fontSize: 15 }}>새 식물 자리</strong>
+              <span style={{ display: "block", marginTop: 10, color: "var(--fg-muted)", fontSize: 12, lineHeight: 1.5 }}>고민이 추가되면 이곳에 배치됩니다.</span>
+            </div>
           </div>
         </div>
       )}

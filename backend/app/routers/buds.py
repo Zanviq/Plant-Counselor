@@ -41,6 +41,14 @@ def patch_bud(bud_id: str, body: BudPatch, user=Depends(require_user), db: Clien
     updated = BudRepository(db).update(user.id, bud_id, body.model_dump(exclude_none=True))
     return {"ok": True, "data": BudOut.model_validate(updated or bud)}
 
+@router.delete("/{bud_id}")
+def delete_bud(bud_id: str, user=Depends(require_user), db: Client = Depends(get_db)):
+    try:
+        BudService(db).delete(user.id, bud_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {"ok": True, "data": {"deleted_id": bud_id}}
+
 
 @router.patch("/{bud_id}/progress")
 def set_bud_progress(bud_id: str, body: BudProgressUpdate,

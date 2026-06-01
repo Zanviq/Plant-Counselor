@@ -859,6 +859,18 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
   해당 변수 값으로 반영할 수 있는지 먼저 확인한다.
 - 로그인 전 랜딩 페이지 하단의 `지금 바로 정원을 시작하세요` CTA에는 별도 로고를
   두지 않는다. 헤더와 푸터의 브랜드 로고는 유지한다.
+- 정원 `/plants`의 정원 보기는 Figma `03 App Screens`의 `Plant / View / Garden`
+  프레임과 `05 Plant Pixel Assets` 가이드를 따른다. 작은 카드 안의 고정 합성
+  `plant.png`와 6개 슬롯 방식으로 되돌리지 않는다. 화면은 상단 HUD가 있는 넓은
+  양방향 스크롤 잔디 보드이며 리스트 보기는 별도로 유지한다.
+- 정원 식물은 화분을 맨 아래에 한 번만 렌더링하고, 사라지지 않은 봉우리마다
+  `no-pot extension` 성장 레이어를 하나씩 위로 쌓는다. 줄기 하나에 봉우리 하나가
+  대응하므로 봉우리가 삭제되어 `disappeared_at`이 설정되면 해당 줄기도 함께
+  사라진다. 고정 최대 개수 제한을 두지 않고 레이어 수에 따라 보드 높이를 늘린다.
+- 정원 성장 레이어의 상태별 픽셀 표현은 `frontend/app/(app)/plants/page.tsx`의
+  `GrowthLayer`가 담당한다. `seed`, `bud`, `flower`, `fruit`, `wilting`, `rot`,
+  `harvested` 상태를 같은 줄기 규칙 안에서 표현하며, 변경 시 Figma `05` 에셋
+  가이드와 함께 확인한다.
 
 ### Git push
 

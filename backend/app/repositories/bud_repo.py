@@ -93,6 +93,16 @@ class BudRepository:
         )
         return _row(res.data[0]) if res.data else None
 
+    def delete(self, user_id: str, bud_id: str) -> bool:
+        res = (
+            self.db.table("buds")
+            .delete()
+            .eq("id", bud_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return bool(res.data)
+
     def add_history(
         self,
         bud_id: str,

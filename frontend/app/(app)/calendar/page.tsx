@@ -5,8 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   getCalendar, getSummary, getBriefing,
-  createCalendarEvent, deleteCalendarEvent,
-  type CalEvent,
+  createCalendarEvent, updateCalendarEvent, deleteCalendarEvent,
+  type CalendarEventColor, type CalEvent,
 } from "@/lib/api/stats";
 import { listPlants, Plant } from "@/lib/api/plants";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -17,6 +17,17 @@ import { CalendarSkeleton, StatCardSkeleton } from "@/components/ui/Skeleton";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const EVENT_COLOR_OPTIONS: { id: CalendarEventColor; label: string; value: string }[] = [
+  { id: "olive",  label: "올리브", value: "#5C6B3F" },
+  { id: "blue",   label: "파랑",   value: "#4A6A8A" },
+  { id: "yellow", label: "노랑",   value: "#C49A2A" },
+  { id: "red",    label: "빨강",   value: "#B54A3A" },
+  { id: "pink",   label: "분홍",   value: "#C56A86" },
+  { id: "purple", label: "보라",   value: "#80679A" },
+];
+const EVENT_COLOR_VALUE = Object.fromEntries(
+  EVENT_COLOR_OPTIONS.map(({ id, value }) => [id, value])
+) as Record<CalendarEventColor, string>;
 
 function daysInMonth(y: number, m: number) { return new Date(y, m + 1, 0).getDate(); }
 function firstWeekday(y: number, m: number) { return (new Date(y, m, 1).getDay() + 6) % 7; }
@@ -24,10 +35,10 @@ function ymd(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-/** Dot/accent colour for an event: standalone events use the accent, bud
- *  deadlines use their lifecycle status colour. */
+/** Standalone events use their selected palette colour; bud deadlines use
+ *  their lifecycle status colour. */
 function eventColor(ev: CalEvent): string {
-  if (ev.source === "event") return "var(--accent)";
+  if (ev.source === "event") return EVENT_COLOR_VALUE[ev.color ?? "olive"];
   return STATUS_COLOR_VAR[(ev.status as BudStatus)] ?? "var(--fg-muted)";
 }
 
@@ -41,6 +52,7 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<number | null>(today.getDate());
   const [addOpen, setAddOpen] = useState(false);
   const [addDate, setAddDate] = useState<string>("");
+  const [editingEvent, setEditingEvent] = useState<{ event: CalEvent; date: string } | null>(null);
 
   const from = ymd(year, month, 1);
   const to   = ymd(year, month, daysInMonth(year, month));
@@ -87,17 +99,18 @@ export default function CalendarPage() {
   const isToday = (d: number) =>
     year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
 
-  function prev() { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); setSelected(null); }
-  function next() { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); setSelected(null); }
+  function prev() { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); setSelected(1); }
+  function next() { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); setSelected(1); }
 
   const selectedKey = selected ? ymd(year, month, selected) : null;
   const todayKey = ymd(today.getFullYear(), today.getMonth(), today.getDate());
-  const todayEvents: CalEvent[] = events[todayKey] ?? [];
+  const selectedEvents: CalEvent[] = selectedKey ? events[selectedKey] ?? [] : [];
+  const selectedLabel = selected ? `${month + 1}월 ${selected}일` : "날짜를 선택하세요";
 
-  /** Open the calendar AI and actually ask it to explain today's schedule
+  /** Open the calendar AI and actually ask it to explain the selected schedule
    *  (a real streamed LLM call, not a canned reply). */
   function askCalendarAI() {
-    openWith({ kind: "calendar" }, { send: "오늘 일정 설명해줘" });
+    openWith({ kind: "calendar" }, { send: selectedKey ? `${selectedKey} 일정 설명해줘` : "오늘 일정 설명해줘" });
   }
 
   function openAdd(dateKey?: string) {
@@ -158,7 +171,7 @@ export default function CalendarPage() {
               const t = isToday(d);
               const sel = selected === d;
               return (
-                <button key={key} onClick={() => setSelected(sel ? null : d)} style={{
+                <button key={key} onClick={() => setSelected(d)} style={{
                   minHeight: 56, padding: "6px 7px", borderRadius: "var(--r-md)",
                   border: "1px solid", borderColor: t ? "var(--accent)" : sel ? "var(--accent)" : "transparent",
                   background: t ? "var(--accent-muted)" : sel ? "var(--bg-subtle)" : "transparent",
@@ -185,19 +198,22 @@ export default function CalendarPage() {
 
         {/* Right column */}
         <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 14, overflow: "hidden" }}>
-          {/* Today's schedule */}
+          {/* Selected date schedule */}
           <section className="card" style={{ padding: 16, flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 10 }}>
-              <div className="t-h3" style={{ color: "var(--fg)" }}>오늘 일정</div>
-              <div className="t-caption" style={{ color: "var(--fg-muted)" }}>{today.getMonth() + 1}월 {today.getDate()}일</div>
+              <div className="t-h3" style={{ color: "var(--fg)" }}>선택 날짜 일정</div>
+              <div className="t-caption" style={{ color: "var(--fg-muted)" }}>{selectedLabel}</div>
             </div>
-            {todayEvents.length === 0 ? (
-              <p className="t-caption" style={{ color: "var(--fg-muted)" }}>오늘 일정이 없습니다.</p>
+            {selectedEvents.length === 0 ? (
+              <p className="t-caption" style={{ color: "var(--fg-muted)" }}>{selected ? "선택한 날짜에 일정이 없습니다." : "달력에서 날짜를 선택하세요."}</p>
             ) : (
               <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1, display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 0 }}>
-                {todayEvents.map(ev => (
+                {selectedEvents.map(ev => (
                   <EventCard key={ev.id} ev={ev}
-                    onClick={() => ev.plant_id && router.push(`/plants/${ev.plant_id}`)}
+                    onClick={() => ev.source === "bud"
+                      ? router.push(`/plants/${ev.plant_id}?bud=${encodeURIComponent(ev.id)}`)
+                      : setEditingEvent({ event: ev, date: selectedKey! })}
+                    onEdit={ev.source === "event" ? () => setEditingEvent({ event: ev, date: selectedKey! }) : undefined}
                     onDelete={ev.source === "event" ? () => handleDeleteEvent(ev.id) : undefined} />
                 ))}
               </ul>
@@ -215,10 +231,10 @@ export default function CalendarPage() {
                 {briefing.length > 140 ? briefing.slice(0, 140) + "..." : briefing}
               </p>
             ) : (
-              <p className="t-caption" style={{ color: "var(--fg-muted)" }}>AI에게 오늘 일정을 물어보세요.</p>
+              <p className="t-caption" style={{ color: "var(--fg-muted)" }}>AI에게 선택한 날짜 일정을 물어보세요.</p>
             )}
             <button className="btn btn-ghost btn-sm" onClick={askCalendarAI} style={{ marginTop: 8, paddingLeft: 0 }}>
-              오늘 일정 물어보기 →
+              선택 날짜 일정 물어보기 →
             </button>
           </section>
 
@@ -247,48 +263,65 @@ export default function CalendarPage() {
       </section>
 
       {addOpen && (
-        <AddEventModal
+        <EventModal
           plants={plants}
           initialDate={addDate}
           onClose={() => setAddOpen(false)}
-          onCreated={() => { setAddOpen(false); invalidateCalendar(); }}
+          onSaved={() => { setAddOpen(false); invalidateCalendar(); }}
+        />
+      )}
+
+      {editingEvent && (
+        <EventModal
+          plants={plants}
+          initialDate={editingEvent.date}
+          event={editingEvent.event}
+          onClose={() => setEditingEvent(null)}
+          onSaved={() => { setEditingEvent(null); invalidateCalendar(); }}
         />
       )}
     </div>
   );
 }
 
-// ── Add event modal ─────────────────────────────────────────
+// ── Create / edit standalone event modal ────────────────────
 
-function AddEventModal({
-  plants, initialDate, onClose, onCreated,
+function EventModal({
+  plants, initialDate, event, onClose, onSaved,
 }: {
   plants: Plant[];
   initialDate: string;
+  event?: CalEvent;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }) {
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(event?.title ?? "");
   const [date, setDate] = useState(initialDate);
-  const [plantId, setPlantId] = useState<string>(plants[0]?.id ?? "");
-  const [detail, setDetail] = useState("");
+  const [plantId, setPlantId] = useState<string>(event ? event.plant_id ?? "" : plants[0]?.id ?? "");
+  const [detail, setDetail] = useState(event?.detail ?? "");
+  const [color, setColor] = useState<CalendarEventColor>(event?.color ?? "olive");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const editing = !!event;
 
   async function submit() {
     if (!title.trim()) { setErr("일정 제목을 입력해주세요."); return; }
     if (!date) { setErr("날짜를 선택해주세요."); return; }
     setSaving(true);
     setErr("");
-    const r = await createCalendarEvent({
+    const body = {
       title: title.trim(),
       date,
       plant_id: plantId || null,
       detail: detail.trim(),
-    });
+      color,
+    };
+    const r = editing
+      ? await updateCalendarEvent(event.id, body)
+      : await createCalendarEvent(body);
     setSaving(false);
-    if (r.ok) onCreated();
-    else setErr(r.error.message || "일정 추가에 실패했습니다.");
+    if (r.ok) onSaved();
+    else setErr(r.error.message || `일정 ${editing ? "수정" : "추가"}에 실패했습니다.`);
   }
 
   return (
@@ -301,7 +334,7 @@ function AddEventModal({
         style={{ width: 420, maxWidth: "92vw", padding: "22px 24px", boxShadow: "var(--shadow-lg)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 16 }}>일정 추가</div>
+        <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 16 }}>일정 {editing ? "수정" : "추가"}</div>
 
         <Field label="제목">
           <input
@@ -341,12 +374,36 @@ function AddEventModal({
           />
         </Field>
 
+        <Field label="색상">
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {EVENT_COLOR_OPTIONS.map((option) => {
+              const selected = color === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setColor(option.id)}
+                  aria-label={`${option.label} 색상`}
+                  aria-pressed={selected}
+                  title={option.label}
+                  style={{
+                    width: 30, height: 30, borderRadius: "50%", cursor: "pointer",
+                    background: option.value,
+                    border: selected ? "3px solid var(--fg)" : "2px solid var(--bg-elevated)",
+                    boxShadow: selected ? "0 0 0 2px var(--border-strong)" : "0 0 0 1px var(--border)",
+                  }}
+                />
+              );
+            })}
+          </div>
+        </Field>
+
         {err && <div className="t-caption" style={{ color: "var(--danger)", marginBottom: 10 }}>{err}</div>}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
           <button className="btn btn-ghost" onClick={onClose}>취소</button>
           <button className="btn btn-primary" onClick={submit} disabled={saving}>
-            {saving ? "추가 중…" : "추가"}
+            {saving ? "저장 중…" : editing ? "수정" : "추가"}
           </button>
         </div>
       </div>
@@ -372,7 +429,7 @@ const inputStyle: React.CSSProperties = {
 
 // ── Event card with plant name + detail ─────────────────────
 
-function EventCard({ ev, onClick, onDelete }: { ev: CalEvent; onClick: () => void; onDelete?: () => void }) {
+function EventCard({ ev, onClick, onEdit, onDelete }: { ev: CalEvent; onClick: () => void; onEdit?: () => void; onDelete?: () => void }) {
   return (
     <li>
       <div style={{
@@ -384,7 +441,7 @@ function EventCard({ ev, onClick, onDelete }: { ev: CalEvent; onClick: () => voi
         <span className="dot" style={{ background: eventColor(ev), width: 8, height: 8, marginTop: 5, flexShrink: 0 }} />
         <button
           onClick={onClick}
-          style={{ flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, textAlign: "left", cursor: ev.plant_id ? "pointer" : "default" }}
+          style={{ flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
         >
           <div className="t-body-sm" style={{ color: "var(--fg)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {ev.title}
@@ -403,6 +460,16 @@ function EventCard({ ev, onClick, onDelete }: { ev: CalEvent; onClick: () => voi
         <span className="badge badge-muted" style={{ flexShrink: 0, fontSize: 10, height: 18, padding: "0 6px" }}>
           {ev.source === "event" ? "일정" : ev.type === "schedule" ? "봉우리·일정" : "봉우리·고민"}
         </span>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            aria-label="일정 수정"
+            className="btn btn-ghost btn-sm"
+            style={{ flexShrink: 0, padding: "0 6px", height: 20, color: "var(--fg-muted)" }}
+          >
+            수정
+          </button>
+        )}
         {onDelete && (
           <button
             onClick={onDelete}

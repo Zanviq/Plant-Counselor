@@ -19,6 +19,13 @@ const BOARD_MIN_H = 1160;
 const GARDEN_BASELINE = 696;
 const VIEWPORT_GROUND_ROOM = 240;
 const FOREGROUND_GRASS_H = 120;
+const GARDEN_ZOOM_MIN = 0.5;
+const GARDEN_ZOOM_MAX = 2;
+const GARDEN_ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+function clampGardenZoom(zoom: number) {
+  return Math.min(GARDEN_ZOOM_MAX, Math.max(GARDEN_ZOOM_MIN, zoom));
+}
 
 // ── Status bar (list view) ─────────────────────────────────
 
@@ -61,9 +68,10 @@ function PlantCard({ plant, buds, onClick, onChat }: { plant: Plant; buds: Bud[]
 
 // ── Garden plant composite ─────────────────────────────────
 
-function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
+function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat, onBudClick }: {
   plant: Plant; buds: Bud[]; selected: boolean;
   onSelect: () => void; onDetail: () => void; onChat: () => void;
+  onBudClick: (budId: string) => void;
 }) {
   const visibleBuds = buds
     .filter((bud) => !bud.disappeared_at)
@@ -83,6 +91,7 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat }: {
       <GardenPlantVisual
         name={plant.name}
         buds={visibleBuds}
+        onBudClick={onBudClick}
         actions={<>
             <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onDetail(); }} style={{ padding: "0 5px" }}>상세</button>
             <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onChat(); }} style={{ padding: "0 5px" }}>상담</button>
@@ -112,6 +121,50 @@ function ViewToggle({ current, onChange }: { current: ViewMode; onChange: (m: Vi
   );
 }
 
+function GardenZoomControl({ zoom, onChange }: { zoom: number; onChange: (zoom: number) => void }) {
+  const changeBy = (direction: -1 | 1) => {
+    const levels = direction > 0 ? GARDEN_ZOOM_LEVELS : [...GARDEN_ZOOM_LEVELS].reverse();
+    const next = levels.find((level) => direction > 0 ? level > zoom + 0.001 : level < zoom - 0.001);
+    onChange(next ?? (direction > 0 ? GARDEN_ZOOM_MAX : GARDEN_ZOOM_MIN));
+  };
+
+  return (
+    <div
+      aria-label="정원 확대 축소"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 2, padding: 2,
+        border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+        background: "rgba(255,255,255,0.94)", boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      <button
+        type="button"
+        aria-label="정원 축소"
+        disabled={zoom <= GARDEN_ZOOM_MIN}
+        onClick={() => changeBy(-1)}
+        className="btn btn-ghost btn-sm"
+        style={{ width: 28, padding: 0, fontSize: 18 }}
+      >-</button>
+      <button
+        type="button"
+        aria-label="정원 배율 초기화"
+        title="100%로 초기화"
+        onClick={() => onChange(1)}
+        className="btn btn-ghost btn-sm"
+        style={{ width: 48, padding: 0, fontSize: 11, fontVariantNumeric: "tabular-nums" }}
+      >{Math.round(zoom * 100)}%</button>
+      <button
+        type="button"
+        aria-label="정원 확대"
+        disabled={zoom >= GARDEN_ZOOM_MAX}
+        onClick={() => changeBy(1)}
+        className="btn btn-ghost btn-sm"
+        style={{ width: 28, padding: 0, fontSize: 18 }}
+      >+</button>
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────
 
 export default function PlantsPage() {
@@ -122,7 +175,13 @@ export default function PlantsPage() {
   const [view, setView] = useState<ViewMode>("garden");
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [gardenZoom, setGardenZoom] = useState(1);
+  const [gardenViewport, setGardenViewport] = useState({ width: 0, height: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const gardenZoomRef = useRef(gardenZoom);
+  const pendingZoomScrollRef = useRef<{
+    contentX: number; contentY: number; viewportX: number; viewportY: number;
+  } | null>(null);
 
   const queryEnabled = hydrated && !!accessToken;
   const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: queryEnabled });
@@ -150,7 +209,14 @@ export default function PlantsPage() {
   const maxVisibleBuds = Math.max(1, ...filtered.map((plant) => (budsByPlant.get(plant.id) ?? []).filter((bud) => !bud.disappeared_at).length));
   // Include the add-card and a calm right margin inside the painted field.
   // Otherwise the card extends past the board background and exposes a hard edge.
-  const boardWidth = Math.max(BOARD_MIN_W, filtered.length * 256 + 450);
+  const boardMinWidth = Math.max(BOARD_MIN_W, filtered.length * 256 + 450);
+  const skyExtension = Math.max(0, 220 + maxVisibleBuds * LAYER_H - GARDEN_BASELINE);
+  const gardenBaseline = GARDEN_BASELINE + skyExtension;
+  const boardMinHeight = BOARD_MIN_H + skyExtension;
+  // Keep the painted field at least as large as the viewport after scaling.
+  // Otherwise a zoomed-out empty garden exposes the plain viewport background.
+  const boardWidth = Math.max(boardMinWidth, gardenViewport.width / gardenZoom);
+  const boardHeight = Math.max(boardMinHeight, gardenViewport.height / gardenZoom);
   const grassTufts = Array.from({ length: Math.ceil(boardWidth / 72) + 1 }, (_, index) => ({
     left: 28 + index * 72,
     top: 736 + (index % 3) * 8,
@@ -161,9 +227,6 @@ export default function PlantsPage() {
     left: 76 + index * 226,
     top: 912 + (index % 3) * 18,
   })).filter((shadow) => shadow.left + 154 <= boardWidth);
-  const skyExtension = Math.max(0, 220 + maxVisibleBuds * LAYER_H - GARDEN_BASELINE);
-  const gardenBaseline = GARDEN_BASELINE + skyExtension;
-  const boardHeight = BOARD_MIN_H + skyExtension;
   const scopeSelectedIdx = scope.kind === "plant" && scope.id ? filtered.findIndex((plant) => plant.id === scope.id) : -1;
   const effectiveSelectedIdx = scopeSelectedIdx >= 0
     ? scopeSelectedIdx
@@ -174,15 +237,83 @@ export default function PlantsPage() {
     setSelectedIdx(prev => Math.max(0, Math.min(filtered.length - 1, prev + dir)));
   }, [filtered.length]);
 
+  const updateGardenZoom = useCallback((nextZoom: number, focalPoint?: { x: number; y: number }) => {
+    const viewport = scrollRef.current;
+    const currentZoom = gardenZoomRef.current;
+    const clampedZoom = clampGardenZoom(nextZoom);
+    if (Math.abs(clampedZoom - currentZoom) < 0.001) return;
+
+    if (viewport) {
+      const viewportX = focalPoint?.x ?? viewport.clientWidth / 2;
+      const viewportY = focalPoint?.y ?? viewport.clientHeight / 2;
+      pendingZoomScrollRef.current = {
+        contentX: (viewport.scrollLeft + viewportX) / currentZoom,
+        contentY: (viewport.scrollTop + viewportY) / currentZoom,
+        viewportX,
+        viewportY,
+      };
+    }
+
+    gardenZoomRef.current = clampedZoom;
+    setGardenZoom(clampedZoom);
+  }, []);
+
+  useEffect(() => {
+    if (view !== "garden" || showLoading) return;
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setGardenViewport((current) => current.width === width && current.height === height
+        ? current
+        : { width, height });
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [showLoading, view]);
+
+  useEffect(() => {
+    if (view !== "garden" || showLoading) return;
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+
+    function onWheel(event: WheelEvent) {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const rect = viewport!.getBoundingClientRect();
+      updateGardenZoom(
+        gardenZoomRef.current * Math.exp(-event.deltaY * 0.01),
+        { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      );
+    }
+
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, [showLoading, updateGardenZoom, view]);
+
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    const pending = pendingZoomScrollRef.current;
+    if (!viewport || !pending) return;
+    pendingZoomScrollRef.current = null;
+    viewport.scrollTo({
+      left: Math.max(0, pending.contentX * gardenZoom - pending.viewportX),
+      top: Math.max(0, pending.contentY * gardenZoom - pending.viewportY),
+    });
+  }, [gardenZoom]);
+
   // selectedIdx가 바뀐 뒤(React 재렌더 완료 후) 스크롤 — setTimeout 불필요
   useEffect(() => {
     if (view !== "garden") return;
     const viewport = scrollRef.current;
     const el = viewport?.querySelector<HTMLElement>(`[data-garden-plant="${effectiveSelectedIdx}"]`);
-    if (!viewport || !el) return;
-    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    if (!viewport) return;
     viewport.scrollTo({
-      top: Math.max(0, gardenBaseline - viewport.clientHeight + VIEWPORT_GROUND_ROOM),
+      left: el
+        ? Math.max(0, (el.offsetLeft + el.offsetWidth / 2) * gardenZoomRef.current - viewport.clientWidth / 2)
+        : viewport.scrollLeft,
+      top: Math.max(0, gardenBaseline * gardenZoomRef.current - viewport.clientHeight + VIEWPORT_GROUND_ROOM),
       behavior: "smooth",
     });
   }, [effectiveSelectedIdx, filtered.length, gardenBaseline, view]);
@@ -229,6 +360,12 @@ export default function PlantsPage() {
         {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
       </div>
 
+      {view === "garden" && (
+        <div style={{ position: "absolute", right: 24, bottom: 24, zIndex: 5 }}>
+          <GardenZoomControl zoom={gardenZoom} onChange={updateGardenZoom} />
+        </div>
+      )}
+
       {/* Loading skeleton */}
       {showLoading && (
         <div>
@@ -256,47 +393,53 @@ export default function PlantsPage() {
       {!showLoading && view === "garden" && (
         <div ref={scrollRef} style={{ position: "absolute", inset: 0, overflow: "auto", background: "#E6F3E8" }}>
           <div style={{
-            position: "relative", width: boardWidth, height: boardHeight,
-            background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 54%, #FCFDF9 100%)",
+            position: "relative", width: boardWidth * gardenZoom, height: boardHeight * gardenZoom,
           }}>
-            <div style={{ position: "absolute", left: 0, right: 0, top: 688 + skyExtension, height: 118, background: "#D7E8B2" }} />
-            <div style={{ position: "absolute", left: 0, right: 0, top: 760 + skyExtension, bottom: 0, background: "#B2CF85" }} />
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: FOREGROUND_GRASS_H, background: "#8BB463" }} />
-            {grassTufts.map((tuft, index) => <span key={`tuft-${index}`} style={{
-              position: "absolute", left: tuft.left, top: tuft.top + skyExtension, width: 38, height: tuft.height,
-              borderRadius: 10, background: tuft.color,
-            }} />)}
-            {groundShadows.map((shadow, index) => <span key={`shadow-${index}`} style={{
-              position: "absolute", left: shadow.left, top: shadow.top + skyExtension, width: 154, height: 22,
-              borderRadius: 999, background: "#68874D",
-            }} />)}
-            {filtered.map((plant, i) => {
-              const plantBuds = budsByPlant.get(plant.id) ?? [];
-              const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at).length;
-              const plantHeight = POT_H + Math.max(1, visibleBudCount) * LAYER_H;
-              return <div key={plant.id} data-garden-plant={i} style={{
-                position: "absolute", left: 80 + i * 256, top: gardenBaseline - plantHeight + (i % 2) * 10,
-              }}>
-                <GardenPlant
-                  plant={plant}
-                  buds={plantBuds}
-                  selected={effectiveSelectedIdx === i}
-                  onSelect={() => effectiveSelectedIdx === i ? router.push(`/plants/${plant.id}`) : setSelectedIdx(i)}
-                  onDetail={() => router.push(`/plants/${plant.id}`)}
-                  onChat={() => openWith({ kind: "plant", id: plant.id })}
-                />
-              </div>;
-            })}
-            <button type="button" onClick={() => openWith()} style={{
-              position: "absolute", left: 80 + filtered.length * 256, top: gardenBaseline - 180,
-              width: 210, height: 286, padding: "72px 18px 0", textAlign: "center",
-              borderRadius: 18, border: "1px solid var(--border)", background: "rgba(255,255,255,0.72)",
-              cursor: "pointer", fontFamily: "inherit",
+            <div style={{
+              position: "relative", width: boardWidth, height: boardHeight,
+              transform: `scale(${gardenZoom})`, transformOrigin: "top left",
+              background: "linear-gradient(180deg, #E6F3E8 0%, #F3FAF0 54%, #FCFDF9 100%)",
             }}>
-              <div style={{ color: "var(--accent)", fontSize: 34, lineHeight: 1 }}>+</div>
-              <strong style={{ display: "block", marginTop: 18, color: "var(--fg)", fontSize: 15 }}>{plants.length === 0 ? "첫 식물 심기" : "새 식물 자리"}</strong>
-              <span style={{ display: "block", marginTop: 10, color: "var(--fg-muted)", fontSize: 12, lineHeight: 1.5 }}>{plants.length === 0 ? "AI 정원사와 대화해 첫 고민을 심어보세요." : "고민이 추가되면 이곳에 배치됩니다."}</span>
-            </button>
+              <div style={{ position: "absolute", left: 0, right: 0, top: 688 + skyExtension, height: 118, background: "#D7E8B2" }} />
+              <div style={{ position: "absolute", left: 0, right: 0, top: 760 + skyExtension, bottom: 0, background: "#B2CF85" }} />
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: FOREGROUND_GRASS_H, background: "#8BB463" }} />
+              {grassTufts.map((tuft, index) => <span key={`tuft-${index}`} style={{
+                position: "absolute", left: tuft.left, top: tuft.top + skyExtension, width: 38, height: tuft.height,
+                borderRadius: 10, background: tuft.color,
+              }} />)}
+              {groundShadows.map((shadow, index) => <span key={`shadow-${index}`} style={{
+                position: "absolute", left: shadow.left, top: shadow.top + skyExtension, width: 154, height: 22,
+                borderRadius: 999, background: "#68874D",
+              }} />)}
+              {filtered.map((plant, i) => {
+                const plantBuds = budsByPlant.get(plant.id) ?? [];
+                const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at).length;
+                const plantHeight = POT_H + visibleBudCount * LAYER_H;
+                return <div key={plant.id} data-garden-plant={i} style={{
+                  position: "absolute", left: 80 + i * 256, top: gardenBaseline - plantHeight + (i % 2) * 10,
+                }}>
+                  <GardenPlant
+                    plant={plant}
+                    buds={plantBuds}
+                    selected={effectiveSelectedIdx === i}
+                    onSelect={() => effectiveSelectedIdx === i ? router.push(`/plants/${plant.id}`) : setSelectedIdx(i)}
+                    onDetail={() => router.push(`/plants/${plant.id}`)}
+                    onChat={() => openWith({ kind: "plant", id: plant.id })}
+                    onBudClick={(budId) => router.push(`/plants/${plant.id}?bud=${encodeURIComponent(budId)}`)}
+                  />
+                </div>;
+              })}
+              <button type="button" onClick={() => openWith()} style={{
+                position: "absolute", left: 80 + filtered.length * 256, top: gardenBaseline - 180,
+                width: 210, height: 286, padding: "72px 18px 0", textAlign: "center",
+                borderRadius: 18, border: "1px solid var(--border)", background: "rgba(255,255,255,0.72)",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>
+                <div style={{ color: "var(--accent)", fontSize: 34, lineHeight: 1 }}>+</div>
+                <strong style={{ display: "block", marginTop: 18, color: "var(--fg)", fontSize: 15 }}>{plants.length === 0 ? "첫 식물 심기" : "새 식물 자리"}</strong>
+                <span style={{ display: "block", marginTop: 10, color: "var(--fg-muted)", fontSize: 12, lineHeight: 1.5 }}>{plants.length === 0 ? "AI 정원사와 대화해 첫 고민을 심어보세요." : "고민이 추가되면 이곳에 배치됩니다."}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

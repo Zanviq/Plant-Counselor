@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from supabase import Client
 
+from app.calendar_colors import CalendarEventColor, DEFAULT_CALENDAR_EVENT_COLOR
 from app.deps import get_db, require_user
 from app.services.bud_service import BudService
 from app.services.calendar_service import CalendarService
@@ -82,6 +83,7 @@ def get_calendar(
             "detail": getattr(ev, "detail", "") or "",
             "plant_name": plant_names.get(getattr(ev, "plant_id", None), ""),
             "plant_id": getattr(ev, "plant_id", None),
+            "color": getattr(ev, "color", DEFAULT_CALENDAR_EVENT_COLOR),
             "source": "event",
         })
 
@@ -95,6 +97,7 @@ class CalendarEventCreate(BaseModel):
     date: str                       # YYYY-MM-DD
     plant_id: str | None = None     # which plant this schedule relates to
     detail: str = ""
+    color: CalendarEventColor = DEFAULT_CALENDAR_EVENT_COLOR
 
 
 class CalendarEventUpdate(BaseModel):
@@ -102,6 +105,7 @@ class CalendarEventUpdate(BaseModel):
     date: str | None = None
     plant_id: str | None = None
     detail: str | None = None
+    color: CalendarEventColor | None = None
 
 
 def _parse_date(s: str) -> date:
@@ -116,11 +120,11 @@ def create_calendar_event(body: CalendarEventCreate, user=Depends(require_user),
     if not body.title.strip():
         raise HTTPException(400, "일정 제목을 입력해주세요.")
     ev = CalendarService(db).create(
-        user.id, body.plant_id, body.title.strip(), body.detail, _parse_date(body.date)
+        user.id, body.plant_id, body.title.strip(), body.detail, _parse_date(body.date), body.color
     )
     return {"ok": True, "data": {
         "id": ev.id, "title": ev.title, "detail": ev.detail,
-        "date": str(ev.event_date)[:10], "plant_id": ev.plant_id,
+        "date": str(ev.event_date)[:10], "plant_id": ev.plant_id, "color": ev.color,
     }}
 
 
@@ -131,17 +135,19 @@ def update_calendar_event(event_id: str, body: CalendarEventUpdate, user=Depends
         fields["title"] = body.title.strip()
     if body.detail is not None:
         fields["detail"] = body.detail
-    if body.plant_id is not None:
+    if "plant_id" in body.model_fields_set:
         fields["plant_id"] = body.plant_id
     if body.date is not None:
         fields["event_date"] = _parse_date(body.date)
+    if body.color is not None:
+        fields["color"] = body.color
     try:
         ev = CalendarService(db).update(user.id, event_id, fields)
     except ValueError as e:
         raise HTTPException(404, str(e))
     return {"ok": True, "data": {
         "id": ev.id, "title": ev.title, "detail": ev.detail,
-        "date": str(ev.event_date)[:10], "plant_id": ev.plant_id,
+        "date": str(ev.event_date)[:10], "plant_id": ev.plant_id, "color": ev.color,
     }}
 
 

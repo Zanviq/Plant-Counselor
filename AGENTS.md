@@ -102,6 +102,9 @@ seed -> bud -> flower -> fruit -> harvested
 - DB 연결은 `backend/app/db/supa.py`의 Supabase HTTP 클라이언트로 처리한다.
 - 사용자별 데이터 격리는 repository 쿼리의 `user_id` 필터로 강제한다.
 - 프론트 인증 세션은 `@supabase/supabase-js`가 localStorage에 보관한다.
+- 사이드바 Google 프로필 사진은 DB 컬럼이 아니라 Supabase 세션의
+  `user_metadata.avatar_url` 또는 `picture`를 `authStore` 프로필에 병합해 표시한다.
+  HTTPS URL만 허용하고 사진이 없거나 로드에 실패하면 닉네임 첫 글자를 표시한다.
 - Next.js 서버 측 proxy에서는 로그인 여부를 판단하지 않는다.
 - AI 채팅 응답은 동기 SSE 제너레이터로 스트리밍한다.
 
@@ -137,6 +140,8 @@ Plant-Counselor/
 │   │   ├── db/supa.py
 │   │   └── scheduler/jobs.py
 │   ├── migrations/001_calendar_events.sql
+│   ├── migrations/002_ai_logs.sql
+│   ├── migrations/003_calendar_event_color.sql
 │   ├── requirements.txt
 │   ├── poetry.lock
 │   ├── pyproject.toml
@@ -245,6 +250,9 @@ CORS 메서드는 `GET`, `POST`, `PATCH`, `PUT`, `DELETE`, 헤더는 `Authorizat
 - 값은 `_lit()`을 통해 작은따옴표를 escape한다.
 - 컬럼명과 테이블명은 하드코딩한다.
 - 사용자 입력을 identifier 위치에 직접 보간하지 않는다.
+- 독립 일정 수정에서 관련 식물 연결을 해제할 때는 `plant_id = NULL` 업데이트를
+  허용한다. router의 `model_fields_set` 확인과 repository의 `plant_id` 예외 처리를
+  함께 유지한다.
 - 향후 Supabase migration으로 스키마 캐시가 정상 노출되면 PostgREST 방식으로 전환할
   수 있다.
 
@@ -457,6 +465,10 @@ Supabase 세션은 localStorage 기반이므로 `proxy.ts`에서 쿠키를 검�
 | --- | --- | --- |
 | 식물 일정 | `buds.deadline` | 진행률과 생애주기 있음 |
 | 일반 일정 | `calendar_events` | 진행률 없음, 단순 약속과 예약 |
+
+일반 일정은 `color`에 `olive`, `blue`, `yellow`, `red`, `pink`, `purple` 중 하나를
+저장한다. 기본값은 기존 강조색과 같은 `olive`다. 프론트 일정 modal과 AI 일정 스킬은
+같은 팔레트 ID를 사용하며 임의 CSS 색상 문자열은 저장하지 않는다.
 
 `GET /api/v1/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`는 두 종류를 병합하고
 `source: "bud" | "event"`로 구분한다.
@@ -723,6 +735,7 @@ backend/app/routers/stats.py
 backend/app/services/calendar_service.py
 backend/app/repositories/calendar_event_repo.py
 backend/migrations/001_calendar_events.sql
+backend/migrations/003_calendar_event_color.sql
 frontend/lib/api/stats.ts
 frontend/app/(app)/calendar/page.tsx
 ```
@@ -849,8 +862,14 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
   스크롤로 확인한다. 알림 상세를 펼쳤을 때도 팝오버 전체가 계속 늘어나지 않는다.
 - 캘린더 페이지는 달력 아래에 선택 날짜 일정을 다시 길게 반복 표시하지 않는다.
   일정 추가 진입점은 오른쪽 열 하단의 버튼 하나만 유지하고 헤더 우측에는 두지 않는다.
-- 캘린더 오른쪽 열은 월간 달력 카드 높이에 맞춘다. `오늘 일정` 목록은 남는 높이를
-  사용하고 일정이 많으면 내부 스크롤로 확인한다. 하단 통계는 Figma처럼
+- 일반 일정 추가, 수정 modal은 올리브, 파랑, 노랑, 빨강, 분홍, 보라 6개 팔레트 중
+  하나를 선택한다. 달력 점과 선택 날짜 일정 카드의 점은 저장된 색상을 사용한다.
+  봉우리 마감 일정은 사용자 선택색이 아니라 기존 생애주기 상태 색상을 유지한다.
+- 캘린더 오른쪽 열은 월간 달력 카드 높이에 맞춘다. `선택 날짜 일정` 목록은 남는
+  높이를 사용하고 일정이 많으면 내부 스크롤로 확인한다. 기본 선택값은 오늘이며,
+  달력 날짜를 누르면 오른쪽 목록을 해당 날짜 일정으로 교체한다. 독립 일정은
+  추가, 수정, 삭제할 수 있고 봉우리 일정은 클릭하면 해당 식물 상세의 봉우리
+  drawer로 이동한다. 하단 통계는 Figma처럼
   `일정 상태 요약` 컨테이너 안에서 세로 강조 바가 있는 4개 카드로 표시한다. 내부
   카드는 Figma 요약 카드와 동일한 `--calendar-stat-bg` (`#FAFCF7`) 표면을 사용하고 바깥
   컨테이너는 `--bg-elevated`로 유지해 한 단계 구분한다. 일정, 고민, 주의, 수확은
@@ -858,9 +877,9 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
 - 캘린더 페이지는 `1920x1080`, 브라우저 75% 축소 환경에서 세로 스크롤 없이 한
   화면에 들어와야 한다. 현재 기준은 페이지 패딩 `24px`, 월간 달력과 오른쪽 열
   고정 행 높이 `480px`, 날짜 셀 `minHeight: 56px`, 하단 요약 카드 `minHeight: 96px`다.
-  일정이 많아질 때는 페이지 전체가 늘어나는 대신 `오늘 일정` 목록 내부에서
+  일정이 많아질 때는 페이지 전체가 늘어나는 대신 `선택 날짜 일정` 목록 내부에서
   스크롤한다.
-- `오늘 일정` 카드와 오른쪽 열은 `overflow: hidden`을 유지하고 목록 `<ul>`은
+- `선택 날짜 일정` 카드와 오른쪽 열은 `overflow: hidden`을 유지하고 목록 `<ul>`은
   `flex: 1`, `min-height: 0`, `overflow-y: auto`를 사용한다. 이 제약을 빼면 일정
   개수에 따라 오른쪽 열과 월간 달력 카드 높이가 함께 늘어난다. 상위 2열 Grid의
   `grid-template-rows: 480px`도 제거하지 않는다.
@@ -911,6 +930,14 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
   양방향 스크롤 잔디 보드이며 리스트 보기는 별도로 유지한다.
 - 정원 화면의 좌측 상단 제목 HUD 아래에는 `정원`, `리스트` 전환 HUD만 둔다.
   별도의 `N개 식물`, `시듦 N` 요약 HUD와 우측 상단 전환 HUD를 다시 추가하지 않는다.
+- 정원 화면의 우측 하단에는 `50%`, `75%`, `100%`, `125%`, `150%`, `175%`,
+  `200%` 배율을 선택하는 확대, 축소 HUD를 둔다. 가운데 배율 버튼은 `100%`로
+  초기화한다. HUD는 고정하고 내부
+  보드만 확대하거나 축소하며, 스크롤 영역의 실제 크기와 선택 식물 자동 스크롤도
+  배율에 맞춰 함께 보정한다. 트랙패드 pinch가 브라우저에서 생성하는 `ctrlKey` wheel
+  이벤트도 정원 연속 배율 변경으로 처리하고, 제스처 중심 좌표를 유지한다. 축소된
+  보드의 논리 폭과 높이는 현재 뷰포트를 채우는 최소 크기보다 작아지지 않게 계산해
+  빈 정원에서도 오른쪽 또는 아래 배경이 끊기지 않게 한다.
 - 정원 페이지는 SSR과 첫 hydration 렌더에서 항상 정원 스켈레톤을 표시한다.
   `useSyncExternalStore`로 hydration 완료를 확인한 뒤 Supabase access token이 있을
   때만 plants, buds query를 활성화한다. 서버의 비인증 빈 정원 HTML과 브라우저의
@@ -922,15 +949,24 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
   `no-pot extension` 성장 레이어를 하나씩 위로 쌓는다. 줄기 하나에 봉우리 하나가
   대응하므로 봉우리가 삭제되어 `disappeared_at`이 설정되면 해당 줄기도 함께
   사라진다. 고정 최대 개수 제한을 두지 않고 레이어 수에 따라 보드 높이를 늘린다.
-- 정원 성장 레이어의 상태별 픽셀 표현은 `frontend/app/(app)/plants/page.tsx`의
-  `GrowthLayer`가 담당한다. `seed`, `bud`, `flower`, `fruit`, `wilting`, `rot`,
-  `harvested` 상태를 같은 줄기 규칙 안에서 표현하며, 변경 시 Figma `05` 에셋
-  가이드와 함께 확인한다.
+- 정원 성장 레이어의 상태별 픽셀 표현은
+  `frontend/components/plants/GardenPlantVisual.tsx`의 `GrowthLayer`가 담당한다.
+  `seed`, `bud`, `flower`, `fruit`, `wilting`, `rot`, `harvested` 상태를 같은 줄기
+  규칙 안에서 표현하며, 변경 시 Figma `05` 에셋 가이드와 함께 확인한다. 실제
+  봉우리 레이어 위에 마우스를 올리면 해당 봉우리 이름을 즉시 툴팁으로 표시한다.
+  봉우리 레이어를 클릭하거나 키보드로 선택하면 `/plants/{plantId}?bud={budId}`로
+  이동하고 식물 상세 화면에서 해당 봉우리 drawer를 즉시 연다. 랜딩 `#preview`는
+  같은 렌더러를 사용하지만 선택 콜백을 넘기지 않아 예시 식물이 링크처럼 동작하지
+  않는다.
 - 정원에서 `seed`와 `bud`는 모두 Figma `05 Plant Pixel Assets`의 `02 봉우리`
   no-pot extension과 같은 닫힌 봉우리 픽셀을 사용한다. `harvested`는 별도 열매나
   수확 마커를 남기지 않고 줄기와 잎만 있는 새싹 형태로 표시한다. 봉우리가 하나도
-  없는 식물의 자리 표시도 같은 새싹 형태다.
-- 정원 성장 레이어는 시듦과 썩음 상태를 제외하면 동일한 줄기색을 사용한다. 잔디
+  없는 식물은 대체 새싹 레이어를 만들지 않고 화분만 표시한다. `/plants` 배치 높이도
+  실제 성장 레이어 수를 사용해 화분 바닥 기준선을 유지한다.
+- 정원 성장 레이어는 Figma `05 Plant Pixel Assets`의 no-pot extension 좌표를
+  상태별로 그대로 따른다. 잎 방향을 레이어별로 임의 반전하지 않는다. `seed`, `bud`는
+  진한 봉우리 줄기, `wilting`은 갈변한 줄기와 잎 및 상단 굽은 조각, `rot`는 일반
+  초록 줄기와 잎 위의 상한 열매를 사용한다. 잔디
   덩어리와 바닥 그림자는 보드 폭에 맞춰 끝까지 반복 생성한다. 보드 오른쪽의
   `새 식물 자리` 버튼은 global 스코프로 AI 채팅 패널을 열어 식물 추가를 요청할 수
   있게 한다.

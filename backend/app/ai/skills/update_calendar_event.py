@@ -18,6 +18,11 @@ class UpdateCalendarEventSkill(SkillBase):
             "date": {"type": "string", "description": "새 날짜 YYYY-MM-DD (선택)"},
             "detail": {"type": "string", "description": "새 세부 정보 (선택)"},
             "plant_id": {"type": "string", "description": "연결할 식물 ID (선택)"},
+            "color": {
+                "type": "string",
+                "enum": ["olive", "blue", "yellow", "red", "pink", "purple"],
+                "description": "새 표시 색상 (선택)",
+            },
         },
         "required": ["event_id"],
     }
@@ -36,6 +41,8 @@ class UpdateCalendarEventSkill(SkillBase):
             fields["detail"] = args["detail"]
         if args.get("plant_id") is not None:
             fields["plant_id"] = args["plant_id"]
+        if args.get("color") is not None:
+            fields["color"] = args["color"]
         if args.get("date") is not None:
             from datetime import date
             try:

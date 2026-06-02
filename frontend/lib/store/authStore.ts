@@ -9,12 +9,25 @@ export interface UserProfile {
   id: string;
   email: string | null;
   nickname: string | null;
+  /** Supabase Auth metadata picture URL. Not stored in the backend profiles table. */
+  avatar_url?: string | null;
   role: "user" | "admin";
   tone: string;
   ai_model: string;
   garden_rules: Record<string, unknown>;
   appearance: Record<string, unknown>;
   created_at: string;
+}
+
+export function withAuthMetadata(
+  profile: UserProfile,
+  metadata?: Record<string, unknown> | null,
+): UserProfile {
+  const candidate = metadata?.avatar_url ?? metadata?.picture;
+  const avatarUrl = typeof candidate === "string" && candidate.startsWith("https://")
+    ? candidate
+    : null;
+  return { ...profile, avatar_url: avatarUrl };
 }
 
 interface AuthState {

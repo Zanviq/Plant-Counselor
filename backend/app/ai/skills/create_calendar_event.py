@@ -16,6 +16,11 @@ class CreateCalendarEventSkill(SkillBase):
             "date": {"type": "string", "description": "일정 날짜 (YYYY-MM-DD)"},
             "plant_id": {"type": "string", "description": "관련 식물 ID (선택)"},
             "detail": {"type": "string", "description": "시간·장소 등 세부 정보 (선택)"},
+            "color": {
+                "type": "string",
+                "enum": ["olive", "blue", "yellow", "red", "pink", "purple"],
+                "description": "일정 표시 색상 (선택, 기본 olive)",
+            },
         },
         "required": ["title", "date"],
     }
@@ -41,6 +46,7 @@ class CreateCalendarEventSkill(SkillBase):
             args["title"],
             args.get("detail", ""),
             event_date,
+            args.get("color", "olive"),
         )
         return SkillResult(
             ok=True,

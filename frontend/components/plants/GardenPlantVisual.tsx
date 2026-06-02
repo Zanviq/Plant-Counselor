@@ -13,6 +13,7 @@ export type GardenBudVisual = {
 
 const PIXEL = {
   stem: "#4D8542",
+  budStem: "#2F6B3E",
   leaf: "#75A859",
   budUpper: "#C8D96B",
   budTip: "#DDE8A2",
@@ -27,8 +28,8 @@ const PIXEL = {
   fruitShine: "#FFB26B",
   rot: "#94482B",
   rotBruise: "#2E1F14",
-  wiltStem: "#7A6D55",
-  wiltLeaf: "#A5946D",
+  wiltStem: "#75613D",
+  wiltLeaf: "#AD8A4F",
 };
 
 function Pixel({ x, y, w, h, color }: {
@@ -37,58 +38,90 @@ function Pixel({ x, y, w, h, color }: {
   return <span style={{ position: "absolute", left: x, top: y, width: w, height: h, background: color }} />;
 }
 
-function GrowthLayer({ bud, index }: { bud: GardenBudVisual; index: number }) {
+function GrowthLayer({ bud, index, onBudClick }: {
+  bud: GardenBudVisual;
+  index: number;
+  onBudClick?: (budId: string) => void;
+}) {
   const status = bud.status;
-  const stem = status === "wilting" || status === "rot" ? PIXEL.wiltStem : PIXEL.stem;
-  const leaf = status === "wilting" || status === "rot" ? PIXEL.wiltLeaf : PIXEL.leaf;
-  const flip = index % 2 === 1;
+  const stem = status === "wilting" ? PIXEL.wiltStem
+    : status === "seed" || status === "bud" ? PIXEL.budStem
+    : PIXEL.stem;
+  const leaf = status === "wilting" ? PIXEL.wiltLeaf : PIXEL.leaf;
+  const clickable = bud.id !== "empty" && !!onBudClick;
+
+  function selectBud() {
+    if (clickable) onBudClick(bud.id);
+  }
 
   return (
-    <div title={bud.title} style={{ position: "absolute", left: 0, bottom: POT_H + index * LAYER_H, width: PLANT_W, height: LAYER_H }}>
-      <Pixel x={84} y={0} w={12} h={64} color={stem} />
-      <Pixel x={flip ? 94 : 52} y={34} w={34} h={16} color={leaf} />
-      <Pixel x={flip ? 52 : 96} y={22} w={36} h={16} color={leaf} />
+    <div
+      className="garden-bud-layer"
+      role={clickable ? "button" : "img"}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={`봉우리: ${bud.title}`}
+      onClick={clickable ? (event) => { event.stopPropagation(); selectBud(); } : undefined}
+      onKeyDown={clickable ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          selectBud();
+        }
+      } : undefined}
+      style={{
+        position: "absolute", left: 0, bottom: POT_H + index * LAYER_H,
+        width: PLANT_W, height: LAYER_H, zIndex: index + 1,
+        cursor: clickable ? "pointer" : undefined,
+      }}
+    >
+      {bud.id !== "empty" && <span className="garden-bud-tooltip" role="tooltip">{bud.title}</span>}
+      <Pixel x={84} y={status === "seed" || status === "bud" ? 12 : status === "rot" ? -4 : 0} w={12} h={status === "seed" || status === "bud" ? 52 : 64} color={stem} />
+      <Pixel x={52} y={status === "rot" ? 22 : status === "fruit" ? 25 : 26} w={34} h={16} color={leaf} />
+      <Pixel x={96} y={status === "rot" ? 10 : 14} w={36} h={16} color={leaf} />
       {(status === "seed" || status === "bud") && <>
-        <Pixel x={79} y={0} w={22} h={18} color={PIXEL.budUpper} />
-        <Pixel x={83} y={-10} w={14} h={10} color={PIXEL.budTip} />
-        <Pixel x={75} y={10} w={8} h={14} color={PIXEL.budSepalLeft} />
-        <Pixel x={101} y={10} w={8} h={14} color={PIXEL.budSepalRight} />
-        <Pixel x={83} y={18} w={14} h={12} color={PIXEL.budSepalCenter} />
+        <Pixel x={79} y={-10} w={22} h={18} color={PIXEL.budUpper} />
+        <Pixel x={83} y={-20} w={14} h={10} color={PIXEL.budTip} />
+        <Pixel x={75} y={0} w={8} h={14} color={PIXEL.budSepalLeft} />
+        <Pixel x={101} y={0} w={8} h={14} color={PIXEL.budSepalRight} />
+        <Pixel x={83} y={8} w={14} h={12} color={PIXEL.budSepalCenter} />
       </>}
       {status === "flower" && <>
-        <Pixel x={83} y={0} w={14} h={16} color={PIXEL.flower} />
-        <Pixel x={67} y={16} w={16} h={14} color={PIXEL.flower} />
-        <Pixel x={97} y={16} w={16} h={14} color={PIXEL.flower} />
-        <Pixel x={83} y={30} w={14} h={16} color={PIXEL.flower} />
-        <Pixel x={83} y={16} w={14} h={14} color={PIXEL.flowerCenter} />
+        <Pixel x={83} y={-19} w={14} h={16} color={PIXEL.flower} />
+        <Pixel x={67} y={-3} w={16} h={14} color={PIXEL.flower} />
+        <Pixel x={97} y={-3} w={16} h={14} color={PIXEL.flower} />
+        <Pixel x={83} y={11} w={14} h={16} color={PIXEL.flower} />
+        <Pixel x={83} y={-3} w={14} h={14} color={PIXEL.flowerCenter} />
       </>}
       {status === "fruit" && <>
-        <Pixel x={57} y={25} w={18} h={18} color={PIXEL.fruit} />
-        <Pixel x={108} y={13} w={20} h={20} color={PIXEL.fruit} />
-        <Pixel x={61} y={29} w={6} h={6} color={PIXEL.fruitShine} />
-        <Pixel x={112} y={17} w={6} h={6} color={PIXEL.fruitShine} />
+        <Pixel x={59} y={7} w={18} h={18} color={PIXEL.fruit} />
+        <Pixel x={109} y={-6} w={20} h={20} color={PIXEL.fruit} />
+        <Pixel x={63} y={11} w={6} h={6} color={PIXEL.fruitShine} />
+        <Pixel x={113} y={-2} w={6} h={6} color={PIXEL.fruitShine} />
       </>}
       {status === "rot" && <>
-        <Pixel x={105} y={17} w={24} h={22} color={PIXEL.rot} />
-        <Pixel x={109} y={21} w={8} h={8} color={PIXEL.rotBruise} />
-        <Pixel x={121} y={31} w={6} h={6} color={PIXEL.rotBruise} />
+        <Pixel x={106} y={-4} w={24} h={22} color={PIXEL.rot} />
+        <Pixel x={110} y={0} w={8} h={8} color={PIXEL.rotBruise} />
+        <Pixel x={122} y={10} w={6} h={6} color={PIXEL.rotBruise} />
       </>}
       {status === "wilting" && <>
-        <Pixel x={92} y={2} w={24} h={10} color={PIXEL.wiltLeaf} />
-        <Pixel x={108} y={10} w={10} h={20} color={PIXEL.wiltStem} />
+        <Pixel x={98} y={-24} w={32} h={12} color={PIXEL.wiltStem} />
+        <Pixel x={126} y={-16} w={16} h={12} color={PIXEL.wiltLeaf} />
       </>}
     </div>
   );
 }
 
-export function GardenPixelPlant({ buds, scale = 1 }: { buds: GardenBudVisual[]; scale?: number }) {
-  const height = POT_H + Math.max(1, buds.length) * LAYER_H;
-  const visibleBuds = buds.length > 0 ? buds : [{ id: "empty", title: "새싹", status: "harvested" }];
+export function GardenPixelPlant({ buds, scale = 1, onBudClick }: {
+  buds: GardenBudVisual[];
+  scale?: number;
+  onBudClick?: (budId: string) => void;
+}) {
+  const height = POT_H + buds.length * LAYER_H;
 
   return (
     <div style={{ width: PLANT_W * scale, height: height * scale }}>
       <div style={{ position: "relative", width: PLANT_W, height, imageRendering: "pixelated", transform: `scale(${scale})`, transformOrigin: "top left" }}>
-        {visibleBuds.map((bud, index) => <GrowthLayer key={bud.id} bud={bud} index={index} />)}
+        {buds.map((bud, index) => <GrowthLayer key={bud.id} bud={bud} index={index} onBudClick={onBudClick} />)}
         <Pixel x={50} y={height - POT_H} w={70} h={18} color={PIXEL.potLip} />
         <Pixel x={60} y={height - 28} w={50} h={28} color={PIXEL.potBody} />
       </div>
@@ -121,14 +154,15 @@ export function GardenPlantInfoCard({ name, buds, actions }: {
   );
 }
 
-export function GardenPlantVisual({ name, buds, actions }: {
+export function GardenPlantVisual({ name, buds, actions, onBudClick }: {
   name: string;
   buds: GardenBudVisual[];
   actions: ReactNode;
+  onBudClick?: (budId: string) => void;
 }) {
   return (
     <div style={{ position: "relative", width: 210, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <GardenPixelPlant buds={buds} />
+      <GardenPixelPlant buds={buds} onBudClick={onBudClick} />
       <GardenPlantInfoCard name={name} buds={buds} actions={actions} />
     </div>
   );

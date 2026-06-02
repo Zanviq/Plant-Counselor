@@ -40,7 +40,7 @@ def _lit(v: Any) -> str:
     return "'" + str(v).replace("'", "''") + "'"
 
 
-_COLS = "id, user_id, plant_id, title, detail, event_date"
+_COLS = "id, user_id, plant_id, title, detail, event_date, color"
 
 
 class CalendarEventRepository:
@@ -71,16 +71,17 @@ class CalendarEventRepository:
         title: str,
         detail: str,
         event_date: date,
+        color: str,
     ) -> SimpleNamespace:
         eid = str(ULID())
         vals = ", ".join([
             _lit(eid), _lit(user_id), _lit(plant_id),
-            _lit(title), _lit(detail or ""), _lit(event_date.isoformat()),
+            _lit(title), _lit(detail or ""), _lit(event_date.isoformat()), _lit(color),
         ])
         self._exec(f"insert into calendar_events ({_COLS}) values ({vals})")
         return SimpleNamespace(
             id=eid, user_id=user_id, plant_id=plant_id,
-            title=title, detail=detail or "", event_date=event_date.isoformat(),
+            title=title, detail=detail or "", event_date=event_date.isoformat(), color=color,
         )
 
     def list_range(self, user_id: str, d_from: date, d_to: date) -> list[SimpleNamespace]:
@@ -103,8 +104,8 @@ class CalendarEventRepository:
 
     def update(self, user_id: str, event_id: str, fields: dict) -> SimpleNamespace | None:
         sets: list[str] = []
-        for key in ("title", "detail", "plant_id", "event_date"):
-            if key in fields and fields[key] is not None:
+        for key in ("title", "detail", "plant_id", "event_date", "color"):
+            if key in fields and (fields[key] is not None or key == "plant_id"):
                 val = fields[key]
                 if key == "event_date" and isinstance(val, date):
                     val = val.isoformat()

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/store/authStore";
 import { apiGet, configureClient } from "@/lib/api/client";
-import type { UserProfile } from "@/lib/store/authStore";
+import { withAuthMetadata, type UserProfile } from "@/lib/store/authStore";
 
 function AdminNav() {
   const pathname = usePathname();
@@ -142,6 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         const cachedUser = useAuthStore.getState().user;
         if (cachedUser && event !== "SIGNED_IN") {
+          setSession(token, withAuthMetadata(cachedUser, session.user.user_metadata));
           // Verify still admin
           if (cachedUser.role !== "admin") {
             router.replace("/home");
@@ -164,7 +165,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           return;
         }
 
-        setSession(token, meRes.data);
+        setSession(token, withAuthMetadata(meRes.data, session.user.user_metadata));
       }
     );
 

@@ -45,6 +45,7 @@
 ### 식물 상세 (`app/(app)/plants/[id]/page.tsx`)
 
 - **헤더 카드**: 이름·설명·통계(활성/수확/포기) + "이 식물 상담" + 삭제 (2단계 확인).
+  - 통계 3종은 **봉우리 목록(`allBuds`)에서 실시간 계산**한다 (활성=`isActive`, 수확=`harvested`, 포기=`rot`). `plants` 테이블의 `active_bud_count`/`harvested_count`/`rot_count` 컬럼은 어디서도 갱신되지 않는 죽은 컬럼이라 사용하지 않음 — 사용 시 항상 0으로 표시되던 버그를 봉우리 기반 계산으로 수정.
 - **봉우리 목록**: `BudRow` (상태 pill, 진행 막대, 마감일). `enabled: !!accessToken` 가드.
 - **필터**: 전체/진행 중/완료.
 - **`initialData`**: `QK.plants()` 캐시에서 즉시 식물 헤더 렌더 (목록 캐시 재사용).

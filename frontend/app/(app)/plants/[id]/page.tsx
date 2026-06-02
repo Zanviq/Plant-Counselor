@@ -425,6 +425,13 @@ export default function PlantDetailPage() {
 
   const plant = plantRes?.ok ? plantRes.data : null;
   const allBuds = budsRes?.ok ? budsRes.data.items : [];
+  // The plants table never maintains active_bud_count/harvested_count/rot_count
+  // (they're write-never columns), so derive the header stats live from the buds.
+  const headerStats = {
+    active: allBuds.filter((b) => isActive(b.status)).length,
+    harvested: allBuds.filter((b) => b.status === "harvested").length,
+    rot: allBuds.filter((b) => normalizeBudStatus(b.status) === "rot").length,
+  };
   const visible = allBuds.filter((b) => {
     if (b.disappeared_at) return false;
     if (filter === "active") return isActive(b.status);
@@ -478,9 +485,9 @@ export default function PlantDetailPage() {
                   </p>
                 )}
                 <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
-                  <BigStat label="활성" value={plant.stats.active_bud_count} />
-                  <BigStat label="수확" value={plant.stats.harvested_count} color="var(--positive)" />
-                  <BigStat label="포기" value={plant.stats.rot_count} color="var(--danger)" />
+                  <BigStat label="활성" value={headerStats.active} />
+                  <BigStat label="수확" value={headerStats.harvested} color="var(--positive)" />
+                  <BigStat label="포기" value={headerStats.rot} color="var(--danger)" />
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>

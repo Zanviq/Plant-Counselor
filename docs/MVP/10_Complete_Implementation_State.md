@@ -637,6 +637,7 @@ cp assets/sprites/* frontend/public/sprites/
 | 봉우리 직접 수정 | 드로어에서 제목/메모 편집 없음 | PATCH /buds/{id} 폼 추가 |
 | 식물 편집 | 이름/설명 편집 UI 없음 | 상세 페이지 inline 편집 |
 | 봉우리 정렬 | 생성순 고정 | 마감순 / 진행률순 토글 |
+| 식물 통계 컬럼 | `plants.active_bud_count`/`harvested_count`/`rot_count` 미갱신(죽은 컬럼) | 상세 헤더는 봉우리에서 실시간 계산하도록 수정함. 컬럼 자체 제거 또는 트리거로 유지 검토 |
 
 ### 중기 개선
 

@@ -31,6 +31,11 @@ DEFAULTS: dict[str, Any] = {
     "default_deadline_warn_days": 3,
     "default_auto_transition": True,
 
+    # Plant-level wilting: the whole plant wilts once at least N of its buds are
+    # wilting AND M days have passed since that Nth bud started wilting.
+    "default_plant_wilt_bud_threshold": 2,   # N
+    "default_plant_wilt_days": 3,            # M
+
     # System
     "system_log_level": "INFO",
     "system_max_log_files": 500,

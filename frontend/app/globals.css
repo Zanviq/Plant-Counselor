@@ -57,7 +57,7 @@
   --st-flower:       #8BAA5A;
   --st-fruit:        #5C6B3F;
   --st-harvest:      #C49A2A;
-  --st-wilting:      #BDA040;
+  --st-wilting:      #8A5A2B;
   --st-rot:          #B54A3A;
 
   /* Shadow — warm tone */
@@ -124,7 +124,7 @@
   --st-flower:  #8BAA5A;
   --st-fruit:   #A0BF6A;
   --st-harvest: #D4AA3A;
-  --st-wilting: #C4A040;
+  --st-wilting: #A86B38;
   --st-rot:     #D06050;
 
   --shadow-xs: 0 1px 0 rgba(0,0,0,0.4);

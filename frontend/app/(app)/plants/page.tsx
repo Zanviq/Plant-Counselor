@@ -5,12 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { listPlants, Plant } from "@/lib/api/plants";
 import { listBuds, Bud } from "@/lib/api/buds";
+import { getHistory, ConvMessage } from "@/lib/api/conversations";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
+import { MarkdownText } from "@/lib/markdown";
 import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, normalizeBudStatus, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
-import { GardenPlantVisual, LAYER_H, POT_H } from "@/components/plants/GardenPlantVisual";
+import { GardenPlantVisual, GardenHarvestBasket, LAYER_H, POT_H, BASKET_VISUAL_H } from "@/components/plants/GardenPlantVisual";
 
 // ── Garden pixel assets (Figma 05 Plant Pixel Assets) ──────
 
@@ -78,9 +80,12 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat, onBudC
   onSelect: () => void; onDetail: () => void; onChat: () => void;
   onBudClick: (budId: string) => void;
 }) {
+  // Harvested fruits move to the basket; rot disappears. Plants show only the
+  // living, growing buds.
   const visibleBuds = buds
-    .filter((bud) => !bud.disappeared_at)
+    .filter((bud) => !bud.disappeared_at && bud.status !== "harvested")
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const wilted = plant.status === "wilting";
 
   return (
     <div
@@ -97,6 +102,7 @@ function GardenPlant({ plant, buds, selected, onSelect, onDetail, onChat, onBudC
         name={plant.name}
         buds={visibleBuds}
         onBudClick={onBudClick}
+        wilted={wilted}
         actions={<>
             <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onDetail(); }} style={{ padding: "0 5px" }}>상세</button>
             <button className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); onChat(); }} style={{ padding: "0 5px" }}>상담</button>
@@ -170,6 +176,152 @@ function GardenZoomControl({ zoom, onChange }: { zoom: number; onChange: (zoom: 
   );
 }
 
+// ── Harvest basket / sidebar / history popup ───────────────
+
+interface HarvestedFruit { bud: Bud; plantId: string; plantName: string }
+
+function FruitGlyph({ size = 22 }: { size?: number }) {
+  return (
+    <span style={{ position: "relative", width: size, height: size, flexShrink: 0, display: "inline-block" }}>
+      <span style={{ position: "absolute", left: 0, top: "10%", width: "100%", height: "90%", borderRadius: "50%", background: "#E05A2E" }} />
+      <span style={{ position: "absolute", left: "20%", top: "26%", width: "26%", height: "26%", borderRadius: "50%", background: "#FFB26B" }} />
+      <span style={{ position: "absolute", left: "46%", top: "-6%", width: "10%", height: "30%", background: "#4D8542", borderRadius: 2 }} />
+    </span>
+  );
+}
+
+function BasketSidebar({ fruits, plants, selectedPlantIds, setSelectedPlantIds, search, setSearch, onClose, onFruitClick }: {
+  fruits: HarvestedFruit[]; plants: Plant[];
+  selectedPlantIds: Set<string>; setSelectedPlantIds: (s: Set<string>) => void;
+  search: string; setSearch: (s: string) => void;
+  onClose: () => void; onFruitClick: (f: HarvestedFruit) => void;
+}) {
+  const plantsWithFruit = useMemo(() => {
+    const ids = new Set(fruits.map((f) => f.plantId));
+    return plants.filter((p) => ids.has(p.id));
+  }, [fruits, plants]);
+
+  const toggleLabel = (pid: string) => {
+    const next = new Set(selectedPlantIds);
+    if (next.has(pid)) next.delete(pid); else next.add(pid);
+    setSelectedPlantIds(next);
+  };
+
+  const q = search.trim().toLowerCase();
+  const listed = fruits.filter((f) => {
+    if (selectedPlantIds.size > 0 && !selectedPlantIds.has(f.plantId)) return false;
+    if (q && !(f.bud.title.toLowerCase().includes(q) || f.plantName.toLowerCase().includes(q) || (f.bud.detail || "").toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  return (
+    <div style={{
+      position: "absolute", top: 0, right: 0, bottom: 0, width: 332, zIndex: 7,
+      background: "var(--bg-elevated)", borderLeft: "1px solid var(--border)",
+      boxShadow: "-8px 0 24px rgba(0,0,0,0.10)", display: "flex", flexDirection: "column",
+    }}>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <strong style={{ fontSize: 14, color: "var(--fg)" }}>수확 바구니 ({fruits.length})</strong>
+        <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="닫기">✕</button>
+      </div>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+        <input className="input" placeholder="검색 (열매·식물)" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: "100%", marginBottom: 10 }} />
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {plantsWithFruit.map((p) => {
+            const on = selectedPlantIds.has(p.id);
+            return <button key={p.id} onClick={() => toggleLabel(p.id)} style={{
+              padding: "4px 10px", borderRadius: 999, fontSize: 12, cursor: "pointer",
+              border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+              background: on ? "var(--accent-muted)" : "var(--bg-subtle)",
+              color: on ? "var(--accent-fg)" : "var(--fg-muted)", fontWeight: on ? 600 : 400,
+            }}>{p.name}</button>;
+          })}
+          {plantsWithFruit.length === 0 && <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>아직 수확한 열매가 없어요.</span>}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
+        {listed.length === 0 ? (
+          <div style={{ padding: "32px 12px", textAlign: "center", color: "var(--fg-muted)", fontSize: 13 }}>
+            {fruits.length === 0 ? "수확한 열매가 없어요." : "조건에 맞는 열매가 없어요."}
+          </div>
+        ) : listed.map((f) => (
+          <button key={f.bud.id} onClick={() => onFruitClick(f)} style={{
+            width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10,
+            padding: "9px 10px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 8,
+          }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+            <FruitGlyph />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 13, color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.bud.title}</span>
+              <span style={{ display: "block", fontSize: 11, color: "var(--fg-muted)" }}>{f.plantName}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FruitHistoryPopup({ fruit, onClose }: { fruit: HarvestedFruit; onClose: () => void }) {
+  const { accessToken } = useAuthStore();
+  const { data, isLoading } = useQuery({
+    queryKey: ["budConvHistory", fruit.bud.id],
+    queryFn: () => getHistory("bud", fruit.bud.id, 200),
+    enabled: !!accessToken,
+  });
+  const messages: ConvMessage[] = data?.ok ? data.data.messages.filter((m) => m.role === "user" || m.role === "assistant") : [];
+
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 50, background: "rgba(20,26,15,0.45)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: 560, maxWidth: "94vw", maxHeight: "86vh", display: "flex", flexDirection: "column",
+        background: "var(--bg-elevated)", borderRadius: 16, border: "1px solid var(--border)",
+        boxShadow: "0 24px 70px rgba(0,0,0,0.4)", overflow: "hidden",
+      }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: "var(--accent-fg)", fontWeight: 600 }}>{fruit.plantName} · 수확한 열매</div>
+              <div className="t-h2" style={{ color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fruit.bud.title}</div>
+            </div>
+            <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="닫기" style={{ flexShrink: 0 }}>✕</button>
+          </div>
+          {fruit.bud.detail && <div style={{ marginTop: 6, fontSize: 13, color: "var(--fg-muted)" }}>{fruit.bud.detail}</div>}
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+          <div className="t-caption" style={{ color: "var(--fg-subtle)", marginBottom: 12 }}>이 고민/일정을 해결해 나가던 과거 기록</div>
+          {isLoading && <div style={{ textAlign: "center", padding: 30, color: "var(--fg-muted)" }}>불러오는 중…</div>}
+          {!isLoading && messages.length === 0 && <div style={{ textAlign: "center", padding: 30, color: "var(--fg-muted)", fontSize: 13 }}>기록된 대화가 없어요.</div>}
+          {messages.map((m) => {
+            const isUser = m.role === "user";
+            return (
+              <div key={m.id} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", marginBottom: 10 }}>
+                <div style={{ maxWidth: "82%" }}>
+                  <div className="t-caption" style={{ color: "var(--fg-muted)", marginBottom: 3, textAlign: isUser ? "right" : "left", fontWeight: 600 }}>{isUser ? "나" : "AI 정원사"}</div>
+                  <div style={{
+                    padding: "9px 12px", borderRadius: isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+                    fontSize: 13.5, lineHeight: 1.55, whiteSpace: isUser ? "pre-wrap" : "normal",
+                    background: isUser ? "var(--accent)" : "var(--bg-subtle)",
+                    color: isUser ? "var(--accent-contrast)" : "var(--fg)",
+                    border: isUser ? "none" : "1px solid var(--border)", overflowWrap: "anywhere",
+                  }}>{isUser ? m.text : <MarkdownText text={m.text} />}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ padding: "10px 20px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--fg-subtle)", textAlign: "center" }}>
+          지난 기록 보기 전용 — 추가 대화는 할 수 없어요.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────
 
 export default function PlantsPage() {
@@ -182,6 +334,11 @@ export default function PlantsPage() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [gardenZoom, setGardenZoom] = useState(1);
   const [gardenViewport, setGardenViewport] = useState({ width: 0, height: 0 });
+  // Harvest basket / fruit history popup
+  const [basketOpen, setBasketOpen] = useState(false);
+  const [selectedFruitPlantIds, setSelectedFruitPlantIds] = useState<Set<string>>(new Set());
+  const [basketSearch, setBasketSearch] = useState("");
+  const [historyFruit, setHistoryFruit] = useState<HarvestedFruit | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const gardenZoomRef = useRef(gardenZoom);
   const pendingZoomScrollRef = useRef<{
@@ -201,6 +358,21 @@ export default function PlantsPage() {
     return m;
   }, [allBuds]);
 
+  const plantById = useMemo(() => new Map(plants.map((p) => [p.id, p])), [plants]);
+  // Harvested fruits collected from every plant — shown in the basket, not on plants.
+  const harvestedFruits = useMemo<HarvestedFruit[]>(() =>
+    allBuds
+      .filter((b) => b.status === "harvested" && !b.disappeared_at)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((b) => ({ bud: b, plantId: b.plant_id, plantName: plantById.get(b.plant_id)?.name ?? "알 수 없음" })),
+    [allBuds, plantById],
+  );
+  const fruitById = useMemo(() => new Map(harvestedFruits.map((f) => [f.bud.id, f])), [harvestedFruits]);
+  const basketFruits = useMemo(
+    () => harvestedFruits.map((f) => ({ id: f.bud.id, plantId: f.plantId, plantName: f.plantName, title: f.bud.title })),
+    [harvestedFruits],
+  );
+
   const orderedPlants = useMemo(
     () => [...plants].sort((a, b) => a.created_at.localeCompare(b.created_at)),
     [plants],
@@ -211,10 +383,11 @@ export default function PlantsPage() {
   }, [orderedPlants, query]);
 
   const activeCount = allBuds.filter(b => isActive(b.status)).length;
-  const maxVisibleBuds = Math.max(1, ...filtered.map((plant) => (budsByPlant.get(plant.id) ?? []).filter((bud) => !bud.disappeared_at).length));
+  const maxVisibleBuds = Math.max(1, ...filtered.map((plant) => (budsByPlant.get(plant.id) ?? []).filter((bud) => !bud.disappeared_at && bud.status !== "harvested").length));
   // Include the add-card and a calm right margin inside the painted field.
   // Otherwise the card extends past the board background and exposes a hard edge.
-  const boardMinWidth = Math.max(BOARD_MIN_W, filtered.length * 256 + 450);
+  // +1 slot reserved at the far left for the harvest basket.
+  const boardMinWidth = Math.max(BOARD_MIN_W, (filtered.length + 1) * 256 + 450);
   const skyExtension = Math.max(0, 220 + maxVisibleBuds * LAYER_H - GARDEN_BASELINE);
   const gardenBaseline = GARDEN_BASELINE + skyExtension;
   const boardMinHeight = BOARD_MIN_H + skyExtension;
@@ -357,12 +530,34 @@ export default function PlantsPage() {
         <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginTop: 4 }}>{plants.length}개 분야 · {activeCount}개 진행 중</p>
       </header>
 
+      {/* Top-right AI chat button (garden view, like other pages) */}
+      {view === "garden" && (
+        <button
+          onClick={() => openWith()}
+          className="btn btn-primary"
+          style={{ position: "absolute", top: 22, right: 24, zIndex: 6, display: "inline-flex", alignItems: "center", gap: 7 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          AI 대화
+        </button>
+      )}
+
       {/* Toolbar */}
       <div style={view === "garden" ? {
         position: "absolute", top: 110, left: 24, zIndex: 5,
       } : { display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <ViewToggle current={view} onChange={setView} />
         {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
+        {view === "list" && (
+          <button onClick={() => openWith()} className="btn btn-primary" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            AI 대화
+          </button>
+        )}
       </div>
 
       {view === "garden" && (
@@ -396,6 +591,7 @@ export default function PlantsPage() {
 
       {/* Garden view — Figma-style bidirectional field */}
       {!showLoading && view === "garden" && (
+        <>
         <div ref={scrollRef} style={{ position: "absolute", inset: 0, overflow: "auto", background: "#E6F3E8" }}>
           <div style={{
             position: "relative", width: boardWidth * gardenZoom, height: boardHeight * gardenZoom,
@@ -416,13 +612,22 @@ export default function PlantsPage() {
                 position: "absolute", left: shadow.left, top: shadow.top + skyExtension, width: 154, height: 22,
                 borderRadius: 999, background: "#68874D",
               }} />)}
+              {/* Harvest basket — leftmost slot of the pot row, on the baseline */}
+              <div style={{ position: "absolute", left: 80, top: gardenBaseline - BASKET_VISUAL_H, zIndex: 2 }}>
+                <GardenHarvestBasket
+                  fruits={basketFruits}
+                  selectedPlantIds={selectedFruitPlantIds}
+                  onOpen={() => setBasketOpen((o) => !o)}
+                  onFruitClick={(id) => { const f = fruitById.get(id); if (f) setHistoryFruit(f); }}
+                />
+              </div>
               {filtered.map((plant, i) => {
                 const plantBuds = budsByPlant.get(plant.id) ?? [];
-                const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at).length;
+                const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at && bud.status !== "harvested").length;
                 const plantHeight = POT_H + visibleBudCount * LAYER_H;
                 const plantRow = getGardenPlantRow(i);
                 return <div key={plant.id} data-garden-plant={i} style={{
-                  position: "absolute", left: 80 + i * 256,
+                  position: "absolute", left: 80 + (i + 1) * 256,
                   top: gardenBaseline - plantHeight + plantRow * GARDEN_PLANT_ROW_OFFSET,
                   zIndex: effectiveSelectedIdx === i ? 4 : plantRow + 1,
                 }}>
@@ -438,7 +643,7 @@ export default function PlantsPage() {
                 </div>;
               })}
               <button type="button" onClick={() => openWith()} style={{
-                position: "absolute", left: 80 + filtered.length * 256, top: gardenBaseline - 180,
+                position: "absolute", left: 80 + (filtered.length + 1) * 256, top: gardenBaseline - 180,
                 width: 210, height: 286, padding: "72px 18px 0", textAlign: "center",
                 borderRadius: 18, border: "1px solid var(--border)", background: "rgba(255,255,255,0.72)",
                 cursor: "pointer", fontFamily: "inherit", zIndex: 3,
@@ -450,6 +655,19 @@ export default function PlantsPage() {
             </div>
           </div>
         </div>
+        {basketOpen && (
+          <BasketSidebar
+            fruits={harvestedFruits}
+            plants={orderedPlants}
+            selectedPlantIds={selectedFruitPlantIds}
+            setSelectedPlantIds={setSelectedFruitPlantIds}
+            search={basketSearch}
+            setSearch={setBasketSearch}
+            onClose={() => setBasketOpen(false)}
+            onFruitClick={(f) => setHistoryFruit(f)}
+          />
+        )}
+        </>
       )}
 
       {/* List view */}
@@ -460,6 +678,11 @@ export default function PlantsPage() {
               onClick={() => router.push(`/plants/${p.id}`)} onChat={() => openWith({ kind: "plant", id: p.id })} />
           ))}
         </div>
+      )}
+
+      {/* Fruit history popup — past records for a harvested bud, read-only */}
+      {historyFruit && (
+        <FruitHistoryPopup fruit={historyFruit} onClose={() => setHistoryFruit(null)} />
       )}
     </div>
   );

@@ -30,14 +30,15 @@
 - [x] 삭제: 보관(soft) / 완전삭제(hard), 2단계 확인
 
 ### ✅ 봉우리(Bud)
-- [x] 7가지 상태: seed → bud → flower → fruit → wilting → rot / harvested
+- [x] 상태: bud → flower → fruit → harvested / wilting → rot (씨앗 seed는 migration 004로 제거, `normalizeBudStatus` 읽기 호환)
 - [x] 2가지 타입: concern(고민), schedule(일정)
-- [x] 진행률(0~100%) → 자동 상태 전이 (30%/60%/85% 임계)
+- [x] 진행률(0~100%) → 자동 상태 전이 (60%/85% 임계), 수확은 100%에서만
 - [x] 마감일(deadline) YYYY-MM-DD 저장 + 캘린더 연동
 - [x] detail 필드: 시간·장소 등 구체 정보 (캘린더 이벤트 카드에 표시)
 - [x] 상세 드로어: 메타 + 이력 타임라인 + 빠른 액션 (+20%/수확/포기)
 - [x] 드로어가 채팅 패널 옆으로 이동 (z:45, right: chatWidth 동기화)
 - [x] 수확(harvested) / 포기(rot) 처리
+- [x] **시듦은 성장의 종착점(소생 불가)**: 봉우리/식물이 시들면 성장(진행도 상승·전진 상태전이·수확) 차단, 대화는 계속 가능 (`bud_service` 가드). 시듦→썩음·포기는 허용.
 
 ### ✅ AI 채팅 시스템
 - [x] 자연어 → ReAct 루프(MAX_STEPS=10) → 스킬 자동 호출
@@ -76,21 +77,20 @@
 - [x] AI 일정 제안 (daily briefing 기반)
 - [x] 인접 월 프리페치 (‹/› 클릭 시 즉시 응답)
 
-### ✅ 픽셀아트 정원
-- [x] 식물 스프라이트: 140×240px (곡선 줄기 + 둥근 잎 + 화분)
-- [x] 봉우리 스프라이트 6종: seed / sprout / flower / fruit / wilted / harvested
-- [x] 봉우리 슬롯 6개: 가지 끝 좌표에 봉우리 자동 배치 (center anchor)
-- [x] 하늘 배경 (구름 포함) + 잔디 타일 + 흙 레이어
-- [x] 가로 스크롤 캐러셀 + CSS scroll-snap
-- [x] 화살표 키(←→) 네비게이션 (딜레이 없음, setTimeout 제거)
-- [x] 선택된 식물 강조 (scale 1.08, opacity 1.0)
-- [x] 봉우리 hover tooltip (봉우리 이름)
-- [x] 정원뷰 ↔ 리스트뷰 토글
-- [x] 정원뷰: 카드 내부 sky 배경, 하단 잔디/흙 absolute 배치
+### ✅ 벡터 픽셀아트 정원 (`components/plants/GardenPlantVisual.tsx`)
+- [x] 식물을 `Pixel` 사각형으로 그리는 벡터 그래픽 (줄기/잎/봉우리/꽃/열매/시듦/화분)
+- [x] 줌(0.5~2x, Ctrl+휠)·양방향 스크롤 보드, 화살표 키(←→) 네비게이션
+- [x] 봉우리 hover tooltip, 정원뷰 ↔ 리스트뷰 토글
+- [x] 우측 상단 **AI 대화 버튼** (다른 페이지처럼 전역 채팅 열기)
+- [x] **수확 바구니** (`GardenHarvestBasket`): 화분 리스트 가장 왼쪽 슬롯의 줄무늬 짜임 바구니(벡터). 모든 식물의 수확 열매를 화분에서 빼서 바구니에 실제로 쌓아 표시(식물 이름 라벨)
+  - 클릭 → 우측 사이드바(검색 + 식물 라벨 다중선택 필터, 비선택 식물 열매 불투명)
+  - 열매 클릭 → 과거 대화 기록 팝업(`getHistory("bud")`, 추가 대화 없음)
+- [x] **시듦 = 갈색**: `--st-wilting`/픽셀 시듦 색 갈색, 식물 전체 시듦 시 화분째 갈색 필터
 
 ### ✅ 알림
 - [x] 시들 알림: wilting_days(기본 7일) 이상 활동 없을 때
 - [x] 썩음 알림: 시든 후 rot_disappear_days(기본 14일) 경과
+- [x] **식물 전체 시듦**: 봉우리 N개(기본 2) 이상 시들고 M일(기본 3) 경과 시 식물 `status="wilting"` + `plant_wilting` 알림 (`plant_wilt_bud_threshold`/`plant_wilt_days`, 사용자 garden_rules로 조절 가능)
 - [x] 마감 임박: deadline_warn_days(기본 3일) 이내 마감
 - [x] 사이드바 배지: 30초 폴링으로 안 읽은 수 표시
 - [x] 팝오버: 읽음 / 모두읽음 처리
@@ -105,8 +105,8 @@
 ### ✅ 설정
 - [x] 5탭: 계정 / AI / 정원 규칙 / 테마 / 정보
 - [x] Gemini API 키: Fernet 암호화 저장 + 마스킹 표시
-- [x] 응답 톤: 상담사 / 비서 / 친구
-- [x] 정원 규칙: wilting_days / rot_disappear_days / deadline_warn_days (NumberStepper)
+- [x] 응답 톤: 상담사 / 비서 / 친구 — **프롬프트에 실제 반영** (prompt_builder `_TONE_GUIDE` → chat.py → orchestrator)
+- [x] 정원 규칙: wilting_days / rot_disappear_days / deadline_warn_days (NumberStepper) + 식물 시듦 임계(plant_wilt_bud_threshold / plant_wilt_days, garden_rules)
 - [x] 테마 시각적 카드 프리뷰
 
 ### ✅ 성능 최적화

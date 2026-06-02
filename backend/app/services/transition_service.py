@@ -23,6 +23,8 @@ class TransitionService:
         rot_disappear_days: int = rules.get("rot_disappear_days", rs.get("default_rot_disappear_days", 14))
         deadline_warn_days: int = rules.get("deadline_warn_days", rs.get("default_deadline_warn_days", 3))
         auto_transition: bool = rules.get("auto_transition", rs.get("default_auto_transition", True))
+        plant_wilt_threshold: int = rules.get("plant_wilt_bud_threshold", rs.get("default_plant_wilt_bud_threshold", 2))
+        plant_wilt_days: int = rules.get("plant_wilt_days", rs.get("default_plant_wilt_days", 3))
 
         bud_repo = BudRepository(db)
         notif_repo = NotificationRepository(db)
@@ -59,6 +61,44 @@ class TransitionService:
                     })
                     bud_repo.add_history(bud.id, "wilting", "rot", "자동: 소멸")
                     notif_repo.push(user_id, "bud_rot", {"bud_id": bud.id, "title": bud.title})
+
+            # ── Plant-level wilting ───────────────────────────────────────────
+            # A plant wilts once >= N of its buds are wilting AND M days have
+            # passed since that Nth bud started wilting (each bud's wilt time is
+            # recorded in last_progress_at when it transitions to "wilting").
+            if plant_wilt_threshold > 0:
+                plant_wilt_cutoff = (now - timedelta(days=plant_wilt_days)).isoformat()
+                plants_res = (
+                    db.table("plants")
+                    .select("id,name,status")
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+                for plant in (plants_res.data or []):
+                    if plant.get("status") == "wilting":
+                        continue  # already wilted
+                    p_wilting = bud_repo.list(
+                        user_id, plant_id=plant["id"], statuses=["wilting"], limit=200
+                    )
+                    if len(p_wilting) < plant_wilt_threshold:
+                        continue
+                    wilt_times = sorted(
+                        (
+                            (getattr(b, "last_progress_at", None) or getattr(b, "created_at", None) or now.isoformat())
+                            if isinstance(getattr(b, "last_progress_at", None) or getattr(b, "created_at", None), str)
+                            else now.isoformat()
+                        )
+                        for b in p_wilting
+                    )
+                    threshold_reached_at = wilt_times[plant_wilt_threshold - 1]
+                    if threshold_reached_at <= plant_wilt_cutoff:
+                        db.table("plants").update({"status": "wilting"}).eq(
+                            "id", plant["id"]
+                        ).eq("user_id", user_id).execute()
+                        notif_repo.push(user_id, "plant_wilting", {
+                            "plant_id": plant["id"],
+                            "name": plant.get("name", ""),
+                        })
 
         today_str = today.isoformat()
         # Keep seed in scans until migration 004 has promoted historical rows.

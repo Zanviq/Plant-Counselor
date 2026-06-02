@@ -28,14 +28,18 @@
 
 ### 정원 (`app/(app)/plants/page.tsx`)
 
-- **컴포넌트**: `GardenPlant`(픽셀아트), `PlantCard`(리스트), `StatusBar`, `ViewToggle`.
-- **상태**: `view`(garden/list), `query`(검색), `selectedIdx`(캐러셀 위치).
-- **`StatusBar`**: 봉우리 상태 분포를 7색 stack bar로 시각화.
-- **`dominantStatus()`** (`lib/status.ts`): 가장 "성장한" 상태를 카드의 상태 뱃지에 표시.
-- **정원 뷰 인터랙션**:
-  - 화살표 키(←→) → `navigate()` → `setSelectedIdx()` → `useEffect`로 스크롤 (setTimeout 없음)
-  - 선택 식물 클릭 → `/plants/[id]` 이동, 비선택 클릭 → 해당 식물 선택
-  - Enter → 선택된 식물 상세 이동
+- **컴포넌트**: `GardenPlant`(벡터 픽셀아트, `components/plants/GardenPlantVisual.tsx`), `PlantCard`(리스트), `StatusBar`, `ViewToggle`, `GardenZoomControl`.
+- **상태**: `view`(garden/list), `query`(검색), `selectedIdx`(보드 위치), `gardenZoom`, 그리고 수확 바구니용 `basketOpen` / `selectedFruitPlantIds` / `basketSearch` / `historyFruit`.
+- **`GardenPlantVisual`**: 화분·줄기·잎·봉우리(꽃/열매/시듦)를 `Pixel` 사각형으로 그리는 벡터 그래픽. 줌(0.5~2x)·스크롤 가능한 보드 위에 배치.
+- **`dominantStatus()`** (`lib/status.ts`): 가장 "성장한" 상태를 카드의 상태 뱃지에 표시. 단계: 봉우리→꽃→열매→수확 / 시듦→썩음 (씨앗 단계는 migration 004로 제거, `normalizeBudStatus`로 읽기 호환).
+- **우측 상단 AI 대화 버튼**: 다른 페이지처럼 `openWith()`로 전역 채팅 열기 (리스트 뷰는 툴바 우측).
+- **수확 바구니** (`GardenHarvestBasket`):
+  - 화분 리스트의 **가장 왼쪽 슬롯**에 배치된 줄무늬 짜임 바구니(벡터). 화분과 같은 baseline에 정렬.
+  - 모든 식물의 **수확(harvested) 열매를 화분에서 빼서** 바구니 입구에 실제로 쌓아 표시(앞/뒤 2열, `+N` 오버플로 배지). 각 열매에 원래 식물 이름 라벨.
+  - 바구니 클릭 → 우측 사이드바(`BasketSidebar`): 검색 + 식물 라벨 칩(다중 선택) → 선택 식물 열매만 목록 표시, 바구니 속 다른 식물 열매는 불투명 처리.
+  - 열매 클릭(바구니/사이드바) → `FruitHistoryPopup`: 그 봉우리 과거 대화 기록(`getHistory("bud", id)`) 모달, **추가 대화 입력 없음**.
+- **시듦 = 갈색**: `--st-wilting`/픽셀 시듦 색을 갈색으로, 식물 전체 시듦(`plant.status==="wilting"`) 시 화분째 갈색 필터 + 라벨 "시듦".
+- **정원 뷰 인터랙션**: 화살표 키(←→) 이동, 선택 식물 클릭 → `/plants/[id]`, 비선택 클릭 → 선택, Enter → 상세 이동. Ctrl+휠 줌.
 - **`enabled: !!accessToken`** 가드 적용.
 
 ### 식물 상세 (`app/(app)/plants/[id]/page.tsx`)

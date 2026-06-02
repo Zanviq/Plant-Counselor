@@ -12,6 +12,15 @@ _PROGRESS_TRANSITIONS: list[tuple[int, str]] = [
     (60, "flower"),
 ]
 
+# Forward (growth) statuses. Once a bud or its plant has wilted it can no longer
+# reach any of these — wilting is terminal for growth (chat still allowed).
+_GROWTH_STATUSES = {"bud", "flower", "fruit", "harvested"}
+_WILTED_STATUSES = {"wilting", "rot"}
+
+_NO_REVIVAL_MSG = (
+    "시든 봉우리는 더 이상 성장할 수 없어요. 대화는 가능하지만 소생은 불가능합니다."
+)
+
 
 class BudService:
     def __init__(self, db: Client) -> None:
@@ -46,10 +55,22 @@ class BudService:
         return self._repo.list(user_id=user_id, plant_id=plant_id, statuses=statuses,
                                bud_type=bud_type, wilting_only=wilting_only)
 
+    def _plant_wilted(self, user_id: str, plant_id: str | None) -> bool:
+        if not plant_id:
+            return False
+        res = (self.db.table("plants").select("status")
+               .eq("id", plant_id).eq("user_id", user_id).limit(1).execute())
+        return bool(res.data) and res.data[0].get("status") == "wilting"
+
     def update_status(self, user_id: str, bud_id: str, to_status: str, reason: str = "") -> SimpleNamespace:
         if to_status == "seed":
             raise ValueError("씨앗 단계는 더 이상 사용하지 않습니다.")
         bud = self.get(user_id, bud_id)
+        # No revival: a wilted/rotten bud (or any bud on a wilted plant) cannot grow.
+        if to_status in _GROWTH_STATUSES and (
+            bud.status in _WILTED_STATUSES or self._plant_wilted(user_id, getattr(bud, "plant_id", None))
+        ):
+            raise ValueError(_NO_REVIVAL_MSG)
         if to_status == "harvested" and bud.progress < 100:
             raise ValueError("수확은 진행률 100%를 달성한 봉우리만 가능합니다.")
         from_status = bud.status
@@ -64,6 +85,11 @@ class BudService:
                         auto_transition: bool = True, note: str = "") -> SimpleNamespace:
         bud = self.get(user_id, bud_id)
         progress = max(0, min(100, progress))
+        # No revival: cannot raise progress on a wilted/rotten bud or a wilted plant.
+        if progress > getattr(bud, "progress", 0) and (
+            bud.status in _WILTED_STATUSES or self._plant_wilted(user_id, getattr(bud, "plant_id", None))
+        ):
+            raise ValueError(_NO_REVIVAL_MSG)
         fields: dict = {"progress": progress, "last_progress_at": rs.now().isoformat()}
 
         if auto_transition:

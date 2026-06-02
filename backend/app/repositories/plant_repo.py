@@ -56,7 +56,9 @@ class PlantRepository:
     ) -> list[SimpleNamespace]:
         q = self.db.table("plants").select("*").eq("user_id", user_id).neq("status", "archived")
         if not include_dormant:
-            q = q.eq("status", "active")
+            # Keep wilted plants visible (they still render, in brown) — only hide
+            # dormant/archived plants from the default garden view.
+            q = q.in_("status", ["active", "wilting"])
         if sort == "activity":
             q = q.order("last_activity_at", desc=True, nullsfirst=False).order("created_at", desc=True)
         else:

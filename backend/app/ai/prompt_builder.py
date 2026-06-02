@@ -83,7 +83,8 @@ class PromptBuilder:
 ## 핵심 모델
 - 식물(Plant): 분야·카테고리 (예: 취업, 동아리, 건강, 공부, 일상)
 - 봉우리(Bud): 식물에 속한 구체적 고민/일정/할 일
-- 상태: 씨앗→새싹→꽃→열매→수확 / 시들음→썩음
+- 상태: 봉우리→꽃→열매→수확 / 시들음→썩음
+- 수확은 진행률 100%를 달성한 봉우리만 가능
 
 ## 행동 원칙
 
@@ -181,6 +182,7 @@ update_bud_progress / update_bud_status / harvest_bud / abandon_bud / set_deadli
 - 정보 조회: list_plants, list_buds, get_garden_briefing, get_statistics
 - 진행 업데이트: update_bud_progress, update_bud_status
 - 완료: harvest_bud / 포기: abandon_bud / 마감일: set_deadline
+- 수확 요청은 봉우리 진행률이 100%일 때만 harvest_bud로 처리한다.
 
 ## 세션별 권한 (매우 중요)
 각 대화 세션은 다룰 수 있는 범위가 다르다. 권한을 벗어난 수정·삭제는 시스템이 자동

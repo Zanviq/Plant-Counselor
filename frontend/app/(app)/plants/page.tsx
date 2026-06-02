@@ -7,7 +7,7 @@ import { listPlants, Plant } from "@/lib/api/plants";
 import { listBuds, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
-import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, BudStatus } from "@/lib/status";
+import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, normalizeBudStatus, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
 import { GardenPlantVisual, LAYER_H, POT_H } from "@/components/plants/GardenPlantVisual";
@@ -22,17 +22,22 @@ const FOREGROUND_GRASS_H = 120;
 const GARDEN_ZOOM_MIN = 0.5;
 const GARDEN_ZOOM_MAX = 2;
 const GARDEN_ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const GARDEN_PLANT_ROW_OFFSET = 24;
 
 function clampGardenZoom(zoom: number) {
   return Math.min(GARDEN_ZOOM_MAX, Math.max(GARDEN_ZOOM_MIN, zoom));
 }
 
+function getGardenPlantRow(index: number) {
+  return index % 2;
+}
+
 // ── Status bar (list view) ─────────────────────────────────
 
-const STATUS_ORDER: BudStatus[] = ["seed","bud","flower","fruit","wilting","harvested","rot"];
+const STATUS_ORDER: BudStatus[] = ["bud","flower","fruit","wilting","harvested","rot"];
 
 function StatusBar({ buds }: { buds: Bud[] }) {
-  const counts = STATUS_ORDER.map(s => buds.filter(b => b.status === s).length);
+  const counts = STATUS_ORDER.map(s => buds.filter(b => normalizeBudStatus(b.status) === s).length);
   const total = counts.reduce((a, b) => a + b, 0);
   if (!total) return <div className="progress-track" style={{ background: "var(--bg-muted)" }} />;
   return (
@@ -415,8 +420,11 @@ export default function PlantsPage() {
                 const plantBuds = budsByPlant.get(plant.id) ?? [];
                 const visibleBudCount = plantBuds.filter((bud) => !bud.disappeared_at).length;
                 const plantHeight = POT_H + visibleBudCount * LAYER_H;
+                const plantRow = getGardenPlantRow(i);
                 return <div key={plant.id} data-garden-plant={i} style={{
-                  position: "absolute", left: 80 + i * 256, top: gardenBaseline - plantHeight + (i % 2) * 10,
+                  position: "absolute", left: 80 + i * 256,
+                  top: gardenBaseline - plantHeight + plantRow * GARDEN_PLANT_ROW_OFFSET,
+                  zIndex: effectiveSelectedIdx === i ? 4 : plantRow + 1,
                 }}>
                   <GardenPlant
                     plant={plant}
@@ -433,7 +441,7 @@ export default function PlantsPage() {
                 position: "absolute", left: 80 + filtered.length * 256, top: gardenBaseline - 180,
                 width: 210, height: 286, padding: "72px 18px 0", textAlign: "center",
                 borderRadius: 18, border: "1px solid var(--border)", background: "rgba(255,255,255,0.72)",
-                cursor: "pointer", fontFamily: "inherit",
+                cursor: "pointer", fontFamily: "inherit", zIndex: 3,
               }}>
                 <div style={{ color: "var(--accent)", fontSize: 34, lineHeight: 1 }}>+</div>
                 <strong style={{ display: "block", marginTop: 18, color: "var(--fg)", fontSize: 15 }}>{plants.length === 0 ? "첫 식물 심기" : "새 식물 자리"}</strong>

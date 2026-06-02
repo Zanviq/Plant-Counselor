@@ -32,6 +32,7 @@ class TransitionService:
 
         if auto_transition:
             wilting_cutoff = (now - timedelta(days=wilting_days)).isoformat()
+            # Keep seed in scans until migration 004 has promoted historical rows.
             active_buds = bud_repo.list(
                 user_id, statuses=["seed", "bud", "flower", "fruit"], limit=200
             )
@@ -60,6 +61,7 @@ class TransitionService:
                     notif_repo.push(user_id, "bud_rot", {"bud_id": bud.id, "title": bud.title})
 
         today_str = today.isoformat()
+        # Keep seed in scans until migration 004 has promoted historical rows.
         deadline_buds = bud_repo.list(
             user_id,
             statuses=["seed", "bud", "flower", "fruit", "wilting"],

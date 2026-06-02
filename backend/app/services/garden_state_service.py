@@ -23,6 +23,7 @@ class GardenStateService:
 
         today = rs.today()
         month_start = today.replace(day=1).isoformat()
+        # Keep seed in aggregates until migration 004 has promoted historical rows.
         active = {"seed", "bud", "flower", "fruit", "wilting"}
 
         active_concerns = sum(1 for b in buds if b.type == "concern" and b.status in active)
@@ -66,6 +67,7 @@ class GardenStateService:
 
         return {
             "total": len(buds),
+            # Keep seed in aggregates until migration 004 has promoted historical rows.
             "active": sum(1 for b in buds if b.status in {"seed", "bud", "flower", "fruit"}),
             "harvested": sum(1 for b in buds if b.status == "harvested"),
             "wilting": sum(1 for b in buds if b.status == "wilting"),
@@ -83,4 +85,3 @@ class GardenStateService:
             f"이번 달 {summary.get('harvested_this_month', 0)}개를 수확했습니다. "
             f"주요 분야: {plant_names}."
         )
-

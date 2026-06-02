@@ -10,7 +10,6 @@ from app.repositories.bud_repo import BudRepository
 _PROGRESS_TRANSITIONS: list[tuple[int, str]] = [
     (85, "fruit"),
     (60, "flower"),
-    (30, "bud"),
 ]
 
 
@@ -22,7 +21,7 @@ class BudService:
     def create(self, user_id: str, plant_id: str, title: str, type: str = "concern",
                detail: str = "", deadline: date | None = None) -> SimpleNamespace:
         bud = self._repo.create(user_id, plant_id, title, type, detail, deadline)
-        self._repo.add_history(bud.id, "", "seed", "생성")
+        self._repo.add_history(bud.id, "", "bud", "생성")
         return bud
 
     def get(self, user_id: str, bud_id: str) -> SimpleNamespace:
@@ -48,7 +47,11 @@ class BudService:
                                bud_type=bud_type, wilting_only=wilting_only)
 
     def update_status(self, user_id: str, bud_id: str, to_status: str, reason: str = "") -> SimpleNamespace:
+        if to_status == "seed":
+            raise ValueError("씨앗 단계는 더 이상 사용하지 않습니다.")
         bud = self.get(user_id, bud_id)
+        if to_status == "harvested" and bud.progress < 100:
+            raise ValueError("수확은 진행률 100%를 달성한 봉우리만 가능합니다.")
         from_status = bud.status
         updated = self._repo.update(user_id, bud_id, {
             "status": to_status,

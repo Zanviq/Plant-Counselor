@@ -19,7 +19,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 // ── Shared ────────────────────────────────────────────────────────────────────
 
 const BUD_STATUS_COLOR: Record<string, string> = {
-  seed: "#60a5fa", bud: "#34d399", flower: "#f59e0b",
+  seed: "#34d399", bud: "#34d399", flower: "#f59e0b",
   fruit: "#a78bfa", harvested: "#6b7280", wilting: "#fb923c", rot: "#f87171",
 };
 

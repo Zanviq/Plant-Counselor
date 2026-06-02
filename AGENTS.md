@@ -22,14 +22,24 @@ Plant Counselor는 사용자의 고민, 목표, 일정을 식물의 생애주기
 봉우리는 다음 상태를 가진다.
 
 ```text
-seed -> bud -> flower -> fruit -> harvested
-                    \
-                     -> wilting -> rot
+bud -> flower -> fruit -> harvested
+               \
+                -> wilting -> rot
 ```
 
-진행률을 변경하면 기본적으로 `30% -> bud`, `60% -> flower`, `85% -> fruit`로 자동
-전이한다. 일정 기간 활동이 없으면 APScheduler가 `wilting`, 이후 `rot` 상태로
+신규 봉우리는 `bud`에서 시작한다. 진행률을 변경하면 기본적으로 `60% -> flower`,
+`85% -> fruit`로 자동 전이한다. 일정 기간 활동이 없으면 APScheduler가 `wilting`, 이후 `rot` 상태로
 전환한다.
+
+수확(`harvested`)은 진행률 `100%`를 달성한 봉우리만 가능하다.
+`BudService.update_status()`가 공통 도메인 규칙으로 차단하므로 `harvest_bud`와
+`update_bud_status` AI 스킬도 이를 우회할 수 없다. 식물 상세 drawer의 수확 버튼도
+`100%` 미만이면 비활성화한다.
+
+`backend/migrations/004_remove_seed_bud_status.sql`은 2026-06-02 Supabase에 적용했다.
+과거 `seed` 행 26개는 `bud`로 승격했고 DB 기본값도 `bud`로 바꿨다. 일부 코드의
+`seed` 참조는 migration 미적용 환경을 위한 읽기 호환과 집계 방어 코드일 뿐이며,
+신규 기능에서 공식 상태로 다시 노출하지 않는다.
 
 ---
 
@@ -142,6 +152,7 @@ Plant-Counselor/
 │   ├── migrations/001_calendar_events.sql
 │   ├── migrations/002_ai_logs.sql
 │   ├── migrations/003_calendar_event_color.sql
+│   ├── migrations/004_remove_seed_bud_status.sql
 │   ├── requirements.txt
 │   ├── poetry.lock
 │   ├── pyproject.toml
@@ -655,7 +666,7 @@ poetry run python -m compileall app
 2026-06-01 로그인 후 Codex 인앱 브라우저로 스모크 테스트했다. `/home`, `/plants`,
 `/calendar`, `/history`, `/settings`, `/plants/{id}`와 공통 AI 패널이 정상
 렌더링됐고 확인 범위에서 브라우저 콘솔 warning 또는 error는 없었다. 테스트 계정에는
-`테스트` 식물 1개와 씨앗 단계 일정 봉우리 1개가 있다. 홈 통계는 진행 중 일정 1개로
+`테스트` 식물 1개와 일정 봉우리 1개가 있다. 홈 통계는 진행 중 일정 1개로
 표시하지만 캘린더의 2026년 6월 배치 일정은 0개다. 마감일 없는 일정 봉우리의 의도된
 처리인지 캘린더 병합 누락인지 관련 변경 시 확인한다.
 
@@ -708,6 +719,7 @@ __pycache__/**
 backend/app/services/bud_service.py
 backend/app/services/transition_service.py
 backend/app/repositories/bud_repo.py
+backend/migrations/004_remove_seed_bud_status.sql
 frontend/lib/status.ts
 frontend/app/(app)/plants/page.tsx
 frontend/app/(app)/plants/[id]/page.tsx
@@ -951,33 +963,42 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
   사라진다. 고정 최대 개수 제한을 두지 않고 레이어 수에 따라 보드 높이를 늘린다.
 - 정원 성장 레이어의 상태별 픽셀 표현은
   `frontend/components/plants/GardenPlantVisual.tsx`의 `GrowthLayer`가 담당한다.
-  `seed`, `bud`, `flower`, `fruit`, `wilting`, `rot`, `harvested` 상태를 같은 줄기
+  `bud`, `flower`, `fruit`, `wilting`, `rot`, `harvested` 상태를 같은 줄기
   규칙 안에서 표현하며, 변경 시 Figma `05` 에셋 가이드와 함께 확인한다. 실제
   봉우리 레이어 위에 마우스를 올리면 해당 봉우리 이름을 즉시 툴팁으로 표시한다.
   봉우리 레이어를 클릭하거나 키보드로 선택하면 `/plants/{plantId}?bud={budId}`로
   이동하고 식물 상세 화면에서 해당 봉우리 drawer를 즉시 연다. 랜딩 `#preview`는
   같은 렌더러를 사용하지만 선택 콜백을 넘기지 않아 예시 식물이 링크처럼 동작하지
   않는다.
-- 정원에서 `seed`와 `bud`는 모두 Figma `05 Plant Pixel Assets`의 `02 봉우리`
+- 신규 봉우리는 `bud` 상태로 시작하고 Figma `05 Plant Pixel Assets`의 `02 봉우리`
   no-pot extension과 같은 닫힌 봉우리 픽셀을 사용한다. `harvested`는 별도 열매나
   수확 마커를 남기지 않고 줄기와 잎만 있는 새싹 형태로 표시한다. 봉우리가 하나도
   없는 식물은 대체 새싹 레이어를 만들지 않고 화분만 표시한다. `/plants` 배치 높이도
   실제 성장 레이어 수를 사용해 화분 바닥 기준선을 유지한다.
 - 정원 성장 레이어는 Figma `05 Plant Pixel Assets`의 no-pot extension 좌표를
-  상태별로 그대로 따른다. 잎 방향을 레이어별로 임의 반전하지 않는다. `seed`, `bud`는
-  진한 봉우리 줄기, `wilting`은 갈변한 줄기와 잎 및 상단 굽은 조각, `rot`는 일반
-  초록 줄기와 잎 위의 상한 열매를 사용한다. 잔디
-  덩어리와 바닥 그림자는 보드 폭에 맞춰 끝까지 반복 생성한다. 보드 오른쪽의
+  상태별로 그대로 따른다. Figma 합성 식물처럼 각 봉우리 성장 레이어의 방향은 식물
+  ID와 무관하게 해당 봉우리 ID 해시만으로 안정적으로 섞는다. 자연스러운 무작위
+  배치를 유지하되 같은 방향은 최대 3개까지만 연속되게 보정한다. 아래쪽 성장 레이어가
+  위쪽 레이어보다 앞에 그려져 잎, 꽃,
+  열매가 자연스럽게 겹치도록 z-index를 역순으로 쌓는다. `bud` 줄기도 다른 활성
+  상태와 같은 연한 초록색을 사용하고, `wilting`은 갈변한 줄기와 잎 및 상단 굽은
+  조각, `rot`는 일반 초록 줄기와 잎 위의 상한 열매를 사용한다. 잔디 덩어리와 바닥
+  그림자는 보드 폭에 맞춰 끝까지 반복 생성한다. 보드 오른쪽의
   `새 식물 자리` 버튼은 global 스코프로 AI 채팅 패널을 열어 식물 추가를 요청할 수
   있게 한다.
+- 봉우리 hover는 성장 레이어 오른쪽 고정 위치에서 이름 툴팁의 투명도만 바꾼다.
+  hover 중에도 성장 레이어 z-index와 툴팁 위치를 바꾸지 않고, 툴팁이 위쪽 식물을
+  덮지 않아 기존 겹침 순서를 시각적으로도 유지한다.
 - 정원 식물은 `created_at` 오름차순으로 왼쪽부터 배치한다. 새 식물은 항상 기존
   식물 오른쪽, `새 식물 자리` 버튼 바로 앞에 추가된다. 보드 폭은 마지막 버튼과
   오른쪽 여백까지 포함해 계산하며 식물 수가 늘어나면 배경과 반복 장식도 함께
   오른쪽으로 확장한다.
 - 정원 화면은 Figma의 `Infinite grass field / 2D scroll content`를 기준으로
   일반 식물 기준선을 `696px`로 두어 새 식물 자리의 `y=516` 위치를 맞춘다. 식물별
-  세로 편차는 `0px`, `10px` 두 단계만 사용해 화분이 잔디 경계 밖에서 떠 보이지
-  않게 한다. 선택 식물 이동 시 바닥 아래에 약 `240px`의 화면 여백을 확보한다.
+  세로 편차는 Figma 식물 열처럼 `0px`, `24px` 두 단계만 사용해 화분이 잔디 경계 밖에서 떠 보이지
+  않게 한다. 두 행이 겹치는 부분은 지면 깊이에 맞춰 `0px` 뒤쪽 행, `10px` 앞쪽
+  행 순서로 z-index를 쌓고 선택 식물만 최상단으로 올린다. 선택 식물 이동 시 바닥
+  아래에 약 `240px`의 화면 여백을 확보한다.
   Figma의 `1580px` 고정 필드는 실제 브라우저에서 식물 아래 잔디가 과도하게 길어져
   기본 최소 높이를 `1160px`로 조정했다. 봉우리가 길어지면 보드 높이는 동적으로
   확장한다. 전경 잔디는 하단 `120px` 띠만 유지하고, 식물별 추가 그림자는 초록

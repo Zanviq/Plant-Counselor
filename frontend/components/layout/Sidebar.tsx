@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -129,6 +130,41 @@ function IconButton({
   );
 }
 
+function ProfileAvatar({ avatarUrl, initial, label }: {
+  avatarUrl?: string | null;
+  initial: string;
+  label: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div
+      aria-label={label}
+      style={{
+        width: 30, height: 30, borderRadius: "50%", marginTop: 4,
+        background: "var(--accent)", color: "var(--accent-contrast)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 12, fontWeight: 700, position: "relative", overflow: "visible",
+      }}
+      className="sidebar-icon-wrap"
+    >
+      {avatarUrl && !failed ? (
+        <Image
+          src={avatarUrl}
+          alt=""
+          width={30}
+          height={30}
+          unoptimized
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+        />
+      ) : initial}
+      <span className="sidebar-tip">{label}</span>
+    </div>
+  );
+}
+
 // ── component ───────────────────────────────────────────────
 
 export default function Sidebar() {
@@ -226,19 +262,12 @@ export default function Sidebar() {
         </IconButton>
         <NavLink href="/settings" label="설정" active={isActive("/settings")}><SettingsIcon /></NavLink>
 
-        <div
-          aria-label={user?.nickname ?? "프로필"}
-          style={{
-            width: 30, height: 30, borderRadius: "50%", marginTop: 4,
-            background: "var(--accent)", color: "var(--accent-contrast)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 12, fontWeight: 700, position: "relative",
-          }}
-          className="sidebar-icon-wrap"
-        >
-          {initial}
-          <span className="sidebar-tip">{user?.nickname ?? "프로필"}</span>
-        </div>
+        <ProfileAvatar
+          key={user?.avatar_url ?? "fallback"}
+          avatarUrl={user?.avatar_url}
+          initial={initial}
+          label={user?.nickname ?? "프로필"}
+        />
       </div>
 
       {notifOpen && <NotificationsPopover onClose={() => setNotifOpen(false)} />}

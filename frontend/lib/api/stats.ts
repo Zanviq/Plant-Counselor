@@ -17,6 +17,7 @@ export interface CalEvent {
   detail: string;
   plant_name: string;
   plant_id: string | null;
+  color?: CalendarEventColor;
   /** "bud" = derived from a bud deadline · "event" = standalone calendar event */
   source: "bud" | "event";
 }
@@ -38,18 +39,22 @@ export interface CalendarEvent {
   detail: string;
   date: string;
   plant_id: string | null;
+  color: CalendarEventColor;
 }
+
+export type CalendarEventColor = "olive" | "blue" | "yellow" | "red" | "pink" | "purple";
 
 export const createCalendarEvent = (body: {
   title: string;
   date: string;
   plant_id?: string | null;
   detail?: string;
+  color?: CalendarEventColor;
 }) => apiPost<CalendarEvent>("/calendar/events", body);
 
 export const updateCalendarEvent = (
   id: string,
-  body: { title?: string; date?: string; plant_id?: string | null; detail?: string }
+  body: { title?: string; date?: string; plant_id?: string | null; detail?: string; color?: CalendarEventColor }
 ) => apiPatch<CalendarEvent>(`/calendar/events/${id}`, body);
 
 export const deleteCalendarEvent = (id: string) =>

@@ -48,6 +48,7 @@ class ListCalendarEventsSkill(SkillBase):
                 "date": str(e.event_date)[:10],
                 "detail": getattr(e, "detail", "") or "",
                 "plant_name": plant_names.get(getattr(e, "plant_id", None), ""),
+                "color": getattr(e, "color", "olive"),
             }
             for e in events
         ]

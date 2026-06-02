@@ -247,6 +247,24 @@ a { color: inherit; text-decoration: none; }
 .btn-sm { height: 26px; padding: 0 10px; font-size: 12px; border-radius: var(--r-sm); }
 .btn-lg { height: 38px; padding: 0 16px; font-size: 14px; border-radius: var(--r-md); }
 
+/* Garden bud tooltip */
+.garden-bud-layer:hover { z-index: 100 !important; }
+.garden-bud-tooltip {
+  position: absolute; left: 50%; top: -34px; z-index: 10;
+  max-width: 180px; padding: 5px 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 1px solid rgba(61, 74, 42, 0.18); border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.96); box-shadow: var(--shadow-sm);
+  color: #3D4A2A; font-size: 12px; font-weight: 600; line-height: 1.2;
+  pointer-events: none; opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.garden-bud-layer:hover .garden-bud-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 /* Input */
 .input, .textarea {
   width: 100%; padding: 0 12px; height: 36px;

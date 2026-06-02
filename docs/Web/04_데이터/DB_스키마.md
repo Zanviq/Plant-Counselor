@@ -55,8 +55,10 @@ profiles
 
 ## 마이그레이션
 
-현재 저장소에는 독립 일정용 `backend/migrations/001_calendar_events.sql`이 있다.
-스키마 변경은 Supabase에 적용할 SQL과 코드 변경을 함께 관리한다.
+현재 저장소에는 독립 일정용 `backend/migrations/001_calendar_events.sql`과 독립 일정
+색상용 `backend/migrations/003_calendar_event_color.sql`이 있다. `calendar_events.color`
+에는 `olive`, `blue`, `yellow`, `red`, `pink`, `purple`만 저장한다. 스키마 변경은
+Supabase에 적용할 SQL과 코드 변경을 함께 관리한다.
 
 ## 삭제
 

@@ -13,13 +13,13 @@ import { listPlants } from "@/lib/api/plants";
 import { listBuds } from "@/lib/api/buds";
 import { getSummary, getBriefing } from "@/lib/api/stats";
 import { QK } from "@/lib/queryKeys";
-import type { UserProfile } from "@/lib/store/authStore";
+import { withAuthMetadata, type UserProfile } from "@/lib/store/authStore";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const qc = useQueryClient();
-  const { accessToken, user, setSession, clearSession } = useAuthStore();
+  const { setSession, clearSession } = useAuthStore();
   const { open, openWith, chatWidth, setScope } = useChatStore();
   const initialized = useRef(false);
 
@@ -81,7 +81,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         // Bug B fix: always refresh profile on SIGNED_IN so name/email are
         // up-to-date. On TOKEN_REFRESHED / INITIAL_SESSION use cached value.
         const cachedUser = useAuthStore.getState().user;
-        if (cachedUser && event !== "SIGNED_IN") return;
+        if (cachedUser && event !== "SIGNED_IN") {
+          setSession(token, withAuthMetadata(cachedUser, session.user.user_metadata));
+          return;
+        }
 
         const meRes = await apiGet<UserProfile>("/me");
         if (!meRes.ok) {
@@ -93,7 +96,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
           return;
         }
-        setSession(token, meRes.data);
+        setSession(token, withAuthMetadata(meRes.data, session.user.user_metadata));
 
         // Admin users are redirected to the admin panel immediately after login.
         if (meRes.data.role === "admin" && event === "SIGNED_IN") {

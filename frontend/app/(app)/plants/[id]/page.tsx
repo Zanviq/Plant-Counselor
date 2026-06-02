@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
@@ -374,6 +374,7 @@ type Filter = "all" | "active" | "done";
 export default function PlantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
   const { openWith, scope } = useChatStore();
   const { accessToken } = useAuthStore();
@@ -394,7 +395,7 @@ export default function PlantDetailPage() {
       if (curId && curId !== id) router.push(`/plants/${curId}`);
     }
   }, [scope.kind, scope.id, id, router]);
-  const [selectedBudId, setSelectedBudId] = useState<string | null>(null);
+  const [selectedBudId, setSelectedBudId] = useState<string | null>(() => searchParams.get("bud"));
   const [filter, setFilter] = useState<Filter>("all");
   const [confirming, setConfirming] = useState(false);
 
@@ -540,7 +541,13 @@ export default function PlantDetailPage() {
       )}
 
       {selectedBudId && (
-        <BudDetailDrawer budId={selectedBudId} onClose={() => setSelectedBudId(null)} />
+        <BudDetailDrawer
+          budId={selectedBudId}
+          onClose={() => {
+            setSelectedBudId(null);
+            if (searchParams.has("bud")) router.replace(`/plants/${id}`, { scroll: false });
+          }}
+        />
       )}
     </div>
   );

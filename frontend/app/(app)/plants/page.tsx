@@ -9,6 +9,7 @@ import { getHistory, ConvMessage } from "@/lib/api/conversations";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { MarkdownText } from "@/lib/markdown";
+import { AiChatButton } from "@/components/chat/AiChatButton";
 import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, normalizeBudStatus, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
@@ -532,16 +533,7 @@ export default function PlantsPage() {
 
       {/* Top-right AI chat button (garden view, like other pages) */}
       {view === "garden" && (
-        <button
-          onClick={() => openWith()}
-          className="btn btn-primary"
-          style={{ position: "absolute", top: 22, right: 24, zIndex: 6, display: "inline-flex", alignItems: "center", gap: 7 }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          AI 대화
-        </button>
+        <AiChatButton style={{ position: "absolute", top: 22, right: 24, zIndex: 6 }} />
       )}
 
       {/* Toolbar */}
@@ -550,14 +542,7 @@ export default function PlantsPage() {
       } : { display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <ViewToggle current={view} onChange={setView} />
         {view === "list" && <input className="input" placeholder="식물 검색" value={query} onChange={e => setQuery(e.target.value)} style={{ maxWidth: 240 }} />}
-        {view === "list" && (
-          <button onClick={() => openWith()} className="btn btn-primary" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            AI 대화
-          </button>
-        )}
+        {view === "list" && <AiChatButton style={{ marginLeft: "auto" }} />}
       </div>
 
       {view === "garden" && (

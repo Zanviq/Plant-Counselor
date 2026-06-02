@@ -16,6 +16,7 @@
 ### 홈 (`app/(app)/page.tsx`)
 
 - **블록**: 인삿말 + 브리핑 → 통계 4카드 → 식물 보드(최대 5개 + "+새 식물" CTA) → 시들 봉우리(최대 6개).
+- **우측 상단 AI 대화 버튼**: 공통 `AiChatButton`(fixed). 채팅 패널 열리면 숨김.
 - **데이터**: `summary`, `briefing`, `plants`, `buds` 4개 쿼리. `enabled: !!accessToken` 가드 적용.
   - wilting은 buds에서 클라이언트 derive (중복 페치 제거).
 - **성능**: 레이아웃 `prefetchAll()`로 토큰 확보 즉시 캐시 워밍 → 이 페이지 스켈레톤 없음.
@@ -32,7 +33,7 @@
 - **상태**: `view`(garden/list), `query`(검색), `selectedIdx`(보드 위치), `gardenZoom`, 그리고 수확 바구니용 `basketOpen` / `selectedFruitPlantIds` / `basketSearch` / `historyFruit`.
 - **`GardenPlantVisual`**: 화분·줄기·잎·봉우리(꽃/열매/시듦)를 `Pixel` 사각형으로 그리는 벡터 그래픽. 줌(0.5~2x)·스크롤 가능한 보드 위에 배치.
 - **`dominantStatus()`** (`lib/status.ts`): 가장 "성장한" 상태를 카드의 상태 뱃지에 표시. 단계: 봉우리→꽃→열매→수확 / 시듦→썩음 (씨앗 단계는 migration 004로 제거, `normalizeBudStatus`로 읽기 호환).
-- **우측 상단 AI 대화 버튼**: 다른 페이지처럼 `openWith()`로 전역 채팅 열기 (리스트 뷰는 툴바 우측).
+- **우측 상단 AI 대화 버튼**: 공통 컴포넌트 `components/chat/AiChatButton.tsx` (홈·정원·캘린더 공유). `openWith()`로 전역 채팅 열기, **채팅 패널이 열리면(`open`) 버튼은 숨김**(`return null`). 정원은 absolute(리스트 뷰는 툴바 우측), 홈·캘린더는 `position: fixed` 우측 상단.
 - **수확 바구니** (`GardenHarvestBasket`):
   - 화분 리스트의 **가장 왼쪽 슬롯**에 배치된 줄무늬 짜임 바구니(벡터). 화분과 같은 baseline에 정렬.
   - 모든 식물의 **수확(harvested) 열매를 화분에서 빼서** 바구니 입구에 실제로 쌓아 표시(앞/뒤 2열, `+N` 오버플로 배지). 각 열매에 원래 식물 이름 라벨.
@@ -60,6 +61,7 @@
 ### 캘린더 (`app/(app)/calendar/page.tsx`)
 
 - **레이아웃**: 좌측 캘린더 카드 + 우측 오늘/AI 제안 패널.
+- **우측 상단 AI 대화 버튼**: 공통 `AiChatButton`(fixed). 채팅 패널 열리면 숨김.
 - **그리드 셀**: 일자 + 이벤트 도트(최대 3) + "+N" 카운트.
 - **`enabled: !!accessToken`** 가드 적용.
 - **인접 월 프리페치**: `useEffect([year, month])` → 이전달·다음달 데이터 미리 로드 → ‹/› 클릭 즉시 표시.

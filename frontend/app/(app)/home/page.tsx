@@ -12,6 +12,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_PILL, STATUS_LABEL, dominantStatus, isActive, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { StatCardSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
+import { AiChatButton } from "@/components/chat/AiChatButton";
 
 // ── stat card ──────────────────────────────────────────────────
 
@@ -226,6 +227,9 @@ export default function HomePage() {
 
   return (
     <div style={{ padding: "40px 36px 64px", maxWidth: 1120, margin: "0 auto" }}>
+      {/* Top-right AI chat button (hides while the chat panel is open) */}
+      <AiChatButton style={{ position: "fixed", top: 24, right: 28, zIndex: 30 }} />
+
       {/* Header */}
       <header className="animate-in" style={{ marginBottom: 28 }}>
         <div className="t-label" style={{ color: "var(--fg-muted)", marginBottom: 6 }}>{dateStr}</div>

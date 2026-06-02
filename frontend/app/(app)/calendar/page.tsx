@@ -14,6 +14,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_COLOR_VAR, normalizeBudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { CalendarSkeleton, StatCardSkeleton } from "@/components/ui/Skeleton";
+import { AiChatButton } from "@/components/chat/AiChatButton";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
@@ -132,6 +133,9 @@ export default function CalendarPage() {
 
   return (
     <div style={{ padding: "24px 36px", maxWidth: 1200, margin: "0 auto" }}>
+      {/* Top-right AI chat button (hides while the chat panel is open) */}
+      <AiChatButton style={{ position: "fixed", top: 24, right: 28, zIndex: 30 }} />
+
       <header className="animate-in" style={{ marginBottom: 16 }}>
         <div>
           <h1 className="t-display" style={{ color: "var(--fg)" }}>캘린더</h1>

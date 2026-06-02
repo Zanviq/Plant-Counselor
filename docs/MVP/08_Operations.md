@@ -46,7 +46,11 @@ alembic upgrade head
 
 ## 4. 로그
 
-- 채팅 로그: `backend/logs/chat/*.json` — 디버깅·프롬프트 튜닝의 핵심 자료. 디스크 사용 모니터링 권장.
+- AI 채팅 로그: `app/ai/log_store.py`가 저장/조회/삭제를 담당.
+  - **저장**: Supabase `ai_logs` 테이블(정본) + `backend/logs/chat/*.json` 로컬 미러. 디스크가 휘발성인 호스트(Render 무료 등)에서도 재시작 후 로그가 살아남게 하기 위함.
+  - **조회**(`list_rows`): DB 행 + 로컬 파일을 **filename 기준으로 병합·중복 제거(DB 우선)**. DB만/파일만/둘 다 어느 경우든 표시됨. 관리자 AI 로그 페이지·대시보드가 이 결과를 사용.
+  - **테이블 생성**: `backend/migrations/002_ai_logs.sql`을 Supabase에 1회 실행(미실행 시 파일 폴백으로 동작).
+  - ⚠ 이전 구현은 DB 조회 결과가 비어 있을 때 파일로 폴백하지 않아, 테이블이 비어 있으면 기존 파일 로그가 "로그 없음"으로 가려지던 버그가 있었음 → 병합 방식으로 수정.
 - 표준 로그: stdout. uvicorn 기본 포맷.
 
 ## 5. 백업

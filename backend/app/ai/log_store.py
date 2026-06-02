@@ -88,7 +88,24 @@ def _file_rows() -> list[dict]:
 
 
 def list_rows(db) -> list[dict]:
-    """All log rows, newest first. DB if available, else local files."""
+    """All log rows, newest first.
+
+    Merges the Supabase ``ai_logs`` table with local files, deduped by filename
+    (DB wins). This keeps logs visible in every situation:
+      - DB only (e.g. Render, where the local disk is wiped on restart)
+      - files only (local dev, or before the ai_logs table/migration exists)
+      - both (save() mirrors to each with the same filename → no double count)
+
+    The previous version returned the DB result even when it was empty, which
+    hid local file logs whenever the ai_logs table was empty or missing.
+    """
+    by_name: dict[str, dict] = {}
+    # Local files first (lower priority).
+    for row in _file_rows():
+        fn = row.get("filename")
+        if fn:
+            by_name[fn] = row
+    # DB rows override (authoritative when present).
     if db is not None:
         try:
             res = (
@@ -98,10 +115,14 @@ def list_rows(db) -> list[dict]:
                 .limit(5000)
                 .execute()
             )
-            return res.data or []
+            for row in (res.data or []):
+                fn = row.get("filename")
+                if fn:
+                    by_name[fn] = row
         except Exception as e:
-            logger.warning("ai_logs DB list failed (%s); using files", e)
-    return _file_rows()
+            logger.warning("ai_logs DB list failed (%s); using files only", e)
+    # filename is timestamp-prefixed, so a reverse lexical sort = newest first.
+    return sorted(by_name.values(), key=lambda r: r.get("filename") or "", reverse=True)
 
 
 def get(db, filename: str) -> dict | None:

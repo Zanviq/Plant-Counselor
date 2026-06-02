@@ -26,7 +26,7 @@ export interface Bud {
   title: string;
   detail: string;
   type: "concern" | "schedule";
-  status: "seed" | "bud" | "flower" | "fruit" | "harvested" | "wilting" | "rot";
+  status: "seed" | "bud" | "flower" | "fruit" | "harvested" | "wilting" | "rot"; // seed: migration 004 이전 읽기 호환
   progress: number;
   deadline: string | null;
   last_progress_at: string | null;

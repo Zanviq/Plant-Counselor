@@ -12,7 +12,7 @@ class UpdateBudStatusSkill(SkillBase):
             "bud_id": {"type": "string"},
             "to_status": {
                 "type": "string",
-                "enum": ["seed", "bud", "flower", "fruit", "harvested", "wilting", "rot"],
+                "enum": ["bud", "flower", "fruit", "harvested", "wilting", "rot"],
             },
             "reason": {"type": "string"},
         },
@@ -23,12 +23,19 @@ class UpdateBudStatusSkill(SkillBase):
         _, err = guard_bud(ctx, args["bud_id"])
         if err:
             return err
-        bud = ctx.bud_service.update_status(
-            ctx.user_id,
-            args["bud_id"],
-            args["to_status"],
-            args.get("reason", "user:manual"),
-        )
+        try:
+            bud = ctx.bud_service.update_status(
+                ctx.user_id,
+                args["bud_id"],
+                args["to_status"],
+                args.get("reason", "user:manual"),
+            )
+        except ValueError as exc:
+            return SkillResult(
+                ok=False,
+                message=str(exc),
+                error_code="invalid_status_transition",
+            )
         if bud is None:
             return SkillResult(
                 ok=False,
@@ -40,4 +47,3 @@ class UpdateBudStatusSkill(SkillBase):
             message=f"상태를 {args['to_status']}로 변경했습니다.",
             data={"status": bud.status},
         )
-

@@ -11,7 +11,7 @@ import {
 import { listPlants, Plant } from "@/lib/api/plants";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
-import { STATUS_COLOR_VAR, BudStatus } from "@/lib/status";
+import { STATUS_COLOR_VAR, normalizeBudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import { CalendarSkeleton, StatCardSkeleton } from "@/components/ui/Skeleton";
 
@@ -39,7 +39,7 @@ function ymd(y: number, m: number, d: number) {
  *  their lifecycle status colour. */
 function eventColor(ev: CalEvent): string {
   if (ev.source === "event") return EVENT_COLOR_VALUE[ev.color ?? "olive"];
-  return STATUS_COLOR_VAR[(ev.status as BudStatus)] ?? "var(--fg-muted)";
+  return STATUS_COLOR_VAR[normalizeBudStatus(ev.status ?? "")] ?? "var(--fg-muted)";
 }
 
 export default function CalendarPage() {

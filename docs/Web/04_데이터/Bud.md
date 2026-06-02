@@ -9,7 +9,7 @@
 | `plant_id` | 소속 식물 |
 | `title`, `detail` | 제목과 설명 |
 | `type` | `concern` 또는 `schedule` |
-| `status` | `seed`, `bud`, `flower`, `fruit`, `harvested`, `wilting`, `rot` |
+| `status` | `bud`, `flower`, `fruit`, `harvested`, `wilting`, `rot` |
 | `progress` | 0~100 진행률 |
 | `deadline` | 선택 마감일 |
 | `last_progress_at` | 최근 상태 또는 진행률 갱신 |
@@ -27,3 +27,6 @@
 | `from_status`, `to_status` | 이전, 다음 상태 |
 | `at` | 전이 시각 |
 | `reason` | 변경 이유 |
+
+`backend/migrations/004_remove_seed_bud_status.sql`은 과거 `seed` 행을 `bud`로 승격하고
+DB 기본값도 `bud`로 바꾼다.

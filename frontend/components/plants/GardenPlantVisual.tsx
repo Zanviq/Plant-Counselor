@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { STATUS_LABEL, STATUS_PILL, dominantStatus, type BudStatus } from "@/lib/status";
+import { STATUS_LABEL, STATUS_PILL, dominantStatus, normalizeBudStatus, type BudStatus } from "@/lib/status";
 
 export const PLANT_W = 178;
 export const POT_H = 46;
@@ -13,7 +13,6 @@ export type GardenBudVisual = {
 
 const PIXEL = {
   stem: "#4D8542",
-  budStem: "#2F6B3E",
   leaf: "#75A859",
   budUpper: "#C8D96B",
   budTip: "#DDE8A2",
@@ -38,14 +37,37 @@ function Pixel({ x, y, w, h, color }: {
   return <span style={{ position: "absolute", left: x, top: y, width: w, height: h, background: color }} />;
 }
 
-function GrowthLayer({ bud, index, onBudClick }: {
+function isGrowthLayerMirrored(bud: GardenBudVisual) {
+  let hash = 0;
+  for (const char of bud.id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return (hash & 1) === 1;
+}
+
+function getGrowthLayerMirrors(buds: GardenBudVisual[]) {
+  let previous: boolean | undefined;
+  let runLength = 0;
+
+  return buds.map((bud) => {
+    const hashedMirror = isGrowthLayerMirrored(bud);
+    const mirror = hashedMirror === previous && runLength >= 3
+      ? !hashedMirror
+      : hashedMirror;
+
+    runLength = mirror === previous ? runLength + 1 : 1;
+    previous = mirror;
+    return mirror;
+  });
+}
+
+function GrowthLayer({ bud, index, layerCount, mirrored, onBudClick }: {
   bud: GardenBudVisual;
   index: number;
+  layerCount: number;
+  mirrored: boolean;
   onBudClick?: (budId: string) => void;
 }) {
-  const status = bud.status;
+  const status = normalizeBudStatus(bud.status);
   const stem = status === "wilting" ? PIXEL.wiltStem
-    : status === "seed" || status === "bud" ? PIXEL.budStem
     : PIXEL.stem;
   const leaf = status === "wilting" ? PIXEL.wiltLeaf : PIXEL.leaf;
   const clickable = bud.id !== "empty" && !!onBudClick;
@@ -70,43 +92,45 @@ function GrowthLayer({ bud, index, onBudClick }: {
       } : undefined}
       style={{
         position: "absolute", left: 0, bottom: POT_H + index * LAYER_H,
-        width: PLANT_W, height: LAYER_H, zIndex: index + 1,
+        width: PLANT_W, height: LAYER_H, zIndex: layerCount - index,
         cursor: clickable ? "pointer" : undefined,
       }}
     >
       {bud.id !== "empty" && <span className="garden-bud-tooltip" role="tooltip">{bud.title}</span>}
-      <Pixel x={84} y={status === "seed" || status === "bud" ? 12 : status === "rot" ? -4 : 0} w={12} h={status === "seed" || status === "bud" ? 52 : 64} color={stem} />
-      <Pixel x={52} y={status === "rot" ? 22 : status === "fruit" ? 25 : 26} w={34} h={16} color={leaf} />
-      <Pixel x={96} y={status === "rot" ? 10 : 14} w={36} h={16} color={leaf} />
-      {(status === "seed" || status === "bud") && <>
-        <Pixel x={79} y={-10} w={22} h={18} color={PIXEL.budUpper} />
-        <Pixel x={83} y={-20} w={14} h={10} color={PIXEL.budTip} />
-        <Pixel x={75} y={0} w={8} h={14} color={PIXEL.budSepalLeft} />
-        <Pixel x={101} y={0} w={8} h={14} color={PIXEL.budSepalRight} />
-        <Pixel x={83} y={8} w={14} h={12} color={PIXEL.budSepalCenter} />
-      </>}
-      {status === "flower" && <>
-        <Pixel x={83} y={-19} w={14} h={16} color={PIXEL.flower} />
-        <Pixel x={67} y={-3} w={16} h={14} color={PIXEL.flower} />
-        <Pixel x={97} y={-3} w={16} h={14} color={PIXEL.flower} />
-        <Pixel x={83} y={11} w={14} h={16} color={PIXEL.flower} />
-        <Pixel x={83} y={-3} w={14} h={14} color={PIXEL.flowerCenter} />
-      </>}
-      {status === "fruit" && <>
-        <Pixel x={59} y={7} w={18} h={18} color={PIXEL.fruit} />
-        <Pixel x={109} y={-6} w={20} h={20} color={PIXEL.fruit} />
-        <Pixel x={63} y={11} w={6} h={6} color={PIXEL.fruitShine} />
-        <Pixel x={113} y={-2} w={6} h={6} color={PIXEL.fruitShine} />
-      </>}
-      {status === "rot" && <>
-        <Pixel x={106} y={-4} w={24} h={22} color={PIXEL.rot} />
-        <Pixel x={110} y={0} w={8} h={8} color={PIXEL.rotBruise} />
-        <Pixel x={122} y={10} w={6} h={6} color={PIXEL.rotBruise} />
-      </>}
-      {status === "wilting" && <>
-        <Pixel x={98} y={-24} w={32} h={12} color={PIXEL.wiltStem} />
-        <Pixel x={126} y={-16} w={16} h={12} color={PIXEL.wiltLeaf} />
-      </>}
+      <span style={{ position: "absolute", inset: 0, transform: mirrored ? "scaleX(-1)" : undefined }}>
+        <Pixel x={84} y={status === "bud" ? 12 : status === "rot" ? -4 : 0} w={12} h={status === "bud" ? 52 : 64} color={stem} />
+        <Pixel x={52} y={status === "rot" ? 22 : status === "fruit" ? 25 : 26} w={34} h={16} color={leaf} />
+        <Pixel x={96} y={status === "rot" ? 10 : 14} w={36} h={16} color={leaf} />
+        {status === "bud" && <>
+          <Pixel x={79} y={-10} w={22} h={18} color={PIXEL.budUpper} />
+          <Pixel x={83} y={-20} w={14} h={10} color={PIXEL.budTip} />
+          <Pixel x={75} y={0} w={8} h={14} color={PIXEL.budSepalLeft} />
+          <Pixel x={101} y={0} w={8} h={14} color={PIXEL.budSepalRight} />
+          <Pixel x={83} y={8} w={14} h={12} color={PIXEL.budSepalCenter} />
+        </>}
+        {status === "flower" && <>
+          <Pixel x={83} y={-19} w={14} h={16} color={PIXEL.flower} />
+          <Pixel x={67} y={-3} w={16} h={14} color={PIXEL.flower} />
+          <Pixel x={97} y={-3} w={16} h={14} color={PIXEL.flower} />
+          <Pixel x={83} y={11} w={14} h={16} color={PIXEL.flower} />
+          <Pixel x={83} y={-3} w={14} h={14} color={PIXEL.flowerCenter} />
+        </>}
+        {status === "fruit" && <>
+          <Pixel x={59} y={7} w={18} h={18} color={PIXEL.fruit} />
+          <Pixel x={109} y={-6} w={20} h={20} color={PIXEL.fruit} />
+          <Pixel x={63} y={11} w={6} h={6} color={PIXEL.fruitShine} />
+          <Pixel x={113} y={-2} w={6} h={6} color={PIXEL.fruitShine} />
+        </>}
+        {status === "rot" && <>
+          <Pixel x={106} y={-4} w={24} h={22} color={PIXEL.rot} />
+          <Pixel x={110} y={0} w={8} h={8} color={PIXEL.rotBruise} />
+          <Pixel x={122} y={10} w={6} h={6} color={PIXEL.rotBruise} />
+        </>}
+        {status === "wilting" && <>
+          <Pixel x={98} y={-24} w={32} h={12} color={PIXEL.wiltStem} />
+          <Pixel x={126} y={-16} w={16} h={12} color={PIXEL.wiltLeaf} />
+        </>}
+      </span>
     </div>
   );
 }
@@ -117,11 +141,19 @@ export function GardenPixelPlant({ buds, scale = 1, onBudClick }: {
   onBudClick?: (budId: string) => void;
 }) {
   const height = POT_H + buds.length * LAYER_H;
+  const layerMirrors = getGrowthLayerMirrors(buds);
 
   return (
     <div style={{ width: PLANT_W * scale, height: height * scale }}>
       <div style={{ position: "relative", width: PLANT_W, height, imageRendering: "pixelated", transform: `scale(${scale})`, transformOrigin: "top left" }}>
-        {buds.map((bud, index) => <GrowthLayer key={bud.id} bud={bud} index={index} onBudClick={onBudClick} />)}
+        {buds.map((bud, index) => <GrowthLayer
+          key={bud.id}
+          bud={bud}
+          index={index}
+          layerCount={buds.length}
+          mirrored={layerMirrors[index]}
+          onBudClick={onBudClick}
+        />)}
         <Pixel x={50} y={height - POT_H} w={70} h={18} color={PIXEL.potLip} />
         <Pixel x={60} y={height - 28} w={50} h={28} color={PIXEL.potBody} />
       </div>

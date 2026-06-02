@@ -8,7 +8,7 @@ import { listBuds, getBud, setBudProgress, deleteBud, Bud } from "@/lib/api/buds
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
-  STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, BudStatus, isActive, isDone,
+  STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, normalizeBudStatus, isActive, isDone,
 } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
 import type { ApiResult } from "@/lib/api/client";
@@ -17,7 +17,7 @@ import { Skeleton, BudRowSkeleton } from "@/components/ui/Skeleton";
 // ── Bud row ───────────────────────────────────────────────────
 
 function BudRow({ bud, selected, onClick }: { bud: Bud; selected: boolean; onClick: () => void }) {
-  const status = bud.status as BudStatus;
+  const status = normalizeBudStatus(bud.status);
   return (
     <button
       onClick={onClick}
@@ -77,17 +77,13 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // Reset transient slider/popup state when the drawer switches to another bud.
-  useEffect(() => {
-    setDraft(null); setReasonFor(null); setReasonText("");
-  }, [budId]);
-
   const bud = data?.ok ? data.data.bud : null;
   const history = data?.ok ? data.data.history : [];
   if (!bud) return null;
 
-  const status = bud.status as BudStatus;
+  const status = normalizeBudStatus(bud.status);
   const editable = !isDone(bud.status);
+  const canHarvest = bud.progress >= 100;
   const shown = draft ?? bud.progress;
 
   // Quick actions hand off to chat with a self-contained instruction so the
@@ -206,7 +202,7 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
                   style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
                 />
                 <div className="t-caption" style={{ color: "var(--fg-subtle)", marginTop: 2 }}>
-                  슬라이더를 움직여 완성도를 직접 조절하세요. 30·60·85%에서 단계가 자동 전이됩니다.
+                  슬라이더를 움직여 완성도를 직접 조절하세요. 60·85%에서 단계가 자동 전이됩니다.
                 </div>
               </>
             ) : (
@@ -228,8 +224,8 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
               <div className="t-label" style={{ color: "var(--fg-muted)", marginBottom: 8 }}>상태 변경 이력</div>
               <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
                 {history.map((h, i) => {
-                  const fromS = h.from_status as BudStatus;
-                  const toS = h.to_status as BudStatus;
+                  const fromS = h.from_status ? normalizeBudStatus(h.from_status) : null;
+                  const toS = normalizeBudStatus(h.to_status);
                   return (
                     <li
                       key={h.id}
@@ -264,6 +260,8 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
               </button>
               <button
                 className="btn btn-secondary btn-sm"
+                disabled={!canHarvest}
+                title={canHarvest ? "봉우리 수확" : "진행률 100%를 달성하면 수확할 수 있습니다."}
                 onClick={() => quick(`이 봉우리(id=${bud.id})를 수확(완료) 처리해줘`)}
               >
                 수확
@@ -274,6 +272,11 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
               >
                 포기
               </button>
+            </div>
+          )}
+          {!isDone(bud.status) && !canHarvest && (
+            <div className="t-caption" style={{ color: "var(--fg-subtle)", textAlign: "center" }}>
+              진행률 100%를 달성하면 수확할 수 있습니다.
             </div>
           )}
           <button
@@ -542,6 +545,7 @@ export default function PlantDetailPage() {
 
       {selectedBudId && (
         <BudDetailDrawer
+          key={selectedBudId}
           budId={selectedBudId}
           onClose={() => {
             setSelectedBudId(null);

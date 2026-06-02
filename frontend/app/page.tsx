@@ -15,7 +15,6 @@ const PREVIEW_LIGHT_TOKENS = {
   "--fg": "#2A2A24",
   "--fg-muted": "#7A7A6E",
   "--bg-hover": "#E2DED5",
-  "--st-seed": "#A5A598",
   "--st-bud": "#7A8A5A",
   "--st-flower": "#8BAA5A",
   "--st-fruit": "#5C6B3F",
@@ -157,7 +156,7 @@ function GardenPreview() {
             name="건강"
             buds={[
               { id: "health-1", status: "harvested", title: "주 3회 러닝" },
-              { id: "health-2", status: "seed", title: "수면 패턴 교정" },
+              { id: "health-2", status: "bud", title: "수면 패턴 교정" },
             ]}
             actions={<>
               <button type="button" className="btn btn-ghost btn-sm" style={{ padding: "0 5px" }}>상세</button>
@@ -244,7 +243,7 @@ function ChatPreview() {
         <DemoBubble role="user">다음 주 수요일에 디자인 면접이 있어서 준비해야 해</DemoBubble>
         <DemoToolChip>‘취업’ 식물에 새 봉우리를 심었어요</DemoToolChip>
         <DemoBubble role="ai">
-          <strong>디자인 면접 준비</strong>를 씨앗으로 심었어요 🌱<br />
+          <strong>디자인 면접 준비</strong> 봉우리를 만들었어요.<br />
           수요일까지 함께 키워봐요. 포트폴리오부터 정리해볼까요?
         </DemoBubble>
       </div>
@@ -285,7 +284,7 @@ const FEATURES = [
   {
     icon: <IconSeedling />,
     title: "식물 생애주기",
-    desc: "씨앗에서 열매까지. 고민과 일정의 진행 상황을 자연의 언어로 직관적으로 확인합니다.",
+    desc: "봉우리에서 열매까지. 고민과 일정의 진행 상황을 자연의 언어로 직관적으로 확인합니다.",
   },
   {
     icon: <IconCalendar />,
@@ -304,7 +303,7 @@ const FEATURES = [
 const STEPS = [
   { step: "01", label: "대화하기", desc: "채팅창에 고민이나 일정을 자연스럽게 입력하세요." },
   { step: "02", label: "정원 보기", desc: "AI가 분야·항목을 생성하고 식물 정원에 배치합니다." },
-  { step: "03", label: "함께 가꾸기", desc: "진행할수록 씨앗이 꽃이 되고 열매가 맺힙니다." },
+  { step: "03", label: "함께 가꾸기", desc: "진행할수록 봉우리가 꽃이 되고 열매가 맺힙니다." },
 ] as const;
 
 // ── Page ──────────────────────────────────────────────────────────────────

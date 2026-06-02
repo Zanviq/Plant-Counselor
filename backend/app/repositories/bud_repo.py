@@ -36,6 +36,7 @@ class BudRepository:
             "title": title,
             "type": type,
             "detail": detail,
+            "status": "bud",
         }
         if deadline is not None:
             row["deadline"] = deadline.isoformat()

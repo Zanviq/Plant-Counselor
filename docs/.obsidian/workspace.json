@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Idea-note.md",
+                "file": "Web/02_기능/데이터_백업_복구.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Idea-note"
+              "title": "데이터_백업_복구"
             }
           }
         ],
@@ -198,12 +198,16 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "9a1a16d6b711641d",
+  "active": "725e1e56852518c8",
   "lastOpenFiles": [
-    "DEPLOYMENT_GUIDE.md",
-    "DEMO_GUIDE.md",
-    "해야할일.md",
+    "Web/02_기능/캘린더.md",
+    "Web/02_기능/통계_시스템.md",
+    "Web/02_기능/회원가입_로그인.md",
     "구체화.md",
+    "해야할일.md",
+    "DEMO_GUIDE.md",
+    "DEPLOYMENT_GUIDE.md",
+    "Idea-note.md",
     "Archive",
     "Web/02_기능/상태_자동전이.md",
     "Web/02_기능/데이터_백업_복구.md",
@@ -232,10 +236,6 @@
     "Web/02_기능/알림.md",
     "Web/01_페이지/공통_AI대화창.md",
     "Web/04_데이터/DB_스키마.md",
-    "Web_Documents/03_LLM/Skills/abandon_bud.md",
-    "Web/02_기능/통계_시스템.md",
-    "Web/02_기능/캘린더.md",
-    "Web/05_백엔드/API_엔드포인트.md",
     "Web_Documents/09_목업/이미지/image copy 2.png",
     "Web_Documents/09_목업/이미지/image copy.png",
     "Web_Documents/09_목업/이미지/image.png"

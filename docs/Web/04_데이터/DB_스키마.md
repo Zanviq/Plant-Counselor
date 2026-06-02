@@ -60,6 +60,10 @@ profiles
 에는 `olive`, `blue`, `yellow`, `red`, `pink`, `purple`만 저장한다. 스키마 변경은
 Supabase에 적용할 SQL과 코드 변경을 함께 관리한다.
 
+봉우리 생애주기는 `backend/migrations/004_remove_seed_bud_status.sql`을 적용해 과거
+`seed` 행을 `bud`로 승격하고 `buds.status` 기본값도 `bud`로 바꾼다. 애플리케이션은
+migration 적용 전 과거 행을 읽을 때도 `seed`를 `bud`로 호환 처리한다.
+
 ## 삭제
 
 - 식물 삭제 기본 동작은 archive다.

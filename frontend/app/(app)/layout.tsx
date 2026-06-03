@@ -98,11 +98,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
         setSession(token, withAuthMetadata(meRes.data, session.user.user_metadata));
 
-        // Admin users are redirected to the admin panel immediately after login.
-        if (meRes.data.role === "admin" && event === "SIGNED_IN") {
-          router.replace("/admin");
-          return;
-        }
       }
     );
 

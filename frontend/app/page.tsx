@@ -5,6 +5,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import AuthRedirect from "./_components/AuthRedirect";
+import ModelBadge from "./_components/ModelBadge";
 import { GardenPlantVisual, LAYER_H, POT_H } from "@/components/plants/GardenPlantVisual";
 
 // ── Garden pixel constants (mirror the current /plants renderer) ─────────────
@@ -390,7 +391,7 @@ export default function LandingPage() {
                   background: "var(--accent)", display: "inline-block",
                   flexShrink: 0,
                 }} />
-                AI 정원사 — Gemini 2.5 Flash
+                <ModelBadge />
               </span>
             </div>
 

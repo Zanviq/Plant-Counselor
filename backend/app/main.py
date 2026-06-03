@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import admin, buds, chat, conversations, me, notifications, plants, stats
+from app.routers import admin, buds, chat, conversations, me, notifications, plants, public, stats
 
 
 @asynccontextmanager
@@ -65,6 +65,7 @@ for _router in [
     chat.router,
     conversations.router,
     notifications.router,
+    public.router,
     admin.router,
 ]:
     api.include_router(_router, prefix=PREFIX)

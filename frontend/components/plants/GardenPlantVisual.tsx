@@ -101,7 +101,7 @@ function GrowthLayer({ bud, index, layerCount, mirrored, onBudClick }: {
       }}
     >
       {bud.id !== "empty" && <span className="garden-bud-tooltip" role="tooltip">{bud.title}</span>}
-      <span style={{ position: "absolute", inset: 0, transform: mirrored ? "scaleX(-1)" : undefined }}>
+      <span style={{ position: "absolute", inset: 0, transform: mirrored ? "scaleX(-1)" : undefined, transformOrigin: "90px 0" }}>
         <Pixel x={84} y={status === "bud" ? 12 : status === "rot" ? -4 : 0} w={12} h={status === "bud" ? 52 : 64} color={stem} />
         <Pixel x={52} y={status === "rot" ? 22 : status === "fruit" ? 25 : 26} w={34} h={16} color={leaf} />
         <Pixel x={96} y={status === "rot" ? 10 : 14} w={36} h={16} color={leaf} />
@@ -225,46 +225,36 @@ export type BasketFruitVisual = { id: string; plantId: string; plantName: string
 
 function BasketFruit() {
   return (
-    <span style={{ position: "relative", display: "block", width: 24, height: 24, imageRendering: "pixelated" }}>
-      <Pixel x={0} y={3} w={24} h={20} color={PIXEL.fruit} />
-      <Pixel x={4} y={9} w={16} h={11} color="#EE7A45" />
-      <Pixel x={5} y={6} w={5} h={5} color={PIXEL.fruitShine} />
-      <Pixel x={11} y={-2} w={3} h={8} color={PIXEL.stem} />
-      <Pixel x={13} y={0} w={6} h={4} color={PIXEL.leaf} />
+    <span style={{ position: "relative", display: "block", width: 20, height: 20, imageRendering: "pixelated" }}>
+      <Pixel x={0} y={0} w={20} h={20} color={PIXEL.fruit} />
+      <Pixel x={5} y={5} w={6} h={6} color={PIXEL.fruitShine} />
     </span>
   );
 }
 
 // Fixed pile positions inside the basket opening (front row drawn in front).
 const BASKET_PILE: { x: number; y: number }[] = [
-  { x: 44, y: 26 }, { x: 72, y: 28 }, { x: 100, y: 26 }, { x: 122, y: 28 }, // back row
-  { x: 30, y: 44 }, { x: 58, y: 46 }, { x: 86, y: 44 }, { x: 114, y: 46 },  // front row
+  { x: 34, y: 58 }, { x: 52, y: 48 }, { x: 72, y: 54 }, { x: 92, y: 48 },
+  { x: 112, y: 56 }, { x: 130, y: 62 }, { x: 48, y: 76 }, { x: 72, y: 74 },
 ];
 
 function GardenBasketPixels() {
-  const height = BASKET_VISUAL_H;
-  const BW = 140;
-  const cx = (PLANT_W - BW) / 2;          // 19
-  const top = height - 86;                // basket starts here (64)
-  const rows = [0, 1, 2, 3, 4, 5];
   return (
     <>
-      {/* rim / opening */}
-      <Pixel x={cx - 8} y={top} w={BW + 16} h={14} color={BASKET.rim} />
-      <Pixel x={cx - 8} y={top} w={BW + 16} h={4} color={BASKET.rimLight} />
-      <Pixel x={cx + 6} y={top + 6} w={BW - 12} h={8} color={BASKET.opening} />
-      {/* woven horizontal stripes (tapering body) */}
-      {rows.map((r) => {
-        const inset = r * 4;
-        return <Pixel key={`s${r}`} x={cx + inset} y={top + 14 + r * 11} w={BW - inset * 2} h={11}
-          color={r % 2 === 0 ? BASKET.stripeA : BASKET.stripeB} />;
-      })}
-      {/* vertical weave accents */}
-      {[36, 62, 88, 114].map((vx) => (
-        <Pixel key={`v${vx}`} x={cx + vx} y={top + 16} w={3} h={56} color={BASKET.weave} />
+      <Pixel x={30} y={76} w={120} h={8} color={BASKET.opening} />
+      <Pixel x={22} y={84} w={136} h={8} color={BASKET.stripeA} />
+      <Pixel x={14} y={92} w={152} h={13} color={BASKET.rim} />
+      <Pixel x={24} y={105} w={132} h={12} color={BASKET.stripeA} />
+      <Pixel x={34} y={117} w={112} h={11} color={BASKET.stripeB} />
+      <Pixel x={48} y={128} w={84} h={9} color={BASKET.weave} />
+      <Pixel x={14} y={105} w={10} h={21} color={BASKET.stripeB} />
+      <Pixel x={156} y={105} w={10} h={21} color={BASKET.stripeB} />
+      <Pixel x={34} y={110} w={112} h={4} color={BASKET.weave} />
+      <Pixel x={48} y={124} w={84} h={4} color={BASKET.stripeA} />
+      {[38, 56, 74, 92, 110, 128, 146].map((vx, i) => (
+        <Pixel key={`v${vx}`} x={vx} y={94} w={4} h={40} color={i % 2 ? BASKET.weave : "#8C5F35"} />
       ))}
-      {/* base shadow */}
-      <Pixel x={cx + 24} y={top + 80} w={BW - 48} h={6} color={BASKET.base} />
+      <Pixel x={46} y={137} w={88} h={5} color={BASKET.base} />
     </>
   );
 }
@@ -301,6 +291,7 @@ export function GardenHarvestBasket({ fruits, selectedPlantIds, onOpen, onFruitC
               style={{
                 position: "absolute", left: pos.x, top: pos.y, width: 24, height: 24,
                 border: "none", background: "transparent", padding: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
                 zIndex: 10 + pos.y, opacity: dim ? 0.3 : 1, transition: "opacity 0.15s",
               }}
             >

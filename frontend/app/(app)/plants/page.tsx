@@ -14,6 +14,7 @@ import { STATUS_LABEL, STATUS_PILL, STATUS_COLOR_VAR, dominantStatus, isActive, 
 import { QK } from "@/lib/queryKeys";
 import { GardenSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
 import { GardenPlantVisual, GardenHarvestBasket, LAYER_H, POT_H, BASKET_VISUAL_H } from "@/components/plants/GardenPlantVisual";
+import { BudDetailDrawer } from "@/components/plants/BudDetailDrawer";
 
 // ── Garden pixel assets (Figma 05 Plant Pixel Assets) ──────
 
@@ -340,6 +341,7 @@ export default function PlantsPage() {
   const [selectedFruitPlantIds, setSelectedFruitPlantIds] = useState<Set<string>>(new Set());
   const [basketSearch, setBasketSearch] = useState("");
   const [historyFruit, setHistoryFruit] = useState<HarvestedFruit | null>(null);
+  const [gardenBudId, setGardenBudId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const gardenZoomRef = useRef(gardenZoom);
   const pendingZoomScrollRef = useRef<{
@@ -623,7 +625,7 @@ export default function PlantsPage() {
                     onSelect={() => effectiveSelectedIdx === i ? router.push(`/plants/${plant.id}`) : setSelectedIdx(i)}
                     onDetail={() => router.push(`/plants/${plant.id}`)}
                     onChat={() => openWith({ kind: "plant", id: plant.id })}
-                    onBudClick={(budId) => router.push(`/plants/${plant.id}?bud=${encodeURIComponent(budId)}`)}
+                    onBudClick={(budId) => setGardenBudId(budId)}
                   />
                 </div>;
               })}
@@ -650,6 +652,13 @@ export default function PlantsPage() {
             setSearch={setBasketSearch}
             onClose={() => setBasketOpen(false)}
             onFruitClick={(f) => setHistoryFruit(f)}
+          />
+        )}
+        {gardenBudId && (
+          <BudDetailDrawer
+            key={gardenBudId}
+            budId={gardenBudId}
+            onClose={() => setGardenBudId(null)}
           />
         )}
         </>

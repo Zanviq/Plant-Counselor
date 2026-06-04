@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { STATUS_LABEL, STATUS_PILL, dominantStatus, normalizeBudStatus, type BudStatus } from "@/lib/status";
+import { normalizeBudStatus } from "@/lib/status";
 
 export const PLANT_W = 178;
 export const POT_H = 46;
@@ -166,14 +166,11 @@ export function GardenPixelPlant({ buds, scale = 1, onBudClick, wilted = false }
   );
 }
 
-export function GardenPlantInfoCard({ name, buds, actions, wilted = false }: {
+export function GardenPlantInfoCard({ name, buds, actions }: {
   name: string;
   buds: GardenBudVisual[];
   actions: ReactNode;
-  wilted?: boolean;
 }) {
-  const status: BudStatus = wilted ? "wilting" : dominantStatus(buds);
-
   return (
     <div style={{
       width: 194, minHeight: 78, marginTop: 12, padding: "11px 12px 9px",
@@ -182,7 +179,6 @@ export function GardenPlantInfoCard({ name, buds, actions, wilted = false }: {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <strong style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#3D4A2A", fontSize: 15 }}>{name}</strong>
-        <span className={STATUS_PILL[status]} style={{ flexShrink: 0 }}>{STATUS_LABEL[status]}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 5 }}>
         <span style={{ color: "#577054", fontSize: 12 }}>{buds.length}개 봉우리</span>
@@ -202,7 +198,7 @@ export function GardenPlantVisual({ name, buds, actions, onBudClick, wilted = fa
   return (
     <div style={{ position: "relative", width: 210, display: "flex", flexDirection: "column", alignItems: "center" }}>
       <GardenPixelPlant buds={buds} onBudClick={onBudClick} wilted={wilted} />
-      <GardenPlantInfoCard name={name} buds={buds} actions={actions} wilted={wilted} />
+      <GardenPlantInfoCard name={name} buds={buds} actions={actions} />
     </div>
   );
 }
@@ -252,9 +248,8 @@ function GardenBasketPixels() {
       <Pixel x={34} y={110} w={112} h={4} color={BASKET.weave} />
       <Pixel x={48} y={124} w={84} h={4} color={BASKET.stripeA} />
       {[38, 56, 74, 92, 110, 128, 146].map((vx, i) => (
-        <Pixel key={`v${vx}`} x={vx} y={94} w={4} h={40} color={i % 2 ? BASKET.weave : "#8C5F35"} />
+        <Pixel key={`v${vx}`} x={vx} y={96} w={4} h={31} color={i % 2 ? BASKET.weave : "#8C5F35"} />
       ))}
-      <Pixel x={46} y={137} w={88} h={5} color={BASKET.base} />
     </>
   );
 }

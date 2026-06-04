@@ -78,6 +78,10 @@
   --sidebar-w: 64px;
   --chat-w: 380px;
   --header-h: 52px;
+  --page-pad-x: clamp(18px, 3vw, 36px);
+  --page-pad-y: clamp(24px, 4vw, 40px);
+  --page-pad-bottom: 64px;
+  --page-max: 1280px;
 }
 
 /* ── DARK MODE ────────────────────────────────────────────── */
@@ -189,6 +193,258 @@ body {
 }
 
 a { color: inherit; text-decoration: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE APP LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+
+.app-main {
+  min-height: 100vh;
+  margin-left: var(--sidebar-w);
+  margin-right: var(--chat-offset, 0px);
+  transition: margin-right 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow-x: clip;
+}
+
+.app-page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--page-pad-y) var(--page-pad-x) var(--page-pad-bottom);
+  box-sizing: border-box;
+}
+
+.app-page-narrow { --page-max: 1040px; }
+.app-page-wide { --page-max: 1440px; }
+.app-page-viewport {
+  width: 100%;
+  min-height: 100vh;
+  padding: var(--page-pad-y) var(--page-pad-x) 24px;
+  box-sizing: border-box;
+}
+
+.responsive-grid-2,
+.responsive-grid-3,
+.responsive-grid-4,
+.responsive-card-grid {
+  display: grid;
+  gap: 12px;
+}
+.responsive-grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.responsive-grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.responsive-grid-4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.responsive-card-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-rows: clamp(440px, 52vh, 560px);
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.calendar-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 32px;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.history-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.chat-panel {
+  width: min(var(--chat-panel-w, 380px), calc(100vw - var(--sidebar-w)));
+}
+
+.landing-container {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-inline: clamp(16px, 4vw, 32px);
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  background: var(--bg);
+}
+
+.login-brand-panel {
+  width: clamp(360px, 34vw, 440px);
+}
+
+.admin-shell {
+  min-height: 100vh;
+  background: #0f1117;
+  display: flex;
+}
+
+.admin-sidebar {
+  width: 220px;
+}
+
+.admin-main {
+  flex: 1;
+  margin-left: 220px;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+.admin-page {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(22px, 3vw, 36px);
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.admin-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 24px;
+}
+
+.admin-table-card {
+  overflow-x: auto !important;
+}
+
+.admin-table-card table {
+  min-width: 760px;
+}
+
+.admin-detail-panel {
+  width: min(720px, 72vw);
+}
+
+@media (max-width: 1120px) {
+  .app-main { margin-right: 0; }
+}
+
+@media (max-width: 860px) {
+  :root {
+    --sidebar-w: 56px;
+    --page-pad-x: 16px;
+    --page-pad-y: 24px;
+    --page-pad-bottom: 48px;
+  }
+
+  .sidebar-icon-btn { width: 38px; height: 38px; }
+  .sidebar-tip { display: none; }
+
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .calendar-layout > .card:first-of-type {
+    min-height: 440px;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .settings-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .history-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .history-layout {
+    min-height: 720px;
+    grid-template-columns: 1fr;
+  }
+
+  .history-layout > :first-child {
+    max-height: 260px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chat-panel {
+    width: calc(100vw - var(--sidebar-w));
+  }
+
+  .login-shell {
+    display: block;
+  }
+
+  .login-brand-panel {
+    display: none !important;
+  }
+
+  .admin-shell {
+    display: block;
+  }
+
+  .admin-sidebar {
+    position: sticky !important;
+    width: 100% !important;
+    height: auto;
+    max-height: 42vh;
+    overflow: auto;
+  }
+
+  .admin-main {
+    margin-left: 0 !important;
+    min-height: auto;
+  }
+
+  .admin-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-detail-panel {
+    width: 100vw !important;
+  }
+}
+
+@media (max-width: 560px) {
+  :root {
+    --page-pad-x: 12px;
+    --page-pad-y: 18px;
+  }
+
+  .t-display { font-size: 24px; }
+  .btn { white-space: normal; }
+  .app-page { padding-bottom: 36px; }
+  .admin-page { padding: 18px 12px; }
+}
 
 /* ═══════════════════════════════════════════════════════════
    TYPOGRAPHY

@@ -13,6 +13,8 @@
 - **픽셀아트 정원**: Figma 픽셀 에셋 규칙으로 봉우리 성장 레이어를 쌓고 확대·축소한다.
 - **캘린더**: 봉우리 마감일과 색상을 고를 수 있는 독립 일정을 월간 화면에 병합한다.
 - **대화 기록과 알림**: 스코프별 기록, 시듦, 썩음, 마감 임박 알림을 제공한다.
+- **반응형 사용자 화면**: 홈, 정원 리스트, 식물 상세, 캘린더, 기록, 설정은 공통
+  레이아웃 규칙으로 큰 화면과 좁은 화면을 함께 대응한다.
 - **테마**: light, dark, system 모드를 제공한다.
 - **관리자 패널**: 사용자, AI 로그, 알림, 백업, 복원, 런타임 설정, SQL, 타임
   트래블을 관리한다.
@@ -112,8 +114,7 @@ npm run build
 - [docs/README.md](./docs/README.md): 최신 문서와 역사 자료의 구분.
 - [docs/DEMO_GUIDE.md](./docs/DEMO_GUIDE.md): 기능별 수동 회귀 시나리오.
 - [docs/DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md): Render, Vercel, Supabase 배포.
-- [CLAUDE.md](./CLAUDE.md): 과거 세션 변경 이력. 현재 상태 판단은 `AGENTS.md`를
-  우선한다.
+- [CLAUDE.md](./CLAUDE.md): `@AGENTS.md` 포인터. 별도 이력 문서는 유지하지 않는다.
 
 ## 비밀값 주의
 

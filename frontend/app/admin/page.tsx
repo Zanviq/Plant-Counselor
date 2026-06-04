@@ -45,7 +45,7 @@ export default function AdminDashboard() {
   const recentLogs = logsRes?.ok ? logsRes.data.items : [];
 
   return (
-    <div style={{ padding: "32px 36px", color: "#fff", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="admin-page">
       <header style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#fff" }}>관리자 대시보드</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>

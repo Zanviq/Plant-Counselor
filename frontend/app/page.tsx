@@ -330,9 +330,7 @@ export default function LandingPage() {
           borderBottom: "1px solid var(--border)",
           backdropFilter: "blur(8px)",
         }}>
-          <div style={{
-            maxWidth: 1080, margin: "0 auto",
-            padding: "0 32px",
+          <div className="landing-container" style={{
             height: 56,
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
@@ -368,7 +366,7 @@ export default function LandingPage() {
           {/* ── Hero ─────────────────────────────────────────────────── */}
           <section style={{
           flex: "none",
-          padding: "84px 32px 64px",
+          padding: "clamp(56px, 10vw, 84px) clamp(16px, 4vw, 32px) clamp(44px, 8vw, 64px)",
           textAlign: "center",
           borderBottom: "1px solid var(--border)",
         }}>
@@ -466,7 +464,7 @@ export default function LandingPage() {
           <section
           id="preview"
           style={{
-            padding: "80px 32px",
+            padding: "clamp(56px, 8vw, 80px) clamp(16px, 4vw, 32px)",
             background: "var(--bg-subtle)",
             borderBottom: "1px solid var(--border)",
           }}
@@ -494,7 +492,7 @@ export default function LandingPage() {
             {/* Responsive 2-up: chat ↔ garden. Wraps to one column when narrow. */}
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
               gap: 20,
               alignItems: "stretch",
             }}>
@@ -508,7 +506,7 @@ export default function LandingPage() {
           <section
           id="features"
           style={{
-            padding: "80px 32px",
+            padding: "clamp(56px, 8vw, 80px) clamp(16px, 4vw, 32px)",
             borderBottom: "1px solid var(--border)",
           }}
         >
@@ -531,7 +529,7 @@ export default function LandingPage() {
 
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
               gap: 16,
             }}>
               {FEATURES.map((f) => (
@@ -573,7 +571,7 @@ export default function LandingPage() {
           </section>
 
           {/* ── How it works ─────────────────────────────────────────── */}
-          <section style={{ padding: "80px 32px", borderBottom: "1px solid var(--border)" }}>
+          <section style={{ padding: "clamp(56px, 8vw, 80px) clamp(16px, 4vw, 32px)", borderBottom: "1px solid var(--border)" }}>
           <div style={{ maxWidth: 1080, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 52 }}>
               <p style={{
@@ -593,7 +591,7 @@ export default function LandingPage() {
 
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
               gap: 0,
               position: "relative",
             }}>
@@ -631,7 +629,7 @@ export default function LandingPage() {
 
           {/* ── Bottom CTA ───────────────────────────────────────────── */}
           <section style={{
-          padding: "88px 32px",
+          padding: "clamp(64px, 8vw, 88px) clamp(16px, 4vw, 32px)",
           textAlign: "center",
           background: "var(--bg-subtle)",
         }}>
@@ -674,7 +672,7 @@ export default function LandingPage() {
         {/* ── Footer ───────────────────────────────────────────────── */}
         <footer style={{
           borderTop: "1px solid var(--border)",
-          padding: "20px 32px",
+          padding: "20px clamp(16px, 4vw, 32px)",
           display: "flex", alignItems: "center", justifyContent: "space-between",
           flexWrap: "wrap", gap: 12,
         }}>

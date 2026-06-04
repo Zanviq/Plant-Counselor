@@ -2,7 +2,7 @@
 
 > 후속 작업자를 위한 저장소 핸드오프 문서
 >
-> 최종 점검: 2026-06-02
+> 최종 점검: 2026-06-04
 >
 > 이 문서는 현재 코드 상태를 기준으로 작성했다. 오래된 설계 문서와 실제 코드가
 > 충돌하면 이 문서와 실제 코드를 우선한다.
@@ -61,6 +61,7 @@ bud -> flower -> fruit -> harvested
 | 대화 기록 브라우저 | 구현 완료 |
 | 알림 | 시듦 / 썩음 / 마감 임박 / 관리자 발송 |
 | 픽셀아트 정원 | 구현 완료 |
+| 주요 사용자 화면 반응형 레이아웃 | 구현 완료 |
 | 테마 | light / dark / system |
 | 설정 | 계정 / AI 키 / 정원 규칙 / 테마 / 정보 |
 | 관리자 패널 | 구현 완료 |
@@ -85,9 +86,8 @@ bud -> flower -> fruit -> harvested
 1. 실제 코드
 2. 이 문서
 3. `docs/README.md`와 `docs/Web/`
-4. `CLAUDE.md`의 세션 12, 13 기록
-5. `docs/DEMO_GUIDE.md`
-6. 나머지 문서
+4. `docs/DEMO_GUIDE.md`
+5. 나머지 문서
 
 ---
 
@@ -125,7 +125,7 @@ bud -> flower -> fruit -> harvested
 ```text
 Plant-Counselor/
 ├── AGENTS.md
-├── CLAUDE.md
+├── CLAUDE.md      # @AGENTS.md 포인터
 ├── README.md
 ├── render.yaml
 │
@@ -469,6 +469,48 @@ Supabase 세션은 localStorage 기반이므로 `proxy.ts`에서 쿠키를 검�
 `/admin`으로 자동 이동시키지 않는다. 관리자 화면 접근 허용과 일반 사용자 차단은
 `frontend/app/admin/layout.tsx`의 관리자 가드가 담당한다.
 
+### 반응형 레이아웃 기준
+
+전역 반응형 기준은 `frontend/app/globals.css`의 다음 클래스와 CSS 변수에 둔다.
+
+```text
+--sidebar-w
+--page-pad-x
+--page-pad-y
+--page-pad-bottom
+--page-max
+.app-main
+.app-page
+.app-page-narrow
+.app-page-wide
+.responsive-grid-2 / 3 / 4
+.responsive-card-grid
+.calendar-layout
+.calendar-summary-grid
+.settings-layout
+.history-shell
+.history-layout
+.chat-panel
+```
+
+사용자용 주요 페이지(`/home`, `/plants` 리스트, `/plants/{id}`, `/calendar`,
+`/history`, `/settings`)는 고정 `maxWidth`와 고정 컬럼 수를 직접 반복하지 말고
+위 클래스를 우선 사용한다. 데스크톱에서는 `app-page-wide`로 큰 화면 폭을 더 쓰고,
+작은 화면에서는 `auto-fit`/media query로 카드와 2단 레이아웃이 한 컬럼으로 접힌다.
+채팅 패널은 데스크톱에서만 본문을 밀고, 좁은 화면에서는 오버레이처럼 떠서 본문 폭을
+더 줄이지 않는다.
+
+앞으로 새 프론트 UI를 만들 때는 가변 UI를 기본 전제로 설계한다. 특정 해상도에서만
+맞는 정적 배치보다 `clamp()`, `min()`, `max()`, `auto-fit`, `minmax()`, `flex-wrap`,
+내부 스크롤 영역, CSS 변수 기반 spacing을 우선 사용한다. 큰 화면에서는 빈 공간을
+의미 있게 활용하고, 작은 화면에서는 가로 스크롤이나 요소 겹침 없이 한 컬럼 또는
+스크롤 가능한 내부 영역으로 자연스럽게 접히게 만든다.
+
+새 화면을 추가할 때 inline style에 `maxWidth: 960/1200`, `gridTemplateColumns:
+"repeat(3|4, 1fr)"`, 고정 drawer 폭을 직접 박기 전에 전역 클래스로 해결 가능한지
+먼저 확인한다. 정원 캔버스처럼 자체 스크롤과 확대/축소가 있는 화면은 예외로 둘 수
+있지만, 헤더 HUD와 drawer는 `--sidebar-w`와 viewport 폭을 고려해야 한다.
+
 ---
 
 ## 8. 캘린더와 시간 처리
@@ -774,14 +816,12 @@ localStorage 기반 세션과 서버 cookie 인증을 섞지 않는다.
 
 ## 14. 알려진 개선 후보
 
-현재 코드와 `CLAUDE.md`를 기준으로 남아 있는 개선 후보:
+현재 코드 기준으로 남아 있는 개선 후보:
 
 - 식물 이름과 설명 직접 편집 UI
 - 봉우리 제목과 detail 인라인 편집 UI
 - 시간 문자열 HH:MM 정규화
 - 봉우리 정렬 옵션
-- 모바일 반응형 레이아웃
-- 봉우리의 다른 식물 이동
 - 반복 일정
 - 통계 차트
 - 웹 MVP 자동화 테스트
@@ -811,7 +851,7 @@ localStorage 기반 세션과 서버 cookie 인증을 섞지 않는다.
 
 | 문서 | 용도 |
 | --- | --- |
-| `CLAUDE.md` | 과거 세션별 변경 이력과 맥락 |
+| `CLAUDE.md` | `@AGENTS.md` 포인터. 별도 내용은 유지하지 않는다. |
 | `README.md` | 로컬 실행과 배포 시작점 |
 | `docs/README.md` | 최신 문서와 역사 자료 구분 |
 | `docs/DEMO_GUIDE.md` | 기능별 수동 테스트 시나리오 |
@@ -836,7 +876,97 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
 
 ---
 
-## 18. 협업과 Git 운영 규칙
+## 18. 통합된 과거 작업 맥락
+
+과거 `CLAUDE.md`에 있던 세션 기록은 2026-06-04 기준 이 섹션으로 통합했다.
+원본에는 당시 구현 상태와 현재 코드가 다른 설명도 포함돼 있었다. 아래 요약과 실제
+코드를 우선하고, `CLAUDE.md`는 `@AGENTS.md` 포인터로만 유지한다.
+
+### 초기 웹 MVP
+
+- 세션 1~4에서 FastAPI 백엔드, Next.js 프론트 기본 구조, ReAct 루프, 초기 AI 스킬,
+  픽셀아트 정원, 캘린더 스코프, 루트 README와 MVP 문서가 만들어졌다.
+- 당시 문서에는 SQLAlchemy, SQLite, 자체 이메일/비밀번호 인증, `seed` 상태, 15개
+  스킬, 강조색 선택이 남아 있을 수 있다. 현재 코드는 Supabase HTTP, Google OAuth,
+  `bud` 시작 상태, 20개 스킬, light/dark/system 테마를 기준으로 한다.
+- 화살표 키 정원 네비게이션은 state update와 DOM scroll side effect를 분리해
+  `setTimeout` 의존을 제거했다.
+
+### Supabase와 인증 전환
+
+- 세션 7~10에서 자체 인증과 직접 DB 연결을 제거하고 Supabase Auth, Google OAuth,
+  Supabase PostgREST HTTP 접근으로 전환했다.
+- Supabase 신규 JWT는 ES256 서명을 사용하므로 JWKS 검증을 우선하고, legacy
+  `SUPABASE_JWT_SECRET`이 있으면 HS256 fallback을 유지한다.
+- `frontend/proxy.ts`는 pass-through다. Supabase 세션은 localStorage 기반이므로
+  서버 proxy에서 로그인 여부를 판단하거나 관리자 사용자를 `/admin`으로 강제 이동하지
+  않는다.
+- 백엔드는 SQLAlchemy, psycopg2, Alembic을 사용하지 않는다. 관련 잔재 설명은 역사
+  문서로만 취급한다.
+
+### 대화 기록, 성능, 관리자 기능
+
+- 세션 5~6에서 `/history` 대화 기록 브라우저, Sidebar 대화 기록 링크, ChatPanel
+  드래그 리사이즈, 프리페치와 Query key 정규화가 들어갔다.
+- 세션 11에서 관리자 역할, `/admin/*` 패널, 사용자 관리, AI 로그 브라우저, 알림 발송,
+  데이터 관리, 런타임 설정, SQL 실행기, 타임 트래블, 스케줄러 수동 실행이 추가됐다.
+- 관리자 API는 백엔드 `require_admin`이 실제 권한 경계다. 프론트 관리자 layout은
+  보조 가드일 뿐이다.
+
+### 캘린더, 권한, 백업, 알림
+
+- 세션 12에서 SQLAlchemy 잔재와 dead code를 정리했고, `calendar_events` 독립 일정
+  테이블과 관련 AI 스킬을 추가했다. 이 테이블은 Supabase PostgREST 스키마 캐시 문제로
+  `exec_admin_query` RPC 경로를 사용한다.
+- 알림은 안 읽음/전체 기록 탭과 `ack-all` 흐름을 제공한다. Sidebar 알림 팝오버는
+  기본 3개 이후 내부 스크롤을 사용한다.
+- 백업/복원은 `backend/app/services/backup_service.py`가 ZIP으로 처리하며,
+  `calendar_events`는 RPC 경로로 dump/restore한다.
+- 채팅 스코프 권한은 `backend/app/ai/permissions.py`가 담당한다. calendar 스코프는
+  일반 일정 변경은 허용하지만 기존 봉우리 변경은 제한한다.
+- 앱 시간은 `runtime_settings.rs.now()/today()`를 사용한다. 타임 트래블과 KST 기준을
+  무시하고 `datetime.utcnow()`를 사용자 표시 날짜에 직접 쓰지 않는다.
+
+### AI와 Markdown
+
+- 세션 13에서 `react-markdown` 대신 `frontend/lib/markdown.tsx` 자체 Markdown 렌더러를
+  ChatPanel과 `/history`가 공유하도록 바꿨다. 외부 Markdown 렌더러를 다시 넣으면
+  dev/build/start 모두 검증한다.
+- Gemini 오류는 `llm_errors[]`에 raw/error_kind/error_cause를 남기고 `/admin/logs`에서
+  확인한다. 503 과부하, 429 rate limit, auth, model_not_found, timeout 등을 구분한다.
+- 관리자 모델 드롭다운과 사용자별 모델 override는 백엔드 `runtime_settings`의 모델
+  목록을 단일 출처로 사용한다. 프리뷰 페이지의 모델 배지도 public runtime API를 통해
+  기본 모델명을 따라간다.
+
+### 2026-06-02 이후 프론트 정합화
+
+- Figma 파일 `Plant Counselor`를 기준으로 사이드바 아이콘, 캘린더, 대화 기록, 정원
+  픽셀 식물과 랜딩 preview를 점진적으로 실제 프론트와 동기화했다.
+- `seed` 단계는 제거하고 신규 봉우리는 `bud`부터 시작한다. 과거 `seed` asset은 현재
+  봉우리 이미지로만 취급할 수 있다.
+- 수확은 진행률 100%인 봉우리만 가능하다.
+- 정원은 50%~200% 확대/축소, 트랙패드 pinch, 봉우리 hover tooltip, 봉우리 클릭 시
+  정원 페이지 안의 `BudDetailDrawer` 직접 표시를 지원한다.
+- 수확 바구니는 Figma 추천안 기준의 손잡이 없는 픽셀 바구니로 반영했다. 맨 아래
+  진한 갈색 줄과 바깥으로 튀어나오는 세로줄은 다시 넣지 않는다.
+- 식물 정보 카드는 대표 상태 pill을 보여주지 않고 식물명, 봉우리 수, 상세/상담 액션만
+  표시한다.
+- 주요 사용자 화면(`/home`, `/plants` 리스트, `/plants/{id}`, `/calendar`, `/history`,
+  `/settings`)은 `globals.css`의 반응형 레이아웃 클래스를 사용한다. 좁은 화면에서는
+  채팅 패널이 본문을 계속 밀지 않고 오버레이처럼 동작한다.
+- 랜딩, 로그인, 관리자 공통 layout도 가변 UI 기준으로 정리했다. 로그인 brand panel은
+  좁은 화면에서 숨기고, 관리자 sidebar는 좁은 화면에서 상단 sticky 영역으로 접힌다.
+  관리자 테이블은 페이지 전체 overflow 대신 `.admin-table-card` 내부 가로 스크롤로
+  확인한다.
+- 봉우리는 `PATCH /api/v1/buds/{bud_id}/move`로 같은 사용자 소유의 다른 식물로 이동할
+  수 있다. 기존 `PATCH /buds/{id}`에는 `plant_id`를 열지 않는다. 이동은
+  `BudService.move_to_plant()`에서 대상 식물 소유권과 archived 상태를 검증한 뒤
+  처리하고, 프론트 drawer는 이전 식물과 대상 식물의 `QK.plantBuds()` 및 전체
+  buds/plants/stats/briefing/calendar 캐시를 무효화한다.
+
+---
+
+## 19. 협업과 Git 운영 규칙
 
 이 저장소의 `AGENTS.md`는 후속 AI와 도구가 참고하는 지속적인 작업 가이드다.
 
@@ -890,14 +1020,14 @@ rg --files -g 'AGENTS.md' -g 'CLAUDE.md'
   컨테이너는 `--bg-elevated`로 유지해 한 단계 구분한다. 일정, 고민, 주의, 수확은
   각각 accent, info, warning, positive 색으로 구분한다.
 - 캘린더 페이지는 `1920x1080`, 브라우저 75% 축소 환경에서 세로 스크롤 없이 한
-  화면에 들어와야 한다. 현재 기준은 페이지 패딩 `24px`, 월간 달력과 오른쪽 열
-  고정 행 높이 `480px`, 날짜 셀 `minHeight: 56px`, 하단 요약 카드 `minHeight: 96px`다.
-  일정이 많아질 때는 페이지 전체가 늘어나는 대신 `선택 날짜 일정` 목록 내부에서
-  스크롤한다.
+  화면에 들어와야 한다. 현재 기준은 `frontend/app/globals.css`의 `.calendar-layout`
+  이며, 데스크톱 행 높이는 `clamp(440px, 52vh, 560px)`로 잡는다. 좁은 화면에서는
+  오른쪽 열이 달력 아래로 내려간다. 일정이 많아질 때는 페이지 전체가 늘어나는 대신
+  `선택 날짜 일정` 목록 내부에서 스크롤한다.
 - `선택 날짜 일정` 카드와 오른쪽 열은 `overflow: hidden`을 유지하고 목록 `<ul>`은
   `flex: 1`, `min-height: 0`, `overflow-y: auto`를 사용한다. 이 제약을 빼면 일정
-  개수에 따라 오른쪽 열과 월간 달력 카드 높이가 함께 늘어난다. 상위 2열 Grid의
-  `grid-template-rows: 480px`도 제거하지 않는다.
+  개수에 따라 오른쪽 열과 월간 달력 카드 높이가 함께 늘어난다. 상위 Grid의
+  `calendar-layout` 클래스도 제거하지 않는다.
 - 앱 공통 색상은 프론트의 `frontend/app/globals.css` 토큰을 기준으로 삼는다. Figma의
   `03 App Screens`도 배경 `#F5F2EB`, 사이드바 `#3D4A30`, 기본 테두리 `#DDD9CE`,
   기본 강조색 `#5C6B3F` 계열로 동기화했다. 이후 색을 조정하면 프론트 토큰을 먼저

@@ -104,7 +104,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ padding: "32px 36px 64px", maxWidth: 960, margin: "0 auto" }}>
+    <div className="app-page app-page-narrow">
       <header style={{ marginBottom: 24 }}>
         <h1 className="t-display" style={{ color: "var(--fg)" }}>설정</h1>
         <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginTop: 4 }}>
@@ -127,9 +127,9 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 32 }}>
+      <div className="settings-layout">
         {/* Tabs */}
-        <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <nav className="settings-tabs">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -166,13 +166,13 @@ export default function SettingsPage() {
 
               <SubSection title="계정 삭제">
                 <Row label="데이터 영구 삭제" sub="모든 식물, 봉우리, 대화 기록이 삭제됩니다">
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     <input
                       className="input"
                       value={deleteConfirmInput}
                       onChange={(e) => setDeleteConfirmInput(e.target.value)}
                       placeholder={user?.email ?? user?.nickname ?? "이메일 입력"}
-                      style={{ width: 200, fontSize: 13 }}
+                      style={{ width: "min(100%, 240px)", fontSize: 13 }}
                     />
                     <button
                       className="btn btn-danger btn-sm"
@@ -190,14 +190,14 @@ export default function SettingsPage() {
           {tab === "ai" && (
             <Section title="AI 설정">
               <Row label="Gemini API 키" sub="저장 시 암호화하여 보관합니다">
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                   <input
                     className="input"
                     type="password"
                     value={apiKeyVal}
                     onChange={(e) => setApiKeyVal(e.target.value)}
                     placeholder="AIzaSy…"
-                    style={{ width: 220 }}
+                    style={{ width: "min(100%, 280px)" }}
                   />
                   <button className="btn btn-primary btn-sm" onClick={handleSaveApiKey} disabled={saving}>
                     저장
@@ -237,7 +237,7 @@ export default function SettingsPage() {
           {tab === "theme" && (
             <Section title="테마">
               <SubSection title="모드">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                <div className="responsive-grid-3" style={{ gap: 8 }}>
                   {MODES.map((m) => (
                     <ModeCard
                       key={m.key}

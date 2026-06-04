@@ -25,8 +25,8 @@ function LogDetailView({ filename, onClose }: { filename: string; onClose: () =>
       display: "flex", alignItems: "flex-start", justifyContent: "flex-end",
       zIndex: 50, padding: 0,
     }}>
-      <div style={{
-        width: "55%", height: "100vh",
+      <div className="admin-detail-panel" style={{
+        height: "100vh",
         background: "#0f1117", borderLeft: "1px solid rgba(255,255,255,0.1)",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
@@ -279,7 +279,7 @@ function LogsContent() {
   const total = res?.ok ? res.data.total : 0;
 
   return (
-    <div style={{ padding: "32px 36px", color: "#fff", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="admin-page">
       <header style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>AI 채팅 로그</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
@@ -315,7 +315,7 @@ function LogsContent() {
       {isLoading ? (
         <p style={{ color: "rgba(255,255,255,0.4)" }}>로딩 중...</p>
       ) : (
-        <div style={{ background: "#1a1f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+        <div className="admin-table-card" style={{ background: "#1a1f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.04)" }}>

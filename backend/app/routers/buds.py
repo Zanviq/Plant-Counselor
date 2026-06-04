@@ -4,7 +4,7 @@ from supabase import Client
 
 from app.deps import get_db, require_user
 from app.repositories.bud_repo import BudRepository
-from app.schemas.bud import BudHistoryOut, BudOut, BudPatch, BudProgressUpdate
+from app.schemas.bud import BudHistoryOut, BudMoveRequest, BudOut, BudPatch, BudProgressUpdate
 from app.services.bud_service import BudService
 
 router = APIRouter(prefix="/buds", tags=["buds"])
@@ -40,6 +40,15 @@ def patch_bud(bud_id: str, body: BudPatch, user=Depends(require_user), db: Clien
         raise HTTPException(404)
     updated = BudRepository(db).update(user.id, bud_id, body.model_dump(exclude_none=True))
     return {"ok": True, "data": BudOut.model_validate(updated or bud)}
+
+
+@router.patch("/{bud_id}/move")
+def move_bud(bud_id: str, body: BudMoveRequest, user=Depends(require_user), db: Client = Depends(get_db)):
+    try:
+        updated = BudService(db).move_to_plant(user.id, bud_id, body.target_plant_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {"ok": True, "data": BudOut.model_validate(updated)}
 
 @router.delete("/{bud_id}")
 def delete_bud(bud_id: str, user=Depends(require_user), db: Client = Depends(get_db)):

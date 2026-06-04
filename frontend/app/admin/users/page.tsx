@@ -42,7 +42,7 @@ export default function AdminUsersPage() {
   const users: AdminUser[] = res?.ok ? res.data.items : [];
 
   return (
-    <div style={{ padding: "32px 36px", color: "#fff", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="admin-page">
       <header style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>사용자 관리</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
@@ -58,13 +58,13 @@ export default function AdminUsersPage() {
         <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 10 }}>
           전체 브로드캐스트 알림
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input
             value={notifMsg}
             onChange={(e) => setNotifMsg(e.target.value)}
             placeholder="모든 사용자에게 보낼 메시지..."
             style={{
-              flex: 1, padding: "8px 12px", borderRadius: 7,
+              flex: "1 1 240px", padding: "8px 12px", borderRadius: 7,
               background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
               color: "#fff", fontSize: 13, outline: "none",
             }}
@@ -91,7 +91,7 @@ export default function AdminUsersPage() {
       {isLoading ? (
         <p style={{ color: "rgba(255,255,255,0.4)" }}>로딩 중...</p>
       ) : (
-        <div style={{ background: "#1a1f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+        <div className="admin-table-card" style={{ background: "#1a1f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.04)" }}>
@@ -185,7 +185,7 @@ export default function AdminUsersPage() {
         }}>
           <div style={{
             background: "#1a1f2e", borderRadius: 12, padding: "24px 28px",
-            width: 400, border: "1px solid rgba(255,255,255,0.1)",
+            width: 400, maxWidth: "calc(100vw - 32px)", border: "1px solid rgba(255,255,255,0.1)",
           }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: "0 0 16px" }}>
               개별 알림 발송

@@ -3,8 +3,8 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
-import { getPlant, deletePlant, Plant } from "@/lib/api/plants";
-import { listBuds, getBud, setBudProgress, deleteBud, Bud } from "@/lib/api/buds";
+import { getPlant, listPlants, deletePlant, Plant } from "@/lib/api/plants";
+import { listBuds, getBud, setBudProgress, deleteBud, moveBud, Bud } from "@/lib/api/buds";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import {
@@ -70,16 +70,22 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
   const { open: chatOpen, chatWidth, openWith } = useChatStore();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: QK.bud(budId), queryFn: () => getBud(budId) });
+  const { data: plantsRes } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants() });
   // Manual progress slider state.
   const [draft, setDraft] = useState<number | null>(null);     // live slider value
   const [reasonFor, setReasonFor] = useState<number | null>(null); // value awaiting a reason
   const [reasonText, setReasonText] = useState("");
+  const [moveTargetId, setMoveTargetId] = useState("");
+  const [moveError, setMoveError] = useState("");
+  const [moving, setMoving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const bud = data?.ok ? data.data.bud : null;
   const history = data?.ok ? data.data.history : [];
   if (!bud) return null;
+  const plants = plantsRes?.ok ? plantsRes.data.items : [];
+  const movablePlants = plants.filter((plant) => plant.id !== bud.plant_id && plant.status !== "archived");
 
   const status = normalizeBudStatus(bud.status);
   const editable = !isDone(bud.status);
@@ -134,6 +140,28 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
     onClose();
   }
 
+  async function moveToPlant() {
+    if (!moveTargetId || moveTargetId === bud!.plant_id) return;
+    setMoving(true);
+    setMoveError("");
+    const previousPlantId = bud!.plant_id;
+    const result = await moveBud(budId, moveTargetId);
+    setMoving(false);
+    if (!result.ok) {
+      setMoveError(result.error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: QK.bud(budId) });
+    qc.invalidateQueries({ queryKey: QK.plantBuds(previousPlantId) });
+    qc.invalidateQueries({ queryKey: QK.plantBuds(moveTargetId) });
+    qc.invalidateQueries({ queryKey: QK.plants() });
+    qc.invalidateQueries({ queryKey: ["buds"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["briefing"] });
+    qc.invalidateQueries({ queryKey: ["calendar"] });
+    setMoveTargetId("");
+  }
+
   // When the chat panel is open the drawer shifts left to sit beside it.
   const drawerRight = chatOpen ? chatWidth : 0;
 
@@ -154,7 +182,7 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
         style={{
           position: "fixed",
           right: drawerRight,
-          top: 0, bottom: 0, width: 400,
+          top: 0, bottom: 0, width: "min(400px, calc(100vw - var(--sidebar-w)))",
           zIndex: 45, // above ChatPanel (40) so it's never buried
           background: "var(--bg-elevated)", borderLeft: "1px solid var(--border)",
           display: "flex", flexDirection: "column",
@@ -279,6 +307,36 @@ function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: () => voi
               진행률 100%를 달성하면 수확할 수 있습니다.
             </div>
           )}
+          <div className="card-flat" style={{ padding: 10, borderRadius: "var(--r-md)" }}>
+            <div className="t-caption" style={{ color: "var(--fg-muted)", marginBottom: 6 }}>다른 식물로 이동</div>
+            {movablePlants.length === 0 ? (
+              <div className="t-caption" style={{ color: "var(--fg-subtle)" }}>
+                이동할 수 있는 다른 식물이 없습니다.
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <select
+                  className="input"
+                  value={moveTargetId}
+                  onChange={(event) => setMoveTargetId(event.target.value)}
+                  disabled={moving}
+                  aria-label="봉우리를 이동할 대상 식물"
+                  style={{ flex: 1, minWidth: 0, height: 34, fontSize: 12.5 }}
+                >
+                  <option value="">대상 식물 선택</option>
+                  {movablePlants.map((plant) => (
+                    <option key={plant.id} value={plant.id}>{plant.name}</option>
+                  ))}
+                </select>
+                <button className="btn btn-secondary btn-sm" disabled={!moveTargetId || moving} onClick={moveToPlant}>
+                  {moving ? "이동 중…" : "이동"}
+                </button>
+              </div>
+            )}
+            {moveError && (
+              <div className="t-caption" style={{ color: "var(--danger)", marginTop: 6 }}>{moveError}</div>
+            )}
+          </div>
           <button
             className="btn btn-primary btn-lg"
             style={{ width: "100%" }}
@@ -452,7 +510,7 @@ export default function PlantDetailPage() {
   }
 
   return (
-    <div style={{ padding: "32px 36px 64px", maxWidth: 960, margin: "0 auto" }}>
+    <div className="app-page app-page-narrow">
       <button className="btn btn-ghost btn-sm" onClick={() => router.back()} style={{ marginBottom: 20 }}>
         ← 정원으로
       </button>
@@ -476,7 +534,7 @@ export default function PlantDetailPage() {
       {plant && (
         <>
           <header className="card animate-in" style={{ padding: "22px 24px", marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h1 className="t-display" style={{ color: "var(--fg)" }}>{plant.name}</h1>
                 {plant.description && (
@@ -484,7 +542,7 @@ export default function PlantDetailPage() {
                     {plant.description}
                   </p>
                 )}
-                <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
+                <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap" }}>
                   <BigStat label="활성" value={headerStats.active} />
                   <BigStat label="수확" value={headerStats.harvested} color="var(--positive)" />
                   <BigStat label="포기" value={headerStats.rot} color="var(--danger)" />
@@ -512,7 +570,7 @@ export default function PlantDetailPage() {
           </header>
 
           {/* Buds toolbar */}
-          <div className="animate-in" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div className="animate-in" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <h2 className="t-h1" style={{ color: "var(--fg)" }}>봉우리</h2>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <FilterToggle current={filter} onChange={setFilter} />

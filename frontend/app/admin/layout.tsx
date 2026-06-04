@@ -30,6 +30,7 @@ function AdminNav() {
 
   return (
     <aside
+      className="admin-sidebar"
       style={{
         position: "fixed", left: 0, top: 0, bottom: 0, width: 220,
         background: "#1a1f2e", borderRight: "1px solid rgba(255,255,255,0.08)",
@@ -183,9 +184,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (user && user.role !== "admin") return null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex" }}>
+    <div className="admin-shell">
       <AdminNav />
-      <main style={{ flex: 1, marginLeft: 220, minHeight: "100vh", overflow: "auto" }}>
+      <main className="admin-main">
         {children}
       </main>
     </div>

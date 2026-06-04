@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getBud, setBudProgress, deleteBud } from "@/lib/api/buds";
+import { getBud, setBudProgress, deleteBud, moveBud } from "@/lib/api/buds";
+import { listPlants } from "@/lib/api/plants";
 import { useChatStore } from "@/lib/store/chatStore";
 import {
   STATUS_LABEL, STATUS_PILL, normalizeBudStatus, isDone,
@@ -13,9 +14,13 @@ export function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: ()
   const { open: chatOpen, chatWidth, openWith } = useChatStore();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: QK.bud(budId), queryFn: () => getBud(budId) });
+  const { data: plantsRes } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants() });
   const [draft, setDraft] = useState<number | null>(null);
   const [reasonFor, setReasonFor] = useState<number | null>(null);
   const [reasonText, setReasonText] = useState("");
+  const [moveTargetId, setMoveTargetId] = useState("");
+  const [moveError, setMoveError] = useState("");
+  const [moving, setMoving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -24,6 +29,8 @@ export function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: ()
   const history = data?.ok ? data.data.history : [];
   if (!bud) return null;
   const currentBud = bud;
+  const plants = plantsRes?.ok ? plantsRes.data.items : [];
+  const movablePlants = plants.filter((plant) => plant.id !== currentBud.plant_id && plant.status !== "archived");
 
   const status = normalizeBudStatus(currentBud.status);
   const editable = !isDone(currentBud.status);
@@ -75,6 +82,28 @@ export function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: ()
     onClose();
   }
 
+  async function moveToPlant() {
+    if (!moveTargetId || moveTargetId === currentBud.plant_id) return;
+    setMoving(true);
+    setMoveError("");
+    const previousPlantId = currentBud.plant_id;
+    const result = await moveBud(budId, moveTargetId);
+    setMoving(false);
+    if (!result.ok) {
+      setMoveError(result.error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: QK.bud(budId) });
+    qc.invalidateQueries({ queryKey: QK.plantBuds(previousPlantId) });
+    qc.invalidateQueries({ queryKey: QK.plantBuds(moveTargetId) });
+    qc.invalidateQueries({ queryKey: QK.plants() });
+    qc.invalidateQueries({ queryKey: ["buds"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    qc.invalidateQueries({ queryKey: ["briefing"] });
+    qc.invalidateQueries({ queryKey: ["calendar"] });
+    setMoveTargetId("");
+  }
+
   const drawerRight = chatOpen ? chatWidth : 0;
 
   return (
@@ -93,7 +122,7 @@ export function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: ()
         style={{
           position: "fixed",
           right: drawerRight,
-          top: 0, bottom: 0, width: 400,
+          top: 0, bottom: 0, width: "min(400px, calc(100vw - var(--sidebar-w)))",
           zIndex: 45,
           background: "var(--bg-elevated)", borderLeft: "1px solid var(--border)",
           display: "flex", flexDirection: "column",
@@ -206,6 +235,36 @@ export function BudDetailDrawer({ budId, onClose }: { budId: string; onClose: ()
               진행률 100%를 달성하면 수확할 수 있습니다.
             </div>
           )}
+          <div className="card-flat" style={{ padding: 10, borderRadius: "var(--r-md)" }}>
+            <div className="t-caption" style={{ color: "var(--fg-muted)", marginBottom: 6 }}>다른 식물로 이동</div>
+            {movablePlants.length === 0 ? (
+              <div className="t-caption" style={{ color: "var(--fg-subtle)" }}>
+                이동할 수 있는 다른 식물이 없습니다.
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <select
+                  className="input"
+                  value={moveTargetId}
+                  onChange={(event) => setMoveTargetId(event.target.value)}
+                  disabled={moving}
+                  aria-label="봉우리를 이동할 대상 식물"
+                  style={{ flex: 1, minWidth: 0, height: 34, fontSize: 12.5 }}
+                >
+                  <option value="">대상 식물 선택</option>
+                  {movablePlants.map((plant) => (
+                    <option key={plant.id} value={plant.id}>{plant.name}</option>
+                  ))}
+                </select>
+                <button className="btn btn-secondary btn-sm" disabled={!moveTargetId || moving} onClick={moveToPlant}>
+                  {moving ? "이동 중…" : "이동"}
+                </button>
+              </div>
+            )}
+            {moveError && (
+              <div className="t-caption" style={{ color: "var(--danger)", marginTop: 6 }}>{moveError}</div>
+            )}
+          </div>
           <button className="btn btn-primary btn-lg" style={{ width: "100%" }} onClick={() => openWith({ kind: "bud", id: currentBud.id })}>
             AI에게 이 봉우리 상담받기
           </button>

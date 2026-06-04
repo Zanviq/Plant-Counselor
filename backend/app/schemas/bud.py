@@ -41,3 +41,7 @@ class BudPatch(BaseModel):
 class BudProgressUpdate(BaseModel):
     progress: int            # 0–100 (clamped server-side)
     note: str = ""           # optional reason ("왜 변경했는지") for history/AI
+
+
+class BudMoveRequest(BaseModel):
+    target_plant_id: str

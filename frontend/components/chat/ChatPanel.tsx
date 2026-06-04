@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import type { CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useChatStore, MIN_CHAT_W, MAX_CHAT_W } from "@/lib/store/chatStore";
@@ -584,15 +585,16 @@ export default function ChatPanel() {
 
   return (
     <aside
-      className="animate-in-right"
+      className="chat-panel animate-in-right"
       style={{
         position: "fixed", right: 0, top: 0, bottom: 0,
-        width: chatWidth, zIndex: 40,
+        "--chat-panel-w": `${chatWidth}px`,
+        zIndex: 40,
         display: "flex", flexDirection: "column",
         background: "var(--bg-elevated)",
         borderLeft: "1px solid var(--border)",
         boxShadow: "var(--shadow-lg)",
-      }}
+      } as CSSProperties}
     >
       {/* ── Resize handle ── drag this left/right to change panel width */}
       <div

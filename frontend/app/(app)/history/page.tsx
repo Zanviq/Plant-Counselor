@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import type { CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -577,13 +578,7 @@ export default function HistoryPage() {
   return (
     // Full-viewport flex column so the grid fills exactly the remaining height
     // and the message list can scroll without the outer box growing.
-    <div style={{
-      display: "flex", flexDirection: "column",
-      height: "100vh",
-      padding: "32px 36px 24px",
-      maxWidth: 1200, margin: "0 auto",
-      boxSizing: "border-box",
-    }}>
+    <div className="app-page app-page-wide history-shell" style={{ "--page-pad-bottom": "24px" } as CSSProperties}>
       {/* Page header */}
       <header className="animate-in" style={{ marginBottom: 16, flexShrink: 0 }}>
         <h1 className="t-display" style={{ color: "var(--fg)" }}>대화 기록</h1>
@@ -596,17 +591,7 @@ export default function HistoryPage() {
 
       {/* Main grid — flex: 1 + minHeight: 0 makes it fill remaining height
           and prevents it from growing beyond the viewport. */}
-      <div style={{
-        flex: 1,
-        minHeight: 0,   // ← essential: lets flex child shrink below content size
-        display: "grid",
-        gridTemplateColumns: "280px 1fr",
-        gap: 0,
-        border: "1px solid var(--border)",
-        borderRadius: "var(--r-xl)",
-        overflow: "hidden",
-        background: "var(--bg-elevated)",
-      }}>
+      <div className="history-layout">
         {/* ── Left: tree panel ── */}
         <div style={{
           borderRight: "1px solid var(--border)",

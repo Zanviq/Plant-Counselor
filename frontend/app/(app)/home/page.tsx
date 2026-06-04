@@ -226,7 +226,7 @@ export default function HomePage() {
   const apiKeyMissing = briefing.includes("API 키") && briefing.includes("설정");
 
   return (
-    <div style={{ padding: "40px 36px 64px", maxWidth: 1120, margin: "0 auto" }}>
+    <div className="app-page app-page-wide">
       {/* Top-right AI chat button (hides while the chat panel is open) */}
       <AiChatButton style={{ position: "fixed", top: 24, right: 28, zIndex: 30 }} />
 
@@ -267,8 +267,8 @@ export default function HomePage() {
 
       {/* Stats */}
       <section
-        className="stagger"
-        style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}
+        className="responsive-grid-4 stagger"
+        style={{ marginBottom: 32 }}
       >
         {loadingSum ? (
           <>
@@ -299,12 +299,12 @@ export default function HomePage() {
         </div>
 
         {loadingPlants ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <div className="responsive-grid-3">
             <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
             <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }} className="stagger">
+          <div className="responsive-grid-3 stagger">
             {plants.slice(0, 5).map((p) => (
               <PlantCard
                 key={p.id}
@@ -326,7 +326,7 @@ export default function HomePage() {
             <h2 className="t-h2" style={{ color: "var(--fg)" }}>주의가 필요한 봉우리</h2>
             <span className="badge badge-warning">{wilting.length}</span>
           </div>
-          <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+          <div className="responsive-grid-2 stagger" style={{ gap: 8 }}>
             {wilting.slice(0, 6).map((b) => (
               <WiltingRow key={b.id} bud={b} onChat={() => openWith({ kind: "bud", id: b.id })} />
             ))}

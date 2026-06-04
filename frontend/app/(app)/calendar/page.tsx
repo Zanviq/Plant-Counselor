@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import type { CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -132,7 +133,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div style={{ padding: "24px 36px", maxWidth: 1200, margin: "0 auto" }}>
+    <div className="app-page app-page-wide" style={{ "--page-pad-y": "24px" } as CSSProperties}>
       {/* Top-right AI chat button (hides while the chat panel is open) */}
       <AiChatButton style={{ position: "fixed", top: 24, right: 28, zIndex: 30 }} />
 
@@ -145,7 +146,7 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gridTemplateRows: "480px", alignItems: "stretch", gap: 16, marginBottom: 12 }}>
+      <div className="calendar-layout">
         {/* Calendar card */}
         {loadingCal ? <CalendarSkeleton /> : null}
         <section className="card" style={{ padding: 18, height: "100%", minHeight: 0, overflow: "hidden", display: loadingCal ? "none" : undefined }}>
@@ -252,7 +253,7 @@ export default function CalendarPage() {
       {/* Summary */}
       <section className="card" style={{ padding: 14 }}>
         <div className="t-h2" style={{ color: "var(--fg)", marginBottom: 12 }}>일정 상태 요약</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stagger">
+        <div className="calendar-summary-grid stagger">
           {!summaryRes ? (
             <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
           ) : (

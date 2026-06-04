@@ -45,7 +45,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
   const { profile, plants, buds, conversation_count, ai_session_count, token_estimate } = res.data;
 
   return (
-    <div style={{ padding: "32px 36px", color: "#fff", maxWidth: 900, margin: "0 auto" }}>
+    <div className="admin-page" style={{ maxWidth: 960 }}>
       <Link href="/admin/users" style={{ fontSize: 13, color: "#60a5fa", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 20 }}>
         ← 사용자 목록
       </Link>
@@ -58,7 +58,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Profile card */}
       <div style={{ background: "#1a1f2e", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", padding: "20px 24px", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
               {profile.nickname ?? "(닉네임 없음)"}
@@ -76,7 +76,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
               ))}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               onClick={() => roleMut.mutate(profile.role === "admin" ? "user" : "admin")}
               style={{

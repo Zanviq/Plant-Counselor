@@ -625,7 +625,7 @@ export default function AdminControllerPage() {
   }
 
   return (
-    <div style={{ padding: "32px 36px", color: "#fff", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="admin-page">
       <header style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>컨트롤러</h1>

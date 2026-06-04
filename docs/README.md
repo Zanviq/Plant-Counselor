@@ -1,6 +1,6 @@
 # Plant Counselor 문서 지도
 
-> 최종 점검: 2026-06-02
+> 최종 점검: 2026-06-04
 
 문서가 여러 구현 단계를 거치며 함께 남아 있다. 현재 웹 MVP 작업은 아래 우선순위로
 읽는다.
@@ -10,6 +10,10 @@
 3. [`Web/`](./Web/)의 최신 웹 문서
 4. [`DEMO_GUIDE.md`](./DEMO_GUIDE.md)
 5. [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md)
+
+루트 `CLAUDE.md`는 더 이상 별도 세션 이력 문서가 아니며 `@AGENTS.md` 포인터만
+담는다. 과거 Claude 세션에서 유효한 작업 맥락은 루트 `AGENTS.md`의
+`통합된 과거 작업 맥락` 섹션으로 옮겼다.
 
 ## 현재 작업용 문서
 

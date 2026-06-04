@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function HistoryLoading() {
   return (
-    <div style={{ padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>
+    <div className="app-page app-page-wide">
       <div style={{ marginBottom: 20 }}>
         <Skeleton w={120} h={32} style={{ marginBottom: 8 }} />
         <Skeleton w={200} h={13} />

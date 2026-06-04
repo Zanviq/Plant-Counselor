@@ -38,7 +38,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", background: "var(--bg)" }}>
+    <div className="login-shell">
       {/* Brand panel */}
       <aside
         style={{
@@ -49,7 +49,7 @@ export default function LoginPage() {
           display: "flex", flexDirection: "column",
           position: "relative", overflow: "hidden",
         }}
-        className="hidden lg:flex"
+        className="login-brand-panel"
       >
         <Link
           href="/"

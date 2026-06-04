@@ -30,3 +30,7 @@
 
 `backend/migrations/004_remove_seed_bud_status.sql`은 과거 `seed` 행을 `bud`로 승격하고
 DB 기본값도 `bud`로 바꾼다.
+
+봉우리는 `PATCH /api/v1/buds/{bud_id}/move`로 다른 식물로 이동할 수 있다. 이동은
+`plant_id`를 직접 열어두는 일반 patch가 아니라 `BudService.move_to_plant()`를 통해
+대상 식물이 같은 사용자 소유인지, archived 상태가 아닌지 확인한 뒤 처리한다.

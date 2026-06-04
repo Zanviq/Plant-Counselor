@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -124,18 +125,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [openWith]);
 
-  const SIDEBAR_W = 64;
-
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
       <Sidebar />
       <main
-        style={{
-          minHeight: "100vh",
-          marginLeft: SIDEBAR_W,
-          marginRight: open ? chatWidth : 0,
-          transition: "margin-right 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
-        }}
+        className="app-main"
+        style={{ "--chat-offset": `${open ? chatWidth : 0}px` } as CSSProperties}
       >
         {children}
       </main>

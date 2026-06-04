@@ -20,6 +20,9 @@ export const deleteBud = (id: string) =>
 export const setBudProgress = (id: string, progress: number, note = "") =>
   apiPatch<Bud>(`/buds/${id}/progress`, { progress, note });
 
+export const moveBud = (id: string, targetPlantId: string) =>
+  apiPatch<Bud>(`/buds/${id}/move`, { target_plant_id: targetPlantId });
+
 export interface Bud {
   id: string;
   plant_id: string;

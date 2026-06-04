@@ -522,7 +522,8 @@ export default function PlantsPage() {
   return (
     <div style={view === "garden"
       ? { position: "relative", height: "100vh", overflow: "hidden" }
-      : { padding: "32px 36px 48px", maxWidth: 1200, margin: "0 auto" }}>
+      : undefined}
+      className={view === "garden" ? undefined : "app-page app-page-wide"}>
       {/* Header */}
       <header className="animate-in" style={view === "garden" ? {
         position: "absolute", top: 22, left: 24, zIndex: 5,
@@ -559,7 +560,7 @@ export default function PlantsPage() {
           {view === "garden" ? (
             <GardenSkeleton />
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+            <div className="responsive-card-grid">
               <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
               <PlantCardSkeleton /><PlantCardSkeleton /><PlantCardSkeleton />
             </div>
@@ -666,7 +667,7 @@ export default function PlantsPage() {
 
       {/* List view */}
       {!showLoading && plants.length > 0 && view === "list" && (
-        <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+        <div className="responsive-card-grid stagger">
           {filtered.map(p => (
             <PlantCard key={p.id} plant={p} buds={budsByPlant.get(p.id) ?? []}
               onClick={() => router.push(`/plants/${p.id}`)} onChat={() => openWith({ kind: "plant", id: p.id })} />

@@ -62,7 +62,7 @@ export default function AdminNotificationsPage() {
   }
 
   return (
-    <div style={{ padding: "32px 36px", color: "#fff", maxWidth: 900, margin: "0 auto" }}>
+    <div className="admin-page" style={{ maxWidth: 960 }}>
       <header style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>알림 발송</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
@@ -70,7 +70,7 @@ export default function AdminNotificationsPage() {
         </p>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24 }}>
+      <div className="admin-grid-2">
         {/* Compose */}
         <div style={{ background: "#1a1f2e", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", padding: "22px 24px" }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 18 }}>알림 작성</div>

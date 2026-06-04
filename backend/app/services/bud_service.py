@@ -112,6 +112,31 @@ class BudService:
             raise ValueError(f"봉우리를 찾을 수 없습니다: {bud_id}")
         return bud
 
+    def move_to_plant(self, user_id: str, bud_id: str, target_plant_id: str) -> SimpleNamespace:
+        bud = self.get(user_id, bud_id)
+        if target_plant_id == getattr(bud, "plant_id", None):
+            return bud
+        target = (
+            self.db.table("plants")
+            .select("id,name,status")
+            .eq("id", target_plant_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not target.data:
+            raise ValueError(f"대상 식물을 찾을 수 없습니다: {target_plant_id}")
+        if target.data[0].get("status") == "archived":
+            raise ValueError("보관된 식물로는 봉우리를 이동할 수 없습니다.")
+        updated = self._repo.update(user_id, bud_id, {"plant_id": target_plant_id})
+        self._repo.add_history(
+            bud_id,
+            getattr(bud, "status", ""),
+            getattr(bud, "status", "bud"),
+            f"식물 이동: {getattr(bud, 'plant_id', '')} -> {target_plant_id}",
+        )
+        return updated or bud
+
     def delete(self, user_id: str, bud_id: str) -> None:
         self.get(user_id, bud_id)
         if not self._repo.delete(user_id, bud_id):

@@ -1,6 +1,6 @@
 # API 엔드포인트
 
-> 최종 점검: 2026-06-02
+> 최종 점검: 2026-06-04
 
 모든 사용자 API는 `/api/v1` 프리픽스를 사용한다. 별도 표기가 없으면 Supabase Bearer
 JWT가 필요하다. 인증 자체는 Supabase Auth가 담당하므로 커스텀 `/auth/*` 라우터는
@@ -28,6 +28,7 @@ JWT가 필요하다. 인증 자체는 Supabase Auth가 담당하므로 커스텀
 | PATCH | `/buds/{bud_id}` | 봉우리 수정 |
 | DELETE | `/buds/{bud_id}` | 봉우리 삭제 |
 | PATCH | `/buds/{bud_id}/progress` | 진행률 수정 |
+| PATCH | `/buds/{bud_id}/move` | 같은 사용자 소유의 다른 식물로 봉우리 이동 |
 
 식물과 봉우리 생성은 AI 스킬을 통해 수행한다.
 

@@ -76,7 +76,7 @@ def list_rows(db) -> list[dict]:
 
     Merges the ``ai_logs`` table with local files, deduped by filename
     (DB wins). This keeps logs visible in every situation:
-      - DB only (e.g. Render, where the local disk is wiped on restart)
+      - DB only (e.g. a container whose local disk is wiped on restart)
       - files only (local dev, or before the ai_logs table/migration exists)
       - both (save() mirrors to each with the same filename → no double count)
 

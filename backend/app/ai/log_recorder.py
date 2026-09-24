@@ -11,7 +11,7 @@ class LogRecorder:
     """채팅 한 턴의 전체 컨텍스트를 저장 (ai_logs 테이블 + 로컬 파일 미러).
 
     저장은 log_store가 담당한다: DB가 가능하면 DB가 정본, 아니면 파일로 폴백.
-    Render 무료처럼 디스크가 휘발성인 환경에서도 로그가 살아남게 하기 위함.
+    컨테이너 디스크가 초기화되는 환경에서도 로그가 DB에 남도록 하기 위함.
     """
 
     def __init__(self, user_id: str, text: str):

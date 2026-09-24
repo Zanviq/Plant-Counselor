@@ -52,7 +52,7 @@ def _parse_cors_origins(raw: str) -> list[str]:
 
 
 # CORS_ALLOW_ORIGIN may be a single origin or a comma-separated list, e.g.
-# "http://localhost:3000,https://my-app.vercel.app" — so local dev and the
+# "http://localhost:3000,https://app.example.com" — so local dev and the
 # deployed frontend can both be allowed at the same time.
 _cors_origins = _parse_cors_origins(settings.cors_allow_origin)
 

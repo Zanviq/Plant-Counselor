@@ -12,6 +12,7 @@ export interface AdminStats {
 
 export interface AdminUser {
   id: string;
+  username: string;
   email: string | null;
   nickname: string | null;
   role: "user" | "admin";

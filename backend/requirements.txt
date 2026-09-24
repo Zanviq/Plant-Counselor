@@ -1,40 +1,32 @@
-# ══════════════════════════════════════════════════════
-# Plant Counselor — Backend 의존성 목록
-#
-# 사용법:
+# Plant Counselor — backend dependencies (mirrors pyproject.toml).
 #   pip install -r requirements.txt
-#
-# 또는 개발 모드 (editable install, 소스 수정 즉시 반영):
-#   pip install -e .
-#
-# ※ pyproject.toml 이 단일 출처입니다.
-#   이 파일은 pyproject.toml 의 dependencies 를 그대로 옮긴 것입니다.
-# ══════════════════════════════════════════════════════
 
-# ── Web framework ─────────────────────────────────────
+# Web framework
 fastapi>=0.111.0
-uvicorn[standard]>=0.29.0      # ASGI 서버
+uvicorn[standard]>=0.29.0
 
-# ── Database (Supabase, PostgREST HTTP) ───────────────
-supabase>=2.30.0              # supabase-py 클라이언트 (DB 접근 전부 이걸로)
-                              # ※ SQLAlchemy/psycopg2 직접 연결은 사용하지 않음
+# Database — PostgreSQL 16 (psycopg 3 + pool)
+psycopg[binary]>=3.2.0
+psycopg-pool>=3.2.0
 
-# ── Auth (Supabase JWT 검증) ───────────────────────────
-python-jose[cryptography]>=3.3.0   # ES256(JWKS)/HS256 JWT 검증
+# Migrations
+alembic>=1.13.0
+sqlalchemy>=2.0.30
 
-# ── Config & env ──────────────────────────────────────
-python-dotenv>=1.0.0          # 로컬 .env 로딩 (pydantic-settings)
+# Auth — bcrypt + HS256 session cookie
+bcrypt>=4.1.0
+pyjwt>=2.8.0
+
+# Config & env
+python-dotenv>=1.0.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 
-# ── LLM (Google Gemini) ──────────────────────────────
-# 2.6+ required: older versions mishandle the new "AQ."-prefixed AI Studio API
-# key format (send it as an OAuth token → 401 ACCESS_TOKEN_TYPE_UNSUPPORTED).
+# LLM (Google Gemini) — per-request user key
 google-genai>=2.6.0
 
-# ── Scheduling ────────────────────────────────────────
-apscheduler>=3.10.0            # 주기적 봉우리 자동 전이
+# Scheduling
+apscheduler>=3.10.0
 
-# ── Utilities ─────────────────────────────────────────
-python-ulid>=2.0.0             # ULID 기본키 생성
-cryptography>=42.0.0           # Fernet 암호화 (사용자 API 키 보호)
+# Utilities
+python-ulid>=2.0.0

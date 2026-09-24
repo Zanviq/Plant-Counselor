@@ -25,19 +25,19 @@ function StatCard({ label, value, sub, color }: {
 }
 
 export default function AdminDashboard() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
 
   const { data: statsRes, isLoading: loadingStats } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: getAdminStats,
-    enabled: !!accessToken,
+    enabled: authed,
     refetchInterval: 30_000,
   });
 
   const { data: logsRes, isLoading: loadingLogs } = useQuery({
     queryKey: ["admin", "logs", "recent"],
     queryFn: () => listLogs({ limit: 8 }),
-    enabled: !!accessToken,
+    enabled: authed,
     refetchInterval: 30_000,
   });
 

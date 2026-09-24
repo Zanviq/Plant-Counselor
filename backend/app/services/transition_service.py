@@ -4,7 +4,7 @@ wilting → rot transitions and deadline warning notifications.
 from __future__ import annotations
 from datetime import datetime, timedelta
 
-from supabase import Client
+from app.db.pg import Client
 
 import app.runtime_settings as rs
 from app.repositories.bud_repo import BudRepository
@@ -34,7 +34,7 @@ def _to_dt(value) -> datetime | None:
 
 class TransitionService:
     def scan_all(self, db: Client) -> None:
-        res = db.table("profiles").select("id,garden_rules").execute()
+        res = db.table("users").select("id,garden_rules").execute()
         for row in (res.data or []):
             self.scan_user(db, row["id"], row.get("garden_rules") or {})
 

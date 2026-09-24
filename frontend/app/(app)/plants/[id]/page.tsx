@@ -588,7 +588,7 @@ export default function PlantDetailPage() {
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const { openWith, scope } = useChatStore();
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
 
   // Follow the chat session ONLY when it actually *changes* to a different plant
   // (e.g. via the "세션 변경" banner) — not when browsing to another plant's detail
@@ -623,7 +623,7 @@ export default function PlantDetailPage() {
   const { data: plantRes, isLoading: loadingPlant } = useQuery({
     queryKey: QK.plant(id),
     queryFn: () => getPlant(id),
-    enabled: !!accessToken,
+    enabled: authed,
     // Populate immediately from the plants list cache if available —
     // avoids a blank header while the individual-plant request is in flight.
     initialData: () => {
@@ -638,7 +638,7 @@ export default function PlantDetailPage() {
   const { data: budsRes, isLoading: loadingBuds }  = useQuery({
     queryKey: QK.plantBuds(id),
     queryFn: () => listBuds({ plant_id: id }),
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const plant = plantRes?.ok ? plantRes.data : null;

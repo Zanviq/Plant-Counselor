@@ -1,40 +1,70 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/store/authStore";
+import { getCurrentUser, login, signup } from "@/lib/api/auth";
+
+type Mode = "login" | "signup";
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  padding: "11px 12px",
+  borderRadius: "var(--r-md)",
+  border: "1px solid var(--border-strong)",
+  background: "var(--bg-elevated)",
+  color: "var(--fg)",
+  fontSize: 14,
+  outline: "none",
+};
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span className="t-caption" style={{ color: "var(--fg-secondary)", fontWeight: 600 }}>{label}</span>
+      {children}
+    </label>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const { accessToken } = useAuthStore();
+  const { setUser } = useAuthStore();
+  const [mode, setMode] = useState<Mode>("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Already authenticated → skip to home
+  // Already signed in (valid session cookie) → skip to home
   useEffect(() => {
-    if (accessToken) router.replace("/home");
-  }, [accessToken, router]);
+    getCurrentUser().then((res) => {
+      if (res.ok) router.replace("/home");
+    });
+  }, [router]);
 
-  async function handleGoogleLogin() {
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
     setLoading(true);
     setError("");
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/home`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account",
-        },
-      },
-    });
-    if (err) {
-      setError(err.message);
-      setLoading(false);
+    const res = mode === "login"
+      ? await login(username, password)
+      : await signup({ username, password, nickname: nickname || undefined });
+    setLoading(false);
+    if (!res.ok) {
+      setError(res.error.message || "요청을 처리하지 못했습니다.");
+      return;
     }
-    // On success Supabase redirects to Google; loading stays true during redirect.
+    setUser(res.data);
+    router.replace(res.data.role === "admin" && mode === "login" ? "/admin" : "/home");
+  }
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError("");
   }
 
   return (
@@ -97,12 +127,33 @@ export default function LoginPage() {
               정원에 오세요
             </h1>
             <p className="t-body-sm" style={{ color: "var(--fg-muted)" }}>
-              Google 계정으로 간편하게 시작합니다
+              {mode === "login" ? "아이디와 비밀번호로 로그인합니다" : "아이디와 비밀번호만 있으면 시작할 수 있어요"}
             </p>
           </div>
 
+          <div role="tablist" style={{ display: "flex", gap: 4, padding: 4, marginBottom: 20, borderRadius: "var(--r-md)", background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+            {(["login", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => switchMode(m)}
+                style={{
+                  flex: 1, padding: "8px 0", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
+                  fontSize: 14, fontWeight: 600,
+                  background: mode === m ? "var(--bg-elevated)" : "transparent",
+                  color: mode === m ? "var(--fg)" : "var(--fg-muted)",
+                  boxShadow: mode === m ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                }}
+              >
+                {m === "login" ? "로그인" : "회원가입"}
+              </button>
+            ))}
+          </div>
+
           {error && (
-            <div style={{
+            <div role="alert" style={{
               padding: "10px 12px", borderRadius: "var(--r-md)", marginBottom: 16,
               background: "color-mix(in srgb, var(--danger) 8%, transparent)",
               border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)",
@@ -112,45 +163,48 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Google OAuth button */}
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            style={{
-              width: "100%",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
-              padding: "12px 20px",
-              borderRadius: "var(--r-md)",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-strong)",
-              cursor: loading ? "wait" : "pointer",
-              fontSize: 15, fontWeight: 600, color: "var(--fg)",
-              transition: "background 0.12s, border-color 0.12s, box-shadow 0.12s",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.background = "var(--bg-subtle)";
-                e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--bg-elevated)";
-              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
-            }}
-          >
-            {/* Google "G" logo */}
-            <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden>
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
-            {loading ? "연결 중…" : "Google로 계속하기"}
-          </button>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="아이디">
+              <input
+                style={inputStyle} name="username" autoComplete="username" required
+                minLength={mode === "signup" ? 3 : 1} maxLength={32}
+                pattern={mode === "signup" ? "[A-Za-z0-9_.\\-]+" : undefined}
+                title={mode === "signup" ? "영문, 숫자, _ . - 만 사용할 수 있어요 (3~32자)" : undefined}
+                value={username} onChange={(e) => setUsername(e.target.value)}
+              />
+            </Field>
+            {mode === "signup" && (
+              <Field label="닉네임 (선택)">
+                <input
+                  style={inputStyle} name="nickname" maxLength={40} placeholder="비워두면 아이디를 사용해요"
+                  value={nickname} onChange={(e) => setNickname(e.target.value)}
+                />
+              </Field>
+            )}
+            <Field label="비밀번호">
+              <input
+                style={inputStyle} name="password" type="password" required
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                minLength={mode === "signup" ? 8 : 1} maxLength={128}
+                placeholder={mode === "signup" ? "8자 이상" : undefined}
+                value={password} onChange={(e) => setPassword(e.target.value)}
+              />
+            </Field>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%", marginTop: 6, padding: "12px 20px", borderRadius: "var(--r-md)",
+                background: "var(--accent)", color: "var(--accent-contrast)", border: "none",
+                cursor: loading ? "wait" : "pointer", fontSize: 15, fontWeight: 600,
+              }}
+            >
+              {loading ? "잠시만요…" : mode === "login" ? "로그인" : "가입하고 시작하기"}
+            </button>
+          </form>
 
           <p className="t-caption" style={{ color: "var(--fg-subtle)", textAlign: "center", marginTop: 20, lineHeight: 1.6 }}>
-            Google 계정으로 로그인하면 서비스 이용약관에 동의하는 것으로 간주됩니다.
+            데모 계정: <strong>demo</strong> / <strong>demo1234</strong>
           </p>
         </div>
       </main>

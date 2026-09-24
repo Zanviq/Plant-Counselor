@@ -9,23 +9,21 @@ import { useChatStore } from "@/lib/store/chatStore";
 import Sidebar from "@/components/layout/Sidebar";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import ChatPanel from "@/components/chat/ChatPanel";
-import { supabase } from "@/lib/supabase";
-import { apiGet, configureClient } from "@/lib/api/client";
+import { getCurrentUser } from "@/lib/api/auth";
 import { listPlants } from "@/lib/api/plants";
 import { listBuds } from "@/lib/api/buds";
 import { getSummary, getBriefing } from "@/lib/api/stats";
 import { QK } from "@/lib/queryKeys";
-import { withAuthMetadata, type UserProfile } from "@/lib/store/authStore";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const qc = useQueryClient();
-  const { setSession, clearSession } = useAuthStore();
+  const { setUser, clearSession } = useAuthStore();
   const { open, openWith, chatWidth, setScope } = useChatStore();
   const initialized = useRef(false);
 
-  /** Warm the caches that every page needs — called once after a valid token is available. */
+  /** Warm the caches that every page needs — called once the session is confirmed. */
   function prefetchAll() {
     qc.prefetchQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(), staleTime: 2 * 60_000 });
     qc.prefetchQuery({ queryKey: QK.buds(),     queryFn: () => listBuds(),   staleTime: 2 * 60_000 });
@@ -37,73 +35,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (initialized.current) return;
     initialized.current = true;
 
-    // Configure the API client to read the Supabase token from Zustand store
-    // (always up-to-date via onAuthStateChange below).
-    configureClient(
-      () => useAuthStore.getState().accessToken,
-      async () => {
-        // 401 fallback: ask Supabase to refresh the session
-        const { data } = await supabase.auth.refreshSession();
-        const newToken = data.session?.access_token ?? null;
-        if (newToken && data.session) {
-          const cur = useAuthStore.getState().user;
-          if (cur) useAuthStore.getState().setSession(newToken, cur);
-          else useAuthStore.setState({ accessToken: newToken });
-        }
-        return newToken;
-      }
-    );
-
-    // Subscribe to Supabase auth state changes.
-    // This fires immediately with the current session (or null) on mount.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!session) {
-          // Bug A fix: PKCE OAuth callback sends ?code= in the URL. Supabase
-          // exchanges the code asynchronously; INITIAL_SESSION fires with null
-          // before the exchange completes. Don't redirect — wait for SIGNED_IN.
-          const isOAuthCallback =
-            typeof window !== "undefined" &&
-            (window.location.search.includes("code=") ||
-              window.location.hash.includes("access_token="));
-          if (isOAuthCallback) return;
-
+    // Validate the httpOnly session cookie, then warm the caches. Page queries
+    // are gated on `authed`, which flips to true once /auth/me succeeds.
+    getCurrentUser().then((res) => {
+      if (!res.ok) {
+        // Only a real 401 logs out — a 5xx (backend down / restarting) must not.
+        if (res.error.code === "401") {
           clearSession();
           router.replace("/login");
-          return;
         }
-
-        const token = session.access_token;
-        // Keep the store token in sync (Supabase refreshes it automatically)
-        useAuthStore.setState({ accessToken: token });
-
-        // Kick off cache warming immediately (no waiting for profile fetch)
-        prefetchAll();
-
-        // Bug B fix: always refresh profile on SIGNED_IN so name/email are
-        // up-to-date. On TOKEN_REFRESHED / INITIAL_SESSION use cached value.
-        const cachedUser = useAuthStore.getState().user;
-        if (cachedUser && event !== "SIGNED_IN") {
-          setSession(token, withAuthMetadata(cachedUser, session.user.user_metadata));
-          return;
-        }
-
-        const meRes = await apiGet<UserProfile>("/me");
-        if (!meRes.ok) {
-          // Bug C fix: only clear session on real 401 (invalid token).
-          // A 500 (backend down, DB error) must not log the user out.
-          if (!meRes.error || meRes.error.code === "401") {
-            clearSession();
-            router.replace("/login");
-          }
-          return;
-        }
-        setSession(token, withAuthMetadata(meRes.data, session.user.user_metadata));
-
+        return;
       }
-    );
-
-    return () => subscription.unsubscribe();
+      setUser(res.data);
+      prefetchAll();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

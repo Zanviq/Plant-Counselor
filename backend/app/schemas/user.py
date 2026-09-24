@@ -2,13 +2,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    username: str
     email: str | None = None
     nickname: str | None = None
     role: str = "user"
@@ -43,5 +44,13 @@ class UserUpdate(BaseModel):
     appearance: dict[str, Any] | None = None
 
 
-class ApiKeySet(BaseModel):
-    api_key: str
+class SignupRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=8, max_length=128)
+    nickname: str | None = Field(default=None, max_length=40)
+    email: str | None = Field(default=None, max_length=254)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=128)

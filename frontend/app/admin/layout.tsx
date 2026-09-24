@@ -3,10 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/store/authStore";
-import { apiGet, configureClient } from "@/lib/api/client";
-import { withAuthMetadata, type UserProfile } from "@/lib/store/authStore";
+import { getCurrentUser, logout } from "@/lib/api/auth";
 
 function AdminNav() {
   const pathname = usePathname();
@@ -23,7 +21,7 @@ function AdminNav() {
   ];
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await logout();
     clearSession();
     router.replace("/login");
   }
@@ -51,7 +49,7 @@ function AdminNav() {
           <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Plant Admin</span>
         </div>
         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginLeft: 36 }}>
-          {user?.email ?? ""}
+          {user?.username ?? ""}
         </div>
       </div>
 
@@ -110,69 +108,29 @@ function AdminNav() {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, setSession, clearSession } = useAuthStore();
+  const { user, setUser, clearSession } = useAuthStore();
   const initialized = useRef(false);
 
+  // Validate the session cookie once per load; only admins may stay.
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-
-    configureClient(
-      () => useAuthStore.getState().accessToken,
-      async () => {
-        const { data } = await supabase.auth.refreshSession();
-        const newToken = data.session?.access_token ?? null;
-        if (newToken) useAuthStore.setState({ accessToken: newToken });
-        return newToken;
-      }
-    );
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!session) {
-          const isOAuth = typeof window !== "undefined" &&
-            (window.location.search.includes("code=") || window.location.hash.includes("access_token="));
-          if (isOAuth) return;
+    getCurrentUser().then((res) => {
+      if (!res.ok) {
+        // Only a real 401 logs out — a 5xx (backend restarting) must not.
+        if (res.error.code === "401") {
           clearSession();
           router.replace("/login");
-          return;
         }
-
-        const token = session.access_token;
-        useAuthStore.setState({ accessToken: token });
-
-        const cachedUser = useAuthStore.getState().user;
-        if (cachedUser && event !== "SIGNED_IN") {
-          setSession(token, withAuthMetadata(cachedUser, session.user.user_metadata));
-          // Verify still admin
-          if (cachedUser.role !== "admin") {
-            router.replace("/home");
-          }
-          return;
-        }
-
-        const meRes = await apiGet<UserProfile>("/me");
-        if (!meRes.ok) {
-          if (!meRes.error || meRes.error.code === "401") {
-            clearSession();
-            router.replace("/login");
-          }
-          return;
-        }
-
-        // Non-admin users cannot access admin panel
-        if (meRes.data.role !== "admin") {
-          router.replace("/home");
-          return;
-        }
-
-        setSession(token, withAuthMetadata(meRes.data, session.user.user_metadata));
+        return;
       }
-    );
-
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      if (res.data.role !== "admin") {
+        router.replace("/home");
+        return;
+      }
+      setUser(res.data);
+    });
+  }, [router, setUser, clearSession]);
 
   // Guard: if user is loaded but not admin, redirect (side effect must run in effect).
   useEffect(() => {

@@ -1,37 +1,33 @@
+import { getGeminiKey } from "@/lib/geminiKey";
+
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/api/v1";
 
 type ApiOk<T> = { ok: true; data: T };
 type ApiErr = { ok: false; error: { code: string; message: string } };
 export type ApiResult<T> = ApiOk<T> | ApiErr;
 
-let _getToken: (() => string | null) | null = null;
-let _refresh: (() => Promise<string | null>) | null = null;
-
 /**
- * Configure the API client with Supabase session token accessors.
- * Called once in layout.tsx after Supabase auth is ready.
- *
- * @param getToken  Synchronous — returns current Supabase access_token from Zustand store.
- * @param refresh   Async — calls supabase.auth.refreshSession() and returns new token.
+ * Auth: the backend keeps the session in an httpOnly cookie, so every request
+ * is sent with `credentials: "include"` and no token is handled in JS.
  */
-export function configureClient(
-  getToken: () => string | null,
-  refresh?: () => Promise<string | null>
-) {
-  _getToken = getToken;
-  _refresh = refresh ?? null;
+
+/** Normalise FastAPI (`{detail}`) and app (`{ok:false,error}`) error bodies. */
+function toApiError(status: number, statusText: string, body: unknown): ApiErr["error"] {
+  const b = body as { error?: ApiErr["error"]; detail?: unknown } | null;
+  if (b?.error) return b.error;
+  if (typeof b?.detail === "string") return { code: String(status), message: b.detail };
+  if (Array.isArray(b?.detail)) return { code: String(status), message: "입력값을 확인해주세요." };
+  return { code: String(status), message: statusText };
 }
 
 async function apiFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<ApiResult<T>> {
-  const token = _getToken?.();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init.headers as Record<string, string>),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   // Wrap every fetch in try-catch — a network error (server down / CORS /
   // uvicorn reload) throws TypeError which must be caught and surfaced cleanly.
@@ -42,27 +38,10 @@ async function apiFetch<T>(
     return { ok: false, error: { code: "network", message: `네트워크 오류: 서버에 연결할 수 없습니다. (${String(networkErr)})` } };
   }
 
-  // Auto-refresh on 401 (token may have just expired between Supabase refresh cycles)
-  if (res.status === 401 && _refresh) {
-    let newToken: string | null = null;
-    try { newToken = await _refresh(); } catch { /* ignore refresh errors */ }
-    if (newToken) {
-      headers["Authorization"] = `Bearer ${newToken}`;
-      try {
-        res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
-      } catch (retryErr) {
-        return { ok: false, error: { code: "network", message: `재시도 네트워크 오류: ${String(retryErr)}` } };
-      }
-    }
-  }
-
   if (!res.ok) {
-    try {
-      const body = await res.json();
-      return { ok: false, error: body.error ?? { code: String(res.status), message: res.statusText } };
-    } catch {
-      return { ok: false, error: { code: String(res.status), message: res.statusText } };
-    }
+    let body: unknown = null;
+    try { body = await res.json(); } catch { /* non-JSON error body */ }
+    return { ok: false, error: toApiError(res.status, res.statusText, body) };
   }
 
   const body = await res.json();
@@ -91,14 +70,11 @@ export async function apiDelete<T>(path: string, data?: unknown) {
 
 /**
  * Download a file from an authenticated endpoint and trigger a browser save.
- * Plain <a href> can't send the Bearer token, so we fetch the blob ourselves.
+ * Fetching the blob keeps the cookie-authenticated download inside the app.
  */
 export async function downloadFile(path: string, suggestedName: string): Promise<{ ok: boolean; error?: string }> {
-  const token = _getToken?.();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
-    const res = await fetch(`${BASE}${path}`, { headers, credentials: "include" });
+    const res = await fetch(`${BASE}${path}`, { credentials: "include" });
     if (!res.ok) return { ok: false, error: `다운로드 실패 (${res.status})` };
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -134,9 +110,10 @@ export function streamChat(
     onDone?: () => void;
   }
 ) {
-  const token = _getToken?.();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  // The user's own Gemini key (localStorage only) — forwarded per request, never stored server-side.
+  const geminiKey = getGeminiKey();
+  if (geminiKey) headers["X-Gemini-Api-Key"] = geminiKey;
 
   let doneFired = false;
   const fireDone = () => {

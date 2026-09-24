@@ -138,8 +138,8 @@ function SettingRow({
 // ── SQL Executor ──────────────────────────────────────────────────────────────
 
 function SqlExecutor() {
-  const { accessToken } = useAuthStore();
-  const [query, setQuery] = useState("SELECT id, email, role FROM profiles LIMIT 10;");
+  const { authed } = useAuthStore();
+  const [query, setQuery] = useState("SELECT id, username, nickname, role FROM users LIMIT 10;");
   const [result, setResult] = useState<(SqlResult & { error?: string }) | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -169,7 +169,7 @@ function SqlExecutor() {
           color: "#e2e8f0", fontSize: 12, fontFamily: "monospace",
           resize: "vertical", outline: "none", boxSizing: "border-box", lineHeight: 1.6,
         }}
-        placeholder="SELECT * FROM profiles;"
+        placeholder="SELECT * FROM users;"
         spellCheck={false}
       />
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
@@ -262,7 +262,7 @@ function Clock({
 }
 
 function TimeTravelSection() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
 
   // Offset stored locally so both clocks can tick smoothly without constant API calls
   const [offsetSeconds, setOffsetSeconds] = useState(0);
@@ -280,7 +280,7 @@ function TimeTravelSection() {
   const { data: initRes } = useQuery({
     queryKey: ["admin", "controller", "time", "init"],
     queryFn: getVirtualTime,
-    enabled: !!accessToken,
+    enabled: authed,
     staleTime: Infinity,
   });
   useEffect(() => {
@@ -490,11 +490,11 @@ function TimeTravelSection() {
 // ── Table Overview ────────────────────────────────────────────────────────────
 
 function TableOverview() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const { data: res } = useQuery({
     queryKey: ["admin", "controller", "tables"],
     queryFn: listTables,
-    enabled: !!accessToken,
+    enabled: authed,
     refetchInterval: 60_000,
   });
   const tables = res?.ok ? res.data.tables : [];
@@ -519,14 +519,14 @@ function TableOverview() {
 // ── User Model Overrides ──────────────────────────────────────────────────────
 
 function UserModelSection({ models }: { models: string[] }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const [feedback, setFeedback] = useState("");
 
   const { data: usersRes } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: listAdminUsers,
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const modelMut = useMutation({
@@ -549,8 +549,8 @@ function UserModelSection({ models }: { models: string[] }) {
         {users.map((u) => (
           <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             <div style={{ flex: 1, fontSize: 13, color: "#fff" }}>
-              {u.nickname ?? u.email}
-              <span style={{ marginLeft: 8, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{u.email}</span>
+              {u.nickname ?? u.username}
+              <span style={{ marginLeft: 8, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{u.username}</span>
             </div>
             <select
               value={u.ai_model ?? "gemini-2.5-flash"}
@@ -570,7 +570,7 @@ function UserModelSection({ models }: { models: string[] }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AdminControllerPage() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const [feedback, setFeedback] = useState("");
   const [filter, setFilter] = useState("");
@@ -578,7 +578,7 @@ export default function AdminControllerPage() {
   const { data: settingsRes, isLoading } = useQuery({
     queryKey: ["admin", "controller", "settings"],
     queryFn: getControllerSettings,
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const updateMut = useMutation({

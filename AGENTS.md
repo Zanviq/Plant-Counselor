@@ -2,7 +2,7 @@
 
 > 후속 작업자를 위한 저장소 핸드오프 문서
 >
-> 최종 점검: 2026-06-05
+> 최종 점검: 2026-09-24 (공개용 정리: 호스팅 DB·외부 로그인 제거, Docker 전환)
 >
 > 이 문서는 현재 코드 상태를 기준으로 작성했다. 오래된 설계 문서와 실제 코드가
 > 충돌하면 이 문서와 실제 코드를 우선한다.
@@ -58,9 +58,8 @@ bud -> flower -> fruit -> harvested
 `update_bud_status` AI 스킬도 이를 우회할 수 없다. 식물 상세 drawer의 수확 버튼도
 `100%` 미만이면 비활성화한다.
 
-`backend/migrations/004_remove_seed_bud_status.sql`은 2026-06-02 Supabase에 적용했다.
-과거 `seed` 행 26개는 `bud`로 승격했고 DB 기본값도 `bud`로 바꿨다. 일부 코드의
-`seed` 참조는 migration 미적용 환경을 위한 읽기 호환과 집계 방어 코드일 뿐이며,
+`seed` 상태는 폐지됐다. `buds.status` 기본값은 `bud`다(Alembic `0001_initial_schema`).
+일부 코드의 `seed` 참조는 과거 데이터 복원을 위한 읽기 호환과 집계 방어 코드일 뿐이며,
 신규 기능에서 공식 상태로 다시 노출하지 않는다.
 
 ---
@@ -71,8 +70,9 @@ bud -> flower -> fruit -> harvested
 
 | 영역 | 현재 상태 |
 | --- | --- |
-| 랜딩 페이지와 Google 로그인 | 구현 완료 |
-| Supabase Auth, 프로필 자동 생성 | 구현 완료 |
+| 랜딩 페이지, 아이디/비밀번호 로그인·회원가입 | 구현 완료 |
+| 자체 인증 (bcrypt + httpOnly 쿠키 세션) | 구현 완료 |
+| Docker Compose 실행 + 데모 seed | 구현 완료 |
 | 식물 CRUD | 구현 완료 |
 | 봉우리 CRUD, 진행률, 생애주기 | 구현 완료 |
 | AI 채팅 SSE 스트리밍 | 구현 완료 |
@@ -98,8 +98,8 @@ bud -> flower -> fruit -> harvested
   쿠키 기반 인증, 강조색 선택, 15개 스킬 설명이 남아 있다.
 - `docs/superpowers/plans/`는 당시 구현 계획이므로 완료 후 달라진 코드를 판단하는
   기준으로 사용하지 않는다.
-- `docs/구체화.md`는 제품 개념 참고용이다. 현재 코드는 Supabase, Google OAuth,
-  `bud` 시작 상태, 웹 앱 구조를 기준으로 하므로 해당 문서의 오래된 구현 설명을 그대로
+- `docs/구체화.md`는 제품 개념 참고용이다. 현재 코드는 자체 PostgreSQL, 아이디/비밀번호
+  인증, `bud` 시작 상태, 웹 앱 구조를 기준으로 하므로 해당 문서의 오래된 구현 설명을 그대로
   따르지 않는다.
 - 현재 웹 MVP용 자동 테스트 묶음은 없다. `scripts/test_ui_infra.py`는 이전 Pygame
   프로토타입용이며 현재 웹 앱 회귀 테스트로 사용하면 안 된다.
@@ -121,23 +121,27 @@ bud -> flower -> fruit -> harvested
 | Frontend | Next.js 16.2.6, React 19.2.4, TypeScript, Tailwind CSS v4 |
 | Frontend state | Zustand, TanStack Query v5 |
 | Backend | FastAPI, Pydantic v2, APScheduler |
-| Backend environment | Poetry dependency management, in-project `.venv` |
-| Database access | `supabase-py` PostgREST HTTP |
-| Database | Supabase PostgreSQL |
-| Authentication | Supabase Auth Google OAuth, ES256 JWKS 검증, HS256 fallback |
+| Backend environment | Docker 이미지는 `requirements.txt`, 로컬은 pip 또는 Poetry |
+| Database access | psycopg 3 + `psycopg_pool` (`app/db/pg.py` 쿼리 빌더) |
+| Database | PostgreSQL 16 (docker compose `db` 서비스) |
+| Migrations | Alembic (plain SQL revision) |
+| Authentication | 아이디/비밀번호, bcrypt 해시, HS256 JWT를 담은 httpOnly 쿠키 |
 | LLM | Google Gemini via `google-genai` |
-| LLM API key | 서버 환경변수 `LLM_API_KEY` |
+| LLM API key | 사용자가 브라우저에 입력, 요청마다 `X-Gemini-Api-Key` 헤더로 전달 |
 | IDs | ULID |
 
 ### 중요한 결정
 
-- 백엔드는 **SQLAlchemy와 psycopg2를 사용하지 않는다**.
-- DB 연결은 `backend/app/db/supa.py`의 Supabase HTTP 클라이언트로 처리한다.
-- 사용자별 데이터 격리는 repository 쿼리의 `user_id` 필터로 강제한다.
-- 프론트 인증 세션은 `@supabase/supabase-js`가 localStorage에 보관한다.
-- 사이드바 Google 프로필 사진은 DB 컬럼이 아니라 Supabase 세션의
-  `user_metadata.avatar_url` 또는 `picture`를 `authStore` 프로필에 병합해 표시한다.
-  HTTPS URL만 허용하고 사진이 없거나 로드에 실패하면 닉네임 첫 글자를 표시한다.
+- DB 연결은 `backend/app/db/pg.py`가 담당한다. 기존 코드의
+  `db.table("x").select().eq().execute()` 체인을 psycopg 파라미터 바인딩 SQL로
+  컴파일하는 호환 계층이며, 결과 행은 JSON 호환 dict(날짜는 ISO 문자열)로 돌려준다.
+- SQLAlchemy는 Alembic 엔진으로만 쓴다. ORM 모델을 추가하지 않는다.
+- DB에는 RLS가 없다. 사용자별 데이터 격리는 repository 쿼리의 `user_id` 필터로 강제한다.
+- 세션은 백엔드가 발급하는 httpOnly 쿠키(`pc_session`)다. 프론트 JS는 토큰을 다루지 않고
+  모든 요청을 `credentials: "include"`로 보낸다.
+- 사이드바 프로필은 닉네임 첫 글자를 표시한다(외부 아바타 없음).
+- Gemini API 키는 서버 `.env`나 DB에 두지 않는다. 브라우저 localStorage
+  (`pc-gemini-api-key`)에만 저장하고 채팅 요청 헤더로 전달한다. 서버는 로그·DB에 남기지 않는다.
 - Next.js 서버 측 proxy에서는 로그인 여부를 판단하지 않는다.
 - AI 채팅 응답은 동기 SSE 제너레이터로 스트리밍한다.
 
@@ -150,7 +154,10 @@ Plant-Counselor/
 ├── AGENTS.md
 ├── CLAUDE.md      # @AGENTS.md 포인터
 ├── README.md
-├── render.yaml
+├── README.ko.md
+├── docker-compose.yml
+├── .env.example
+├── image/            # README 스크린샷
 │
 ├── backend/
 │   ├── app/
@@ -170,14 +177,14 @@ Plant-Counselor/
 │   │   ├── services/
 │   │   ├── repositories/
 │   │   ├── schemas/
-│   │   ├── db/supa.py
+│   │   ├── security.py
+│   │   ├── db/pg.py
+│   │   ├── db/seed.py
 │   │   └── scheduler/jobs.py
-│   ├── migrations/001_calendar_events.sql
-│   ├── migrations/002_ai_logs.sql
-│   ├── migrations/003_calendar_event_color.sql
-│   ├── migrations/004_remove_seed_bud_status.sql
-│   ├── migrations/005_calendar_event_time.sql
-│   ├── migrations/006_calendar_event_end_repeat.sql
+│   ├── alembic/versions/0001_initial_schema.py
+│   ├── alembic.ini
+│   ├── Dockerfile
+│   ├── docker-entrypoint.sh
 │   ├── requirements.txt
 │   ├── poetry.lock
 │   ├── pyproject.toml
@@ -198,6 +205,7 @@ Plant-Counselor/
 │
 ├── assets/sprites/
 ├── scripts/
+│   └── capture-screenshots/  # README 스크린샷 Playwright 스크립트
 └── docs/
 ```
 
@@ -225,14 +233,15 @@ HTTP request
   -> router
   -> service
   -> repository
-  -> Supabase PostgREST HTTP
+  -> app/db/pg.py (psycopg)
+  -> PostgreSQL 16
 ```
 
 | 계층 | 책임 | 예시 |
 | --- | --- | --- |
 | Router | 인증, HTTP 입출력, Pydantic 검증 | `routers/buds.py` |
 | Service | 도메인 로직, 여러 repository 조합 | `services/bud_service.py` |
-| Repository | Supabase CRUD, `user_id` 격리 | `repositories/bud_repo.py` |
+| Repository | DB CRUD, `user_id` 격리 | `repositories/bud_repo.py` |
 | Schema | API 입출력 타입 | `schemas/bud.py` |
 
 ### 주요 진입점
@@ -240,18 +249,23 @@ HTTP request
 - FastAPI 앱: `backend/app/main.py`
 - 로컬 서버: `backend/run.py`
 - 인증 의존성: `backend/app/deps.py`
-- Supabase 클라이언트: `backend/app/db/supa.py`
+- DB 클라이언트: `backend/app/db/pg.py`
+- 비밀번호·세션 쿠키: `backend/app/security.py`
+- 인증 API: `backend/app/routers/auth.py`
+- 데모 seed: `backend/app/db/seed.py`
 - 런타임 설정: `backend/app/runtime_settings.py`
 - 스케줄러: `backend/app/scheduler/jobs.py`
 
 ### 인증
 
-`require_user()`는 Bearer 토큰을 검증하고 프로필을 반환한다.
-
-1. Supabase JWKS를 가져와 ES256 또는 RS256 검증을 시도한다.
-2. 실패하고 legacy JWT secret이 있으면 HS256 검증을 시도한다.
-3. `sub`를 user ID로 사용해 `profiles` 테이블을 조회한다.
-4. 프로필이 없으면 JWT의 이메일과 메타데이터로 fallback 생성한다.
+- API: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+- 비밀번호는 bcrypt로 해시해 `users.password_hash`에 저장한다. API 응답에 이 컬럼이
+  나가지 않도록 `user_repo.PUBLIC_COLUMNS`와 admin 라우터의 `_public_user()`를 유지한다.
+- 로그인 성공 시 HS256 JWT(`sub`=user id)를 httpOnly·SameSite=Lax 쿠키로 내려준다.
+  서명 키 `SESSION_SECRET`, 만료 `SESSION_TTL_HOURS`(기본 7일), HTTPS면 `COOKIE_SECURE=true`.
+- `require_user()`는 쿠키를 검증하고 `users` 행(비밀번호 제외)을 반환한다.
+- 과거 RLS 정책(`calendar_events_owner`, `ai_logs`)은 코드 검사로 옮겼고 목록은
+  `deps.py`와 Alembic `0001_initial_schema` docstring에 주석으로 남겼다.
 
 관리자 API는 `require_admin()`으로 보호한다. 프론트 가드는 보조 수단이며 백엔드 검사가
 실제 권한 경계다.
@@ -266,22 +280,25 @@ HTTP request
 `CORS_ALLOW_ORIGIN`은 쉼표로 구분한 명시적 `http://` 또는 `https://` origin만
 허용한다. `*`, `null`, 사용자 정보, 경로, query, fragment가 포함된 값은 서버 시작
 시 거부한다. 이 API는 credentials를 허용하므로 wildcard origin을 다시 허용하지 않는다.
-CORS 메서드는 `GET`, `POST`, `PATCH`, `PUT`, `DELETE`, 헤더는 `Authorization`,
-`Content-Type`만 허용한다. 새 API가 다른 메서드나 요청 헤더를 요구하면 사용처를
+CORS 메서드는 `GET`, `POST`, `PATCH`, `PUT`, `DELETE`, 헤더는 `Content-Type`,
+`X-Gemini-Api-Key`만 허용한다. 새 API가 다른 메서드나 요청 헤더를 요구하면 사용처를
 확인한 뒤 명시적으로 추가한다.
 
 ### DB 접근 규칙
 
 - 새 CRUD는 기존 repository 패턴을 사용한다.
-- 일반 테이블은 `db.table("...")` PostgREST API를 사용한다.
+- 일반 테이블은 `db.table("...")` 쿼리 빌더를 사용한다. 빌더에 없는 연산이 필요하면
+  `pg.py`에 파라미터 바인딩 방식으로 추가한다.
 - 쿼리에는 필요한 경우 반드시 `user_id` 필터를 넣는다.
-- 직접 PostgreSQL 연결, SQLAlchemy session, psycopg2 코드를 다시 추가하지 않는다.
-- `calendar_events`는 현재 예외다. Supabase PostgREST 스키마 캐시 문제로
-  `exec_admin_query` RPC를 사용한다.
+- 스키마 변경은 `backend/alembic/versions/`에 새 revision으로 추가한다. 컨테이너 시작 시
+  `alembic upgrade head`가 자동 실행된다.
+- `calendar_events`는 예외적으로 raw SQL(`db.rpc("exec_admin_query", ...)`)을 쓴다.
+  과거 호스팅 DB의 스키마 캐시 문제 때문이었고, 동작 보존을 위해 유지 중이다.
 
 ### `calendar_events` 예외
 
-`backend/app/repositories/calendar_event_repo.py`는 SQL 문자열을 RPC로 전달한다.
+`backend/app/repositories/calendar_event_repo.py`는 SQL 문자열을
+`pg.Client.exec_admin_query`로 전달한다.
 
 - 값은 `_lit()`을 통해 작은따옴표를 escape한다.
 - 컬럼명과 테이블명은 하드코딩한다.
@@ -289,8 +306,7 @@ CORS 메서드는 `GET`, `POST`, `PATCH`, `PUT`, `DELETE`, 헤더는 `Authorizat
 - 독립 일정 수정에서 관련 식물 연결을 해제할 때는 `plant_id = NULL` 업데이트를
   허용한다. router의 `model_fields_set` 확인과 repository의 `plant_id` 예외 처리를
   함께 유지한다.
-- 향후 Supabase migration으로 스키마 캐시가 정상 노출되면 PostgREST 방식으로 전환할
-  수 있다.
+- 쿼리 빌더 방식으로 바꿔도 되지만 `plant_id = NULL` 해제 규칙을 함께 옮긴다.
 
 ---
 
@@ -301,7 +317,7 @@ CORS 메서드는 `GET`, `POST`, `PATCH`, `PUT`, `DELETE`, 헤더는 `Authorizat
 ```text
 POST /api/v1/chat/message
   -> require_user
-  -> 서버 환경변수 LLM_API_KEY 선택
+  -> X-Gemini-Api-Key 헤더 확인 (없으면 api_key_required error 이벤트 후 종료)
   -> 사용자별 모델 override 또는 runtime 기본 모델 선택
   -> ChatOrchestrator.run()
   -> PromptBuilder.build_system()
@@ -423,7 +439,7 @@ delete_calendar_event
 | 경로 | 역할 |
 | --- | --- |
 | `/` | 랜딩 페이지 |
-| `/login` | Google OAuth 로그인 |
+| `/login` | 아이디/비밀번호 로그인과 회원가입 |
 | `/home` | 요약 대시보드 |
 | `/plants` | 픽셀아트 정원과 식물 리스트 |
 | `/plants/[id]` | 식물 상세, 봉우리 목록, 봉우리 상세 drawer |
@@ -490,12 +506,17 @@ AI 답변은 `frontend/lib/markdown.tsx`의 자체 렌더러로 표시한다.
 
 ### 인증 흐름
 
-- 브라우저 Supabase 클라이언트: `frontend/lib/supabase.ts`
+- 인증 API: `frontend/lib/api/auth.ts`, 화면: `frontend/app/(auth)/login/page.tsx`
 - 일반 앱 가드: `frontend/app/(app)/layout.tsx`
 - 관리자 가드: `frontend/app/admin/layout.tsx`
 - Next.js 16 pass-through proxy: `frontend/proxy.ts`
+- Gemini 키 저장: `frontend/lib/geminiKey.ts`, 입력 UI: `frontend/components/ai/GeminiKeyForm.tsx`
+  (설정 → AI, 채팅 패널에서 키가 없을 때 표시)
 
-Supabase 세션은 localStorage 기반이므로 `proxy.ts`에서 쿠키를 검사하면 안 된다.
+세션 쿠키는 API origin(FastAPI)이 발급하므로 Next 서버(`proxy.ts`)는 검증할 수 없다.
+가드는 클라이언트의 `/auth/me` 호출로 하고, 백엔드가 모든 API에서 다시 검사한다.
+`authStore`는 프로필 캐시와 `authed` 플래그만 가진다. 페이지 쿼리는 `enabled: authed`로
+세션 확인 뒤 실행한다.
 관리자 계정으로 로그인해도 일반 앱 화면(`/home`, `/plants`, `/calendar` 등)에서
 `/admin`으로 자동 이동시키지 않는다. 관리자 화면 접근 허용과 일반 사용자 차단은
 `frontend/app/admin/layout.tsx`의 관리자 가드가 담당한다.
@@ -676,20 +697,34 @@ auto_transition = true
 
 ## 11. 로컬 실행
 
-### 백엔드
+### Docker Compose (기본)
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+- `db`(postgres:16-alpine, named volume `db-data`, healthcheck) → `backend`
+  (`docker-entrypoint.sh`: `alembic upgrade head` → `python -m app.db.seed` → uvicorn)
+  → `frontend`(Next standalone) 순서로 `condition: service_healthy`에 따라 뜬다.
+- 데모 계정: `demo / demo1234`, `admin / admin1234`. seed는 `demo` 사용자가 없을 때만
+  들어가며 날짜는 오늘 기준 상대값이다. DB 초기화는 `docker compose down -v`.
+- 포트를 바꾸면 `.env`의 `CORS_ALLOW_ORIGIN`, `NEXT_PUBLIC_API_BASE`도 맞추고
+  `--build`로 프론트를 다시 빌드한다(`NEXT_PUBLIC_*`는 빌드 시 번들에 들어간다).
+
+### 백엔드 (Docker 없이)
 
 ```bash
 cd backend
-poetry config virtualenvs.in-project true --local
-poetry install
-# backend/.env 파일을 직접 생성하고 아래 환경변수를 입력한다.
-poetry run python run.py
+pip install -r requirements.txt   # 또는 poetry install
+# PostgreSQL 16을 띄우고 DATABASE_URL, SESSION_SECRET을 환경변수 또는 backend/.env에 넣는다
+alembic upgrade head
+python -m app.db.seed
+python run.py
 ```
 
-`backend/pyproject.toml`은 Poetry의 `package-mode = false`를 사용한다. 이 백엔드는
-배포용 Python 패키지가 아니라 `app.main`을 직접 실행하는 서비스이므로 root package를
-설치하지 않는다. `poetry.toml`은 머신별 로컬 설정이라 gitignore 대상이며,
-`poetry.lock`은 재현 가능한 의존성 설치를 위해 저장소에 포함한다.
+`backend/pyproject.toml`은 Poetry의 `package-mode = false`를 사용한다. Docker 이미지는
+`requirements.txt`로 설치하므로 의존성을 바꾸면 두 파일을 함께 수정한다.
 
 백엔드 주소:
 
@@ -713,35 +748,28 @@ npm run dev
 http://localhost:3000
 ```
 
-### 백엔드 환경변수
+### 환경변수
 
-현재 저장소에는 `backend/.env.example`이 없다. `backend/.env`를 직접 생성한다.
+루트 `.env.example`이 기준이다. docker compose가 이를 백엔드/프론트로 나눠 전달한다.
 
 ```dotenv
-DATABASE_URL=...
-SUPABASE_URL=...
-SUPABASE_JWT_SECRET=...
-SUPABASE_SERVICE_ROLE_KEY=...
-LLM_API_KEY=...
-KEY_ENCRYPTION_SECRET=...
+POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD
+SESSION_SECRET=...          # 세션 쿠키 서명 키 (필수)
+COOKIE_SECURE=false         # HTTPS면 true
 CORS_ALLOW_ORIGIN=http://localhost:3000
+SEED_DEMO_DATA=true
+BACKEND_PORT=8000 / FRONTEND_PORT=3000
+NEXT_PUBLIC_API_BASE=http://localhost:8000/api/v1   # 빌드 시 번들에 포함
 ```
 
-`DATABASE_URL`은 과거 호환 설명을 위해 남아 있지만 현재 일반 CRUD는 Supabase HTTP를
-사용한다.
-
-### 프론트엔드 환경변수
-
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-NEXT_PUBLIC_API_BASE=http://localhost:8000/api/v1
-```
+백엔드 단독 실행 시에는 `DATABASE_URL`(psycopg URL)을 직접 준다. AI 키는 환경변수가
+아니다. 사용자가 설정 → AI에서 입력한다.
 
 ### 비밀값 주의
 
-- `backend/.env`와 `frontend/.env.local`은 gitignore 대상이다.
-- 실제 Supabase key, Gemini key, 암호화 secret을 문서, 로그, 커밋에 넣지 않는다.
+- `.env`, `backend/.env`, `frontend/.env.local`은 gitignore 대상이다. `.env.example`만 커밋한다.
+- 실제 세션 secret, Gemini key를 문서, 로그, 커밋에 넣지 않는다.
+- 백업 ZIP에는 `users.password_hash`가 포함된다. 관리자 외에 공유하지 않는다.
 - 관리자 SQL 실행 결과를 공유할 때도 사용자 개인정보와 암호화된 키를 제거한다.
 
 ---
@@ -758,8 +786,8 @@ npm run lint
 npm run build
 ```
 
-2026-06-02 기준 `npm run lint`는 기존 프론트엔드 코드에서 실패한다. 현재 기준선은
-6 errors, 9 warnings이며 주요 오류는 effect 내부의 동기 `setState`, 선언 전
+2026-09-24 기준 `npm run lint`는 기존 프론트엔드 코드에서 실패한다. 현재 기준선은
+7 errors, 12 warnings이며 주요 오류는 effect 내부의 동기 `setState`, 선언 전
 `sendText` 참조, JSX 내 escape되지 않은 따옴표다. 기능 변경 시 새 오류를 추가하지
 말고, 관련 파일을 수정한다면 함께 정리한다.
 
@@ -767,19 +795,25 @@ npm run build
 
 ```bash
 cd backend
-poetry run python -m compileall app
+python -m compileall app alembic
 ```
+
+### 전체 스택과 스크린샷
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
+README 스크린샷은 `scripts/capture-screenshots/capture.mjs`로 다시 만든다(파일 상단
+주석에 실행법). AI 채팅 화면은 목 SSE 응답을 쓴다.
 
 ### 수동 회귀 확인
 
-관련 변경 범위에 따라 `docs/DEMO_GUIDE.md`의 시나리오를 사용한다.
+관련 변경 범위에 따라 `docs/DEMO_GUIDE.md`의 시나리오를 사용한다. 단 이 문서의 로그인·
+환경변수 설명은 공개용 정리 이전 기준일 수 있다.
 
-2026-06-01 로그인 후 Codex 인앱 브라우저로 스모크 테스트했다. `/home`, `/plants`,
-`/calendar`, `/history`, `/settings`, `/plants/{id}`와 공통 AI 패널이 정상
-렌더링됐고 확인 범위에서 브라우저 콘솔 warning 또는 error는 없었다. 테스트 계정에는
-`테스트` 식물 1개와 일정 봉우리 1개가 있다. 홈 통계는 진행 중 일정 1개로
-표시하지만 캘린더의 2026년 6월 배치 일정은 0개다. 마감일 없는 일정 봉우리의 의도된
-처리인지 캘린더 병합 누락인지 관련 변경 시 확인한다.
+키 없이 가능한 확인: 식물·봉우리 생성은 AI 스킬 경유이므로, 채팅 없이 확인하려면
+`POST /chat/message`에 `confirmed_actions`로 스킬을 직접 실행한다(LLM 호출 없음).
 
 최소 확인 항목:
 
@@ -830,7 +864,7 @@ __pycache__/**
 backend/app/services/bud_service.py
 backend/app/services/transition_service.py
 backend/app/repositories/bud_repo.py
-backend/migrations/004_remove_seed_bud_status.sql
+backend/alembic/versions/0001_initial_schema.py
 frontend/lib/status.ts
 frontend/app/(app)/plants/page.tsx
 frontend/app/(app)/plants/[id]/page.tsx
@@ -857,10 +891,7 @@ docs/DEMO_GUIDE.md
 backend/app/routers/stats.py
 backend/app/services/calendar_service.py
 backend/app/repositories/calendar_event_repo.py
-backend/migrations/001_calendar_events.sql
-backend/migrations/003_calendar_event_color.sql
-backend/migrations/005_calendar_event_time.sql
-backend/migrations/006_calendar_event_end_repeat.sql
+backend/alembic/versions/0001_initial_schema.py
 frontend/lib/api/stats.ts
 frontend/app/(app)/calendar/page.tsx
 ```
@@ -871,14 +902,18 @@ frontend/app/(app)/calendar/page.tsx
 
 ```text
 backend/app/deps.py
-frontend/lib/supabase.ts
+backend/app/security.py
+backend/app/routers/auth.py
+backend/app/repositories/user_repo.py
+frontend/lib/api/auth.ts
 frontend/lib/api/client.ts
+frontend/app/(auth)/login/page.tsx
 frontend/app/(app)/layout.tsx
 frontend/app/admin/layout.tsx
 frontend/proxy.ts
 ```
 
-localStorage 기반 세션과 서버 cookie 인증을 섞지 않는다.
+세션 토큰을 JS(localStorage)로 옮기지 않는다. httpOnly 쿠키 방식을 유지한다.
 
 ---
 
@@ -911,7 +946,9 @@ localStorage 기반 세션과 서버 cookie 인증을 섞지 않는다.
 ## 15. 주의할 함정
 
 - `frontend/proxy.ts`에 서버 측 로그인 redirect를 다시 넣지 않는다.
-- `calendar_events`를 다른 테이블과 동일하게 PostgREST로 호출한다고 가정하지 않는다.
+- `calendar_events`는 raw SQL 경로를 쓴다. 쿼리 빌더와 같은 방식이라고 가정하지 않는다.
+- Gemini 키를 서버 `.env`, DB, 로그에 저장하는 코드를 추가하지 않는다.
+- `users` 행을 그대로 API로 내보내지 않는다(`password_hash`).
 - 채팅 로그 JSON과 대화 기록 DB를 혼동하지 않는다.
 - 로그 삭제가 대화 기록 삭제를 의미하지 않는다.
 - 대화 기록 삭제가 로그 파일 삭제를 의미하지 않는다.

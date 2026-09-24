@@ -277,11 +277,11 @@ function BasketSidebar({ fruits, plants, selectedPlantIds, setSelectedPlantIds, 
 }
 
 function FruitHistoryPopup({ fruit, onClose }: { fruit: HarvestedFruit; onClose: () => void }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const { data, isLoading } = useQuery({
     queryKey: ["budConvHistory", fruit.bud.id],
     queryFn: () => getHistory("bud", fruit.bud.id, 200),
-    enabled: !!accessToken,
+    enabled: authed,
   });
   const messages: ConvMessage[] = data?.ok ? data.data.messages.filter((m) => m.role === "user" || m.role === "assistant") : [];
 
@@ -340,7 +340,7 @@ function FruitHistoryPopup({ fruit, onClose }: { fruit: HarvestedFruit; onClose:
 export default function PlantsPage() {
   const router = useRouter();
   const { openWith, scope } = useChatStore();
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const [view, setView] = useState<ViewMode>("garden");
   const [query, setQuery] = useState("");
@@ -359,7 +359,7 @@ export default function PlantsPage() {
     contentX: number; contentY: number; viewportX: number; viewportY: number;
   } | null>(null);
 
-  const queryEnabled = hydrated && !!accessToken;
+  const queryEnabled = hydrated && authed;
   const { data: plantsRes, isLoading } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: queryEnabled });
   const { data: budsRes }              = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: queryEnabled });
   const showLoading = !queryEnabled || isLoading;

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useThemeStore, ThemeMode } from "@/lib/store/themeStore";
-import { supabase } from "@/lib/supabase";
 import { apiPatch, apiDelete } from "@/lib/api/client";
+import { logout } from "@/lib/api/auth";
+import GeminiKeyForm from "@/components/ai/GeminiKeyForm";
 import { exportUserData } from "@/lib/api/stats";
 import type { UserProfile } from "@/lib/store/authStore";
 
@@ -40,7 +41,7 @@ async function updateMe(fields: Record<string, unknown>) {
 export default function SettingsPage() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { user, accessToken, setSession, clearSession } = useAuthStore();
+  const { user, setUser, clearSession } = useAuthStore();
   const { mode, setMode } = useThemeStore();
 
   const [tab, setTab] = useState<TabId>("account");
@@ -54,28 +55,28 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await logout();
     clearSession();
     qc.clear();
     router.replace("/login");
   }
 
   async function handleSetTone(tone: string) {
-    if (!user || !accessToken) return;
+    if (!user) return;
     const res = await updateMe({ tone });
-    if (res.ok) setSession(accessToken, { ...user, tone } as UserProfile);
+    if (res.ok) setUser({ ...user, tone } as UserProfile);
   }
 
   async function handleSetRule(key: string, value: number) {
-    if (!user || !accessToken) return;
+    if (!user) return;
     const rules = { ...(user.garden_rules as Record<string, number>), [key]: value };
     const res = await updateMe({ garden_rules: rules });
-    if (res.ok) setSession(accessToken, { ...user, garden_rules: rules } as UserProfile);
+    if (res.ok) setUser({ ...user, garden_rules: rules } as UserProfile);
   }
 
   async function handleDeleteAccount() {
     if (!user) return;
-    const expected = user.email ?? user.nickname ?? "";
+    const expected = user.username;
     if (deleteConfirmInput !== expected) {
       notify("입력값이 올바르지 않습니다.", false);
       return;
@@ -84,7 +85,6 @@ export default function SettingsPage() {
     const res = await apiDelete<unknown>("/me");
     setSaving(false);
     if (!res.ok) { notify("계정 삭제 실패", false); return; }
-    await supabase.auth.signOut();
     clearSession();
     qc.clear();
     router.replace("/login");
@@ -139,11 +139,11 @@ export default function SettingsPage() {
         <main className="animate-in">
           {tab === "account" && (
             <Section title="프로필">
-              <Row label="이름" sub="Google 계정에서 가져옵니다">
-                <span className="t-body" style={{ color: "var(--fg)", fontWeight: 600 }}>{user?.nickname ?? user?.email ?? "—"}</span>
+              <Row label="닉네임" sub="회원가입 때 입력한 이름 (비우면 아이디)">
+                <span className="t-body" style={{ color: "var(--fg)", fontWeight: 600 }}>{user?.nickname ?? user?.username ?? "—"}</span>
               </Row>
-              <Row label="이메일" sub="Google 로그인 계정">
-                <span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>{user?.email ?? "—"}</span>
+              <Row label="아이디" sub="로그인할 때 쓰는 아이디">
+                <span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>{user?.username ?? "—"}</span>
               </Row>
 
               <SubSection title="세션">
@@ -181,7 +181,7 @@ export default function SettingsPage() {
                       className="input"
                       value={deleteConfirmInput}
                       onChange={(e) => setDeleteConfirmInput(e.target.value)}
-                      placeholder={user?.email ?? user?.nickname ?? "이메일 입력"}
+                      placeholder={user?.username ? `확인을 위해 "${user.username}" 입력` : "아이디 입력"}
                       style={{ fontSize: 13 }}
                     />
                     <button
@@ -199,8 +199,8 @@ export default function SettingsPage() {
 
           {tab === "ai" && (
             <Section title="AI 설정">
-              <Row label="Gemini API 키" sub="서버 환경변수 LLM_API_KEY로 관리합니다">
-                <span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>서버 관리</span>
+              <Row label="Gemini API 키" sub="AI 정원사 대화에 필요합니다. 본인 키를 입력하세요">
+                <GeminiKeyForm />
               </Row>
 
               <SubSection title="응답 톤">
@@ -253,9 +253,9 @@ export default function SettingsPage() {
 
           {tab === "about" && (
             <Section title="앱 정보">
-              <Row label="버전"     sub="현재 빌드"><span className="t-mono" style={{ color: "var(--fg-muted)" }}>v0.2.0</span></Row>
-              <Row label="인증"     sub="로그인 방식"><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Google OAuth (Supabase Auth)</span></Row>
-              <Row label="데이터"   sub="외부 전송 범위"><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Gemini API 호출에만</span></Row>
+              <Row label="버전"     sub="현재 빌드"><span className="t-mono" style={{ color: "var(--fg-muted)" }}>v0.3.0</span></Row>
+              <Row label="인증"     sub="로그인 방식"><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>아이디 · 비밀번호 (httpOnly 세션 쿠키)</span></Row>
+              <Row label="데이터"   sub="외부 전송 범위"><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Gemini API 호출에만 (본인 키)</span></Row>
               <Row label="만든 곳"  sub=""><span className="t-body-sm" style={{ color: "var(--fg-muted)" }}>Plant Counselor</span></Row>
             </Section>
           )}

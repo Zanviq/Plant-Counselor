@@ -91,7 +91,7 @@ class LLMClient:
         """
         if not self._key:
             return {
-                "text": "서버 Gemini API 키가 설정되지 않았습니다. 관리자에게 LLM_API_KEY 환경변수 설정을 요청해주세요.",
+                "text": "Gemini API 키가 없습니다. 설정 → AI에서 본인 API 키를 입력해주세요.",
                 "tool_use": None,
             }
 
@@ -181,7 +181,7 @@ class LLMClient:
                     "사용량이 리셋되거나 한도를 상향해야 합니다.")
         if "api_key_invalid" in low or "api key not valid" in low or "permission" in low or "401" in msg or "403" in msg:
             return ("auth",
-                    "인증 오류. 서버 Gemini API 키가 유효하지 않거나 권한이 없습니다. LLM_API_KEY 환경변수를 확인하세요.")
+                    "인증 오류. 사용자가 입력한 Gemini API 키가 유효하지 않거나 권한이 없습니다.")
         if "not_found" in low or "no longer available" in low or "404" in msg:
             return ("model_not_found",
                     f"모델({self._model})을 찾을 수 없거나 더 이상 제공되지 않습니다. 컨트롤러에서 모델명을 확인하세요.")
@@ -197,7 +197,7 @@ class LLMClient:
         if "NOT_FOUND" in msg or "no longer available" in low:
             return f"모델({self._model})을 사용할 수 없습니다. 관리자에게 문의하세요."
         if "API_KEY_INVALID" in msg or "api key not valid" in low:
-            return "서버 Gemini API 키가 유효하지 않습니다. LLM_API_KEY 환경변수를 확인해주세요."
+            return "Gemini API 키가 유효하지 않습니다. 설정 → AI에서 키를 확인해주세요."
         if "quota" in low or "rate" in low or "429" in msg:
             return "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
         return msg

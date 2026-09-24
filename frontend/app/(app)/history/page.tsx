@@ -509,7 +509,7 @@ export default function HistoryPage() {
   const [filterQuery, setFilterQuery] = useState("");
   // plantIds whose bud conversations are expanded. Default: all collapsed.
   const [expandedPlants, setExpandedPlants] = useState<Set<string>>(new Set());
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
 
   const togglePlant = useCallback((plantId: string) => {
@@ -534,10 +534,10 @@ export default function HistoryPage() {
     queryKey: QK.conversations(),
     queryFn: listConversations,
     staleTime: 60_000,
-    enabled: !!accessToken,
+    enabled: authed,
   });
-  const { data: plantsRes } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: !!accessToken });
-  const { data: budsRes }   = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: !!accessToken });
+  const { data: plantsRes } = useQuery({ queryKey: QK.plants(), queryFn: () => listPlants(), enabled: authed });
+  const { data: budsRes }   = useQuery({ queryKey: QK.buds(),   queryFn: () => listBuds(),   enabled: authed });
 
   const conversations = useMemo(() => convsRes?.ok ? convsRes.data.conversations : [], [convsRes]);
   const plants        = useMemo(() => plantsRes?.ok ? plantsRes.data.items : [], [plantsRes]);

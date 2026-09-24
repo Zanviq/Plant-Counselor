@@ -1,7 +1,7 @@
 from __future__ import annotations
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 from ulid import ULID
 
 
@@ -17,9 +17,12 @@ class GardenStateRepository:
         res = self.db.table("garden_state").select("*").eq("user_id", user_id).limit(1).execute()
         if res.data:
             return _row(res.data[0])
+        # Concurrent first requests (e.g. /stats/summary + /briefing/today) can both
+        # get here; ON CONFLICT DO NOTHING keeps the unique(user_id) row single.
         row = {"id": str(ULID()), "user_id": user_id}
-        ins = self.db.table("garden_state").insert(row).execute()
-        return _row(ins.data[0])
+        self.db.table("garden_state").upsert(row, on_conflict="user_id", ignore_duplicates=True).execute()
+        res = self.db.table("garden_state").select("*").eq("user_id", user_id).limit(1).execute()
+        return _row(res.data[0])
 
     def update(self, user_id: str, fields: dict) -> SimpleNamespace:
         state = self.get_or_create(user_id)

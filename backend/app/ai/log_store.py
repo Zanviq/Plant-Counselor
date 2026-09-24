@@ -1,30 +1,14 @@
-"""AI chat log storage — Supabase-backed with a local-file fallback.
+"""AI chat log storage — PostgreSQL ``ai_logs`` table with a local-file mirror.
 
-Why this exists: AI chat logs used to be written only to ``backend/logs/chat/*.json``.
-On hosts with an ephemeral disk (e.g. Render free tier) that directory is wiped on
-every restart/redeploy, so the admin "AI 로그" page went empty after a day while the
-real data (in Supabase) stayed intact.
-
-Primary storage is now the Supabase ``ai_logs`` table (survives restarts). The local
-JSON file is still written as a best-effort mirror for local development. All admin
-reads/deletes go through this module:
+Each chat turn is stored as one row (filename, user_id, created_at, data jsonb).
+A JSON copy is also written to ``backend/logs/chat/`` for local debugging. All
+admin reads/deletes go through this module:
 
 - if the DB is reachable and the ``ai_logs`` table exists → DB is authoritative
-- otherwise (e.g. table not created yet, or offline) → transparently fall back to files
+- otherwise → transparently fall back to files
 
-Table DDL (run once in /admin/controller SQL 실행기):
-
-    create table if not exists public.ai_logs (
-        filename   text primary key,
-        user_id    text,
-        created_at timestamptz not null default now(),
-        data       jsonb not null
-    );
-    create index if not exists ai_logs_user_id_idx on public.ai_logs (user_id);
-    create index if not exists ai_logs_filename_idx on public.ai_logs (filename desc);
-    -- Backend uses the service_role key (bypasses RLS); enabling RLS with no
-    -- policies keeps anon/authenticated clients from reading logs via PostgREST.
-    alter table public.ai_logs enable row level security;
+The table is created by the Alembic migration in backend/alembic/versions.
+Logs never contain the user's Gemini API key (it is only passed to LLMClient).
 """
 from __future__ import annotations
 
@@ -90,7 +74,7 @@ def _file_rows() -> list[dict]:
 def list_rows(db) -> list[dict]:
     """All log rows, newest first.
 
-    Merges the Supabase ``ai_logs`` table with local files, deduped by filename
+    Merges the ``ai_logs`` table with local files, deduped by filename
     (DB wins). This keeps logs visible in every situation:
       - DB only (e.g. Render, where the local disk is wiped on restart)
       - files only (local dev, or before the ai_logs table/migration exists)

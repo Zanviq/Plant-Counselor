@@ -15,9 +15,12 @@ build/
 venv/
 env/
 
-# SQLite database (local dev data)
+# SQLite database (legacy local data)
 *.db
 *.db-journal
+
+# Playwright screenshot script deps
+scripts/capture-screenshots/node_modules/
 
 # Backend env
 backend/.env
@@ -52,6 +55,7 @@ next-env.d.ts
 
 # Frontend env
 frontend/.env*
+!frontend/.env.example
 
 # ── IDE / OS ──────────────────────────────────
 .DS_Store
@@ -72,6 +76,7 @@ yarn-error.log*
 # ── Secrets ───────────────────────────────────
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 

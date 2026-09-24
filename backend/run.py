@@ -1,4 +1,4 @@
-"""개발 서버 실행."""
+"""Local development server (outside Docker)."""
 import uvicorn
 
 if __name__ == "__main__":

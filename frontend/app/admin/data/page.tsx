@@ -106,7 +106,7 @@ function Result({ ok, msg, onDismiss }: { ok: boolean; msg: string; onDismiss: (
 // ── Conversations panel ───────────────────────────────────────────────────────
 
 function ConversationsPanel({ userId, onResult }: { userId: string; onResult: (r: { ok: boolean; msg: string }) => void }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const { confirm, modal } = useConfirm();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -114,7 +114,7 @@ function ConversationsPanel({ userId, onResult }: { userId: string; onResult: (r
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "data", "convs", userId],
     queryFn: () => getUserConversations(userId),
-    enabled: !!accessToken,
+    enabled: authed,
   });
   const items: ConversationItem[] = res?.ok ? res.data.items : [];
 
@@ -197,7 +197,7 @@ function ConversationsPanel({ userId, onResult }: { userId: string; onResult: (r
 // ── Plants panel ──────────────────────────────────────────────────────────────
 
 function PlantsPanel({ userId, onResult }: { userId: string; onResult: (r: { ok: boolean; msg: string }) => void }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const { confirm, modal } = useConfirm();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -205,7 +205,7 @@ function PlantsPanel({ userId, onResult }: { userId: string; onResult: (r: { ok:
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "data", "plants", userId],
     queryFn: () => getUserPlants(userId),
-    enabled: !!accessToken,
+    enabled: authed,
   });
   const items: PlantItem[] = res?.ok ? res.data.items : [];
 
@@ -266,7 +266,7 @@ function PlantsPanel({ userId, onResult }: { userId: string; onResult: (r: { ok:
 // ── Buds panel ────────────────────────────────────────────────────────────────
 
 function BudsPanel({ userId, onResult }: { userId: string; onResult: (r: { ok: boolean; msg: string }) => void }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const { confirm, modal } = useConfirm();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -274,7 +274,7 @@ function BudsPanel({ userId, onResult }: { userId: string; onResult: (r: { ok: b
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "data", "buds", userId],
     queryFn: () => getUserBuds(userId),
-    enabled: !!accessToken,
+    enabled: authed,
   });
   const items: BudItem[] = res?.ok ? res.data.items : [];
 
@@ -342,13 +342,13 @@ function UserRow({ user, onResult }: { user: AdminUser; onResult: (r: { ok: bool
 
   async function handleDeleteAll() {
     const ok = await confirm(
-      `${user.email} 계정 완전 삭제`,
+      `${user.username} 계정 완전 삭제`,
       [
         "모든 데이터가 영구 삭제됩니다:",
         `• 식물 ${user.plant_count}개 (봉우리·기록 포함)`,
         "• 모든 대화 기록",
         "• AI 로그 파일",
-        "• Supabase Auth 계정",
+        "• 로그인 계정 (아이디·비밀번호)",
         "",
         "되돌릴 수 없습니다.",
       ].join("\n"),
@@ -359,7 +359,7 @@ function UserRow({ user, onResult }: { user: AdminUser; onResult: (r: { ok: bool
     if (r.ok) {
       qc.invalidateQueries({ queryKey: ["admin"] });
       const d = r.data.deleted ?? {};
-      onResult({ ok: true, msg: `${user.email} 삭제 완료 · 식물 ${d.plants ?? 0}, 봉우리 ${d.buds ?? 0}, 대화 ${d.conversations ?? 0}` });
+      onResult({ ok: true, msg: `${user.username} 삭제 완료 · 식물 ${d.plants ?? 0}, 봉우리 ${d.buds ?? 0}, 대화 ${d.conversations ?? 0}` });
     } else {
       onResult({ ok: false, msg: "삭제 실패" });
     }
@@ -388,7 +388,7 @@ function UserRow({ user, onResult }: { user: AdminUser; onResult: (r: { ok: bool
               </Tag>
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
-              {user.email}
+              {user.username}
               <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
               식물 {user.plant_count} · 봉우리 {user.bud_count} · AI {user.ai_session_count}세션
             </div>
@@ -496,7 +496,7 @@ function fmtBytes(n: number): string {
 }
 
 function BackupSection({ onResult }: { onResult: (r: { ok: boolean; msg: string }) => void }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const { confirm, modal } = useConfirm();
   const [busy, setBusy] = useState<string>("");  // "create" | "restore:<file>" | "delete:<file>" | "download:<file>"
@@ -505,7 +505,7 @@ function BackupSection({ onResult }: { onResult: (r: { ok: boolean; msg: string 
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "backups"],
     queryFn: listBackups,
-    enabled: !!accessToken,
+    enabled: authed,
   });
   const backups: BackupMeta[] = res?.ok ? res.data.items : [];
 
@@ -670,13 +670,13 @@ function BackupSection({ onResult }: { onResult: (r: { ok: boolean; msg: string 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function AdminDataPage() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const { data: usersRes, isLoading } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: listAdminUsers,
-    enabled: !!accessToken,
+    enabled: authed,
   });
   const users: AdminUser[] = usersRes?.ok ? usersRes.data.items : [];
 

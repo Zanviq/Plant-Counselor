@@ -1,6 +1,6 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
-from supabase import Client
+from app.db.pg import Client
 
 from app.deps import get_db, require_user
 from app.services.conversation_service import ConversationService

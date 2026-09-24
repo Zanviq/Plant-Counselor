@@ -1,9 +1,9 @@
 """Chat router — single endpoint that streams an SSE response."""
 from __future__ import annotations
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.responses import StreamingResponse
-from supabase import Client
+from app.db.pg import Client
 
 from app.ai.chat_orchestrator import ChatOrchestrator
 from app.ai.llm_client import LLMClient
@@ -30,7 +30,6 @@ from app.ai.skills.suggest_scope_change import SuggestScopeChangeSkill
 from app.ai.skills.think import ThinkSkill
 from app.ai.skills.update_bud_progress import UpdateBudProgressSkill
 from app.ai.skills.update_bud_status import UpdateBudStatusSkill
-from app.config import settings
 from app.deps import get_db, require_user
 from app.schemas.conversation import ChatRequest
 from app.services.bud_service import BudService
@@ -61,8 +60,20 @@ _REGISTRY = _build_registry()
 _PROMPT_BUILDER = PromptBuilder()
 
 
-def _resolve_api_key(db: Client, user) -> str:
-    return settings.llm_api_key
+# The Gemini API key is supplied by the browser on every request (the user
+# pastes their own key in Settings; it lives only in localStorage). The server
+# uses it for this request only and never stores or logs it.
+API_KEY_HEADER = "X-Gemini-Api-Key"
+
+
+def _api_key_missing_stream():
+    payload = json.dumps({
+        "code": "api_key_required",
+        "message": "Gemini API 키가 필요합니다. 설정 → AI에서 본인 키를 입력해 주세요.",
+    }, ensure_ascii=False)
+    yield "event: start\ndata: {\"message_id\":\"no_key\"}\n\n"
+    yield f"event: error\ndata: {payload}\n\n"
+    yield "event: done\ndata: {}\n\n"
 
 
 def _build_services(db: Client) -> dict:
@@ -91,7 +102,12 @@ def _build_skill_context(user, db: Client, req: ChatRequest) -> SkillContext:
 
 
 @router.post("/chat/message")
-def chat_message(req: ChatRequest, user=Depends(require_user), db: Client = Depends(get_db)):
+def chat_message(
+    req: ChatRequest,
+    user=Depends(require_user),
+    db: Client = Depends(get_db),
+    gemini_api_key: str | None = Header(None, alias=API_KEY_HEADER),
+):
     if req.confirmed_actions:
         ctx = _build_skill_context(user, db, req)
 
@@ -117,7 +133,10 @@ def chat_message(req: ChatRequest, user=Depends(require_user), db: Client = Depe
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     import app.runtime_settings as rs
-    api_key = _resolve_api_key(db, user)
+    api_key = (gemini_api_key or "").strip()
+    if not api_key:
+        return StreamingResponse(_api_key_missing_stream(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     # Priority: per-user override → runtime default → LLMClient.DEFAULT_MODEL.
     user_model = getattr(user, "ai_model", None)
     global_model = rs.get("llm_default_model", LLMClient.DEFAULT_MODEL)

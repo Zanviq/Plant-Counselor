@@ -17,7 +17,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from supabase import Client
+from app.db.pg import Client
 
 import app.runtime_settings as rs
 
@@ -26,16 +26,16 @@ logger = logging.getLogger(__name__)
 BACKUP_DIR = Path(__file__).parent.parent.parent / "backups"
 
 # Tables in FK dependency order: parents first so children can reference them.
-#   profiles            → (auth.users)
-#   plants              → profiles
-#   buds                → plants, profiles
+#   users               → (root)
+#   plants              → users
+#   buds                → plants, users
 #   bud_history         → buds
-#   garden_state        → profiles
-#   conversations       → profiles
+#   garden_state        → users
+#   conversations       → users
 #   conversation_messages → conversations
-#   notifications       → profiles
+#   notifications       → users
 _TABLES: list[str] = [
-    "profiles",
+    "users",
     "plants",
     "calendar_events",   # standalone events, FK → plants (RPC-backed, see below)
     "buds",
@@ -46,9 +46,8 @@ _TABLES: list[str] = [
     "notifications",
 ]
 
-# Tables not exposed via PostgREST — accessed through the exec_admin_query RPC
-# (same reason as CalendarEventRepository: PostgREST schema cache doesn't expose
-# the freshly-created calendar_events table).
+# Tables accessed through the raw-SQL exec_admin_query path instead of the query
+# builder (kept for parity with CalendarEventRepository).
 _RPC_TABLES: set[str] = {"calendar_events"}
 
 _BACKUP_VERSION = 1
@@ -112,8 +111,8 @@ class BackupService:
         return []
 
     def _dump_table(self, table: str) -> list[dict]:
-        """Fetch all rows from a table, paging to bypass PostgREST row limits.
-        RPC-backed tables (not exposed via PostgREST) use the SQL RPC instead."""
+        """Fetch all rows from a table page by page.
+        RPC-backed tables use the raw SQL path instead."""
         if table in _RPC_TABLES:
             return self._rpc_rows(f"select * from {table}")
         rows: list[dict] = []
@@ -130,7 +129,7 @@ class BackupService:
         return rows
 
     def _existing_ids(self, table: str) -> set:
-        """All primary keys currently in the table (paged for PostgREST)."""
+        """All primary keys currently in the table (paged)."""
         if table in _RPC_TABLES:
             return {r["id"] for r in self._rpc_rows(f"select id from {table}") if "id" in r}
         ids: set = set()

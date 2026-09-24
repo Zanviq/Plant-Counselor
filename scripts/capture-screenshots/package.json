@@ -1,0 +1,12 @@
+{
+  "name": "plant-counselor-capture-screenshots",
+  "private": true,
+  "type": "module",
+  "description": "Capture README screenshots from a running docker compose stack",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}

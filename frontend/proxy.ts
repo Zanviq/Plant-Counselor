@@ -9,9 +9,10 @@ import type { NextRequest } from "next/server";
  *   - app/page.tsx      → AuthRedirect redirects authenticated users to /home
  *   - (auth)/login      → redirects already-authenticated users to /home
  *
- * This app uses @supabase/supabase-js which stores sessions in localStorage,
- * not in HTTP cookies, so server-side session checks are not possible here.
- * A pass-through proxy lets all requests reach the correct page/layout.
+ * The session cookie is issued by the API origin (FastAPI), so this Next.js
+ * server cannot validate it. Guards stay client-side (/auth/me) and the
+ * backend enforces auth on every API call. A pass-through proxy lets all
+ * requests reach the correct page/layout.
  */
 export function proxy(_request: NextRequest) {
   return NextResponse.next();

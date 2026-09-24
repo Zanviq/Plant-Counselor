@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 
 import app.runtime_settings as rs
 from app.repositories.bud_repo import BudRepository

@@ -1,0 +1,56 @@
+# Plant Counselor — local stack
+#   cp .env.example .env && docker compose up --build
+#   web:  http://localhost:3000   api: http://localhost:8000/docs
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-plant_counselor}
+      POSTGRES_USER: ${POSTGRES_USER:-plant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plant}
+      TZ: Asia/Seoul
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plant}:${POSTGRES_PASSWORD:-plant}@db:5432/${POSTGRES_DB:-plant_counselor}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required - copy .env.example to .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-http://localhost:3000}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    volumes:
+      - backend-logs:/app/logs
+      - backend-backups:/app/backups
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the client bundle at build time; the browser calls this URL.
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000/api/v1}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  db-data:
+  backend-logs:
+  backend-backups:

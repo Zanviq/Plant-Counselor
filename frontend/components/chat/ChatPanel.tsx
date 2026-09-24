@@ -13,6 +13,8 @@ import { getPlant, listPlants, Plant } from "@/lib/api/plants";
 import { getBud } from "@/lib/api/buds";
 import { QK } from "@/lib/queryKeys";
 import { MarkdownText } from "@/lib/markdown";
+import { getGeminiKey, useGeminiKey } from "@/lib/geminiKey";
+import GeminiKeyForm from "@/components/ai/GeminiKeyForm";
 
 // ── types ───────────────────────────────────────────────────
 
@@ -306,6 +308,7 @@ export default function ChatPanel() {
   const { open, close, scope, openWith, chatWidth, setChatWidth,
           pendingPrefill, pendingSend, clearPending } = useChatStore();
   const { user } = useAuthStore();
+  const geminiKey = useGeminiKey();
   const qc = useQueryClient();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -592,6 +595,15 @@ export default function ChatPanel() {
   }, [loading, scope, invalidateSkills]);
 
   const sendText = useCallback((text: string) => {
+    // AI chat needs the user's own Gemini key (Settings → AI). Without it the
+    // rest of the app keeps working; only this call is skipped.
+    if (!getGeminiKey()) {
+      setMessages((prev) => [...prev, {
+        id: Date.now().toString(), role: "system",
+        text: "Gemini API 키가 없어서 AI 정원사를 사용할 수 없어요. 아래에 키를 입력하거나 설정 → AI에서 등록해 주세요.",
+      }]);
+      return;
+    }
     const userMsg: Message = { id: Date.now().toString(), role: "user", text };
     const asstId = (Date.now() + 1).toString();
     const asstMsg: Message = { id: asstId, role: "assistant", text: "", pending: true };
@@ -661,6 +673,7 @@ export default function ChatPanel() {
   const send = useCallback((text?: string) => {
     const t = (text ?? input).trim();
     if (!t || loading) return;
+    if (!t.startsWith("/") && !getGeminiKey()) return;
     setInput("");
     setShowPalette(false);
     if (t.startsWith("/")) { runCommand(t); return; }
@@ -986,6 +999,23 @@ export default function ChatPanel() {
           </div>
         )}
 
+        {!geminiKey && (
+          <div
+            role="note"
+            style={{
+              marginBottom: 8, padding: "10px 12px", borderRadius: "var(--r-md)",
+              background: "color-mix(in srgb, var(--info) 8%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--info) 25%, transparent)",
+              display: "flex", flexDirection: "column", gap: 8,
+            }}
+          >
+            <div className="t-body-sm" style={{ color: "var(--fg)", fontWeight: 600 }}>
+              AI 정원사를 쓰려면 본인 Gemini API 키가 필요해요
+            </div>
+            <GeminiKeyForm compact />
+          </div>
+        )}
+
         <div
           style={{
             display: "flex", gap: 8, alignItems: "flex-end",
@@ -1020,7 +1050,7 @@ export default function ChatPanel() {
               }
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
             }}
-            placeholder="발화를 입력하세요… (/ 로 명령어)"
+            placeholder={geminiKey ? "발화를 입력하세요… (/ 로 명령어)" : "API 키를 등록하면 대화할 수 있어요 (/ 명령어는 사용 가능)"}
             rows={1}
             disabled={loading}
             style={{
@@ -1036,7 +1066,7 @@ export default function ChatPanel() {
           />
           <button
             onClick={() => send()}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || (!geminiKey && !input.trim().startsWith("/"))}
             aria-label="보내기"
             style={{
               // Match the single-line text height (~21px) so the button doesn't

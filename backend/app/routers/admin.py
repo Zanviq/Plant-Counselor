@@ -3,7 +3,7 @@
 Provides:
   - User management (list, role update, detail)
   - Aggregate stats (users, AI calls, plants/buds)
-  - AI chat log browser (reads from Supabase ai_logs via app.ai.log_store)
+  - AI chat log browser (reads from the ai_logs table via app.ai.log_store)
   - Notification dispatch (send to any user)
 """
 from __future__ import annotations
@@ -15,12 +15,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from supabase import Client
+from app.db.pg import Client
 from ulid import ULID
 
 import app.runtime_settings as rs
 from app.ai import log_store
 from app.deps import get_db, require_admin
+from app.repositories.user_repo import PUBLIC_COLUMNS
 from app.services.backup_service import BackupService
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _all_users(db: Client) -> list[dict]:
-    res = db.table("profiles").select("*").order("created_at", desc=False).execute()
+    res = db.table("users").select(PUBLIC_COLUMNS).order("created_at", desc=False).execute()
     return res.data or []
+
+
+def _public_user(row: dict) -> dict:
+    """Drop credential columns from a users row before returning it."""
+    return {k: v for k, v in row.items() if k != "password_hash"}
 
 
 def _log_user_id(row: dict) -> str:
@@ -58,7 +64,7 @@ def get_stats(admin=Depends(require_admin), db: Client = Depends(get_db)):
     plants_res = db.table("plants").select("id", count="exact").execute()
     buds_res = db.table("buds").select("id", count="exact").execute()
 
-    # AI log rows (Supabase ai_logs, file fallback) — proxy for AI sessions
+    # AI log rows (ai_logs table, file fallback) — proxy for AI sessions
     rows = log_store.list_rows(db)
     total_sessions = len(rows)
 
@@ -131,7 +137,7 @@ def list_users(admin=Depends(require_admin), db: Client = Depends(get_db)):
 @router.get("/users/{user_id}")
 def get_user_detail(user_id: str, admin=Depends(require_admin), db: Client = Depends(get_db)):
     """Full detail for one user: profile + plants + buds + conversations."""
-    profile_res = db.table("profiles").select("*").eq("id", user_id).limit(1).execute()
+    profile_res = db.table("users").select(PUBLIC_COLUMNS).eq("id", user_id).limit(1).execute()
     if not profile_res.data:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
 
@@ -172,10 +178,10 @@ def update_user_role(user_id: str, body: RoleUpdate, admin=Depends(require_admin
     """Grant or revoke admin role."""
     if body.role not in ("user", "admin"):
         raise HTTPException(400, "role은 'user' 또는 'admin'이어야 합니다.")
-    res = db.table("profiles").update({"role": body.role}).eq("id", user_id).execute()
+    res = db.table("users").update({"role": body.role}).eq("id", user_id).execute()
     if not res.data:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
-    return {"ok": True, "data": res.data[0]}
+    return {"ok": True, "data": _public_user(res.data[0])}
 
 
 class ProfileOverride(BaseModel):
@@ -191,10 +197,10 @@ def override_user_settings(user_id: str, body: ProfileOverride, admin=Depends(re
     fields = body.model_dump(exclude_none=True)
     if not fields:
         raise HTTPException(400, "변경할 필드가 없습니다.")
-    res = db.table("profiles").update(fields).eq("id", user_id).execute()
+    res = db.table("users").update(fields).eq("id", user_id).execute()
     if not res.data:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
-    return {"ok": True, "data": res.data[0]}
+    return {"ok": True, "data": _public_user(res.data[0])}
 
 
 # ── AI Logs ───────────────────────────────────────────────────────────────────
@@ -208,7 +214,7 @@ def list_logs(
     admin=Depends(require_admin),
     db: Client = Depends(get_db),
 ):
-    """List AI chat logs (Supabase ai_logs, file fallback) with metadata."""
+    """List AI chat logs (ai_logs table, file fallback) with metadata."""
     rows = log_store.list_rows(db)
 
     # Filter by user_id (exact, or uid8 embedded in legacy filenames)
@@ -384,21 +390,21 @@ def set_user_model(user_id: str, body: UserModelUpdate, admin=Depends(require_ad
     """Override the AI model for a specific user."""
     if body.ai_model not in rs.AVAILABLE_MODELS:
         raise HTTPException(400, f"지원하지 않는 모델: {body.ai_model}")
-    res = db.table("profiles").update({"ai_model": body.ai_model}).eq("id", user_id).execute()
+    res = db.table("users").update({"ai_model": body.ai_model}).eq("id", user_id).execute()
     if not res.data:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
-    return {"ok": True, "data": res.data[0]}
+    return {"ok": True, "data": _public_user(res.data[0])}
 
 
 @router.get("/controller/tables")
 def list_tables(admin=Depends(require_admin), db: Client = Depends(get_db)):
     """List all public tables with row counts."""
-    tables = ["profiles", "plants", "buds", "bud_history", "garden_state",
-              "conversations", "conversation_messages", "notifications"]
+    tables = ["users", "plants", "buds", "bud_history", "garden_state",
+              "conversations", "conversation_messages", "notifications", "calendar_events", "ai_logs"]
     result = []
     for t in tables:
         try:
-            res = db.table(t).select("id", count="exact").limit(1).execute()
+            res = db.table(t).select("*", count="exact").limit(1).execute()
             result.append({"table": t, "row_count": res.count or 0})
         except Exception:
             result.append({"table": t, "row_count": None, "error": "unavailable"})

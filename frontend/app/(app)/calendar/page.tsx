@@ -180,11 +180,11 @@ export default function CalendarPage() {
   const from = ymd(year, month, 1);
   const to   = ymd(year, month, daysInMonth(year, month));
 
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
 
   // Prefetch adjacent months so prev/next navigation is instant.
   useEffect(() => {
-    if (!accessToken) return;
+    if (!authed) return;
     const prevM = month === 0 ? 11 : month - 1;
     const prevY = month === 0 ? year - 1 : year;
     const nextM = month === 11 ? 0 : month + 1;
@@ -201,11 +201,11 @@ export default function CalendarPage() {
       staleTime: 5 * 60_000,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month, accessToken]);
-  const { data: calRes,     isLoading: loadingCal } = useQuery({ queryKey: QK.calendar(year, month), queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000, enabled: !!accessToken });
-  const { data: briefRes }                           = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000,    enabled: !!accessToken });
-  const { data: summaryRes }                         = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,                             enabled: !!accessToken });
-  const { data: plantsRes }                          = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(),                     enabled: !!accessToken });
+  }, [year, month, authed]);
+  const { data: calRes,     isLoading: loadingCal } = useQuery({ queryKey: QK.calendar(year, month), queryFn: () => getCalendar(from, to), staleTime: 5 * 60_000, enabled: authed });
+  const { data: briefRes }                           = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000,    enabled: authed });
+  const { data: summaryRes }                         = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,                             enabled: authed });
+  const { data: plantsRes }                          = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(),                     enabled: authed });
 
   const events: Record<string, CalEvent[]> = calRes?.ok ? calRes.data.events : {};
   const monthSlots = useMemo(() => buildMonthSlots(events), [events]);

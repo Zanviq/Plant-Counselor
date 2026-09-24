@@ -2,15 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /**
- * User profile from the backend /me endpoint.
- * Supabase Auth identity (provider, email) is handled by the Supabase client.
+ * Signed-in user profile (from /auth/me).
+ * The session itself is an httpOnly cookie managed by the backend, so no token
+ * is ever stored in JavaScript.
  */
 export interface UserProfile {
   id: string;
+  username: string;
   email: string | null;
   nickname: string | null;
-  /** Supabase Auth metadata picture URL. Not stored in the backend profiles table. */
-  avatar_url?: string | null;
   role: "user" | "admin";
   tone: string;
   ai_model: string;
@@ -19,44 +19,23 @@ export interface UserProfile {
   created_at: string;
 }
 
-export function withAuthMetadata(
-  profile: UserProfile,
-  metadata?: Record<string, unknown> | null,
-): UserProfile {
-  const candidate = metadata?.avatar_url ?? metadata?.picture;
-  const avatarUrl = typeof candidate === "string" && candidate.startsWith("https://")
-    ? candidate
-    : null;
-  return { ...profile, avatar_url: avatarUrl };
-}
-
 interface AuthState {
-  /** Supabase access_token — synced via onAuthStateChange in layout.tsx */
-  accessToken: string | null;
-  /** Backend profile data (fetched from /me after auth) */
+  /** Cached profile for instant UI on reload; re-validated against /auth/me. */
   user: UserProfile | null;
-  /**
-   * Update local state with a new token + profile.
-   * The Supabase session is managed by the Supabase client — this just
-   * keeps the local cache in sync for fast UI reads.
-   */
-  setSession: (token: string, user: UserProfile) => void;
+  /** True once /auth/me confirmed the session cookie in this page load. Gates queries. */
+  authed: boolean;
+  setUser: (user: UserProfile) => void;
   clearSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      accessToken: null,
       user: null,
-      setSession: (token, user) => set({ accessToken: token, user }),
-      clearSession: () => set({ accessToken: null, user: null }),
+      authed: false,
+      setUser: (user) => set({ user, authed: true }),
+      clearSession: () => set({ user: null, authed: false }),
     }),
-    {
-      name: "pc-auth",
-      // Persist only the profile (not the token — it changes frequently).
-      // The token is recovered from the Supabase session on each mount.
-      partialize: (state) => ({ user: state.user }),
-    }
+    { name: "pc-auth", partialize: (state) => ({ user: state.user }) }
   )
 );

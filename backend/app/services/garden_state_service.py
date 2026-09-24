@@ -1,7 +1,7 @@
 from __future__ import annotations
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 
 import app.runtime_settings as rs
 from app.repositories.garden_state_repo import GardenStateRepository

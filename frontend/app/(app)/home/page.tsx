@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSummary, getBriefing } from "@/lib/api/stats";
 import { listPlants, Plant } from "@/lib/api/plants";
@@ -11,6 +12,7 @@ import { useChatStore } from "@/lib/store/chatStore";
 import { useAuthStore } from "@/lib/store/authStore";
 import { STATUS_PILL, STATUS_LABEL, dominantStatus, isActive, BudStatus } from "@/lib/status";
 import { QK } from "@/lib/queryKeys";
+import { useGeminiKey } from "@/lib/geminiKey";
 import { formatKstHeaderDate } from "@/lib/time";
 import { StatCardSkeleton, PlantCardSkeleton } from "@/components/ui/Skeleton";
 import { AiChatButton } from "@/components/chat/AiChatButton";
@@ -193,14 +195,14 @@ function WiltingRow({ bud, onChat }: { bud: Bud; onChat: () => void }) {
 export default function HomePage() {
   const router = useRouter();
   const { openWith } = useChatStore();
-  const { user, accessToken } = useAuthStore();
+  const { user, authed } = useAuthStore();
 
   // Query keys from QK factory — shared with plants/page.tsx to hit the same cache.
   // `enabled` guard prevents unauthenticated 401s on cold start.
-  const { data: sumRes,    isLoading: loadingSum }    = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,          enabled: !!accessToken });
-  const { data: briefRes }                             = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000, enabled: !!accessToken });
-  const { data: plantsRes, isLoading: loadingPlants } = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(),  enabled: !!accessToken });
-  const { data: budsRes }                             = useQuery({ queryKey: QK.buds(),     queryFn: () => listBuds(),    enabled: !!accessToken });
+  const { data: sumRes,    isLoading: loadingSum }    = useQuery({ queryKey: QK.summary(),  queryFn: getSummary,          enabled: authed });
+  const { data: briefRes }                             = useQuery({ queryKey: QK.briefing(), queryFn: getBriefing, staleTime: 5 * 60_000, enabled: authed });
+  const { data: plantsRes, isLoading: loadingPlants } = useQuery({ queryKey: QK.plants(),   queryFn: () => listPlants(),  enabled: authed });
+  const { data: budsRes }                             = useQuery({ queryKey: QK.buds(),     queryFn: () => listBuds(),    enabled: authed });
 
   const summary  = sumRes?.ok    ? sumRes.data            : null;
   const briefing = briefRes?.ok  ? briefRes.data.briefing : "";
@@ -222,8 +224,8 @@ export default function HomePage() {
   const activeBudCount = allBuds.filter((b) => isActive(b.status)).length;
   const dateStr = formatKstHeaderDate(new Date());
 
-  // Friendly nudge when the briefing endpoint signals a missing/bad server API key.
-  const apiKeyMissing = briefing.includes("API 키");
+  // AI chat needs the user's own Gemini key (browser-only); everything else works without it.
+  const apiKeyMissing = !useGeminiKey();
 
   return (
     <div className="app-page app-page-wide">
@@ -236,7 +238,7 @@ export default function HomePage() {
         <h1 className="t-display" style={{ color: "var(--fg)" }}>
           안녕하세요, {user?.nickname ?? "정원사"}님
         </h1>
-        {briefing && !apiKeyMissing && (
+        {briefing && (
           <p className="t-body-sm" style={{ color: "var(--fg-muted)", marginTop: 8, maxWidth: 640 }}>
             {briefing}
           </p>
@@ -255,12 +257,13 @@ export default function HomePage() {
           <span className="dot" style={{ background: "var(--warning)" }} />
           <div style={{ flex: 1 }}>
             <div className="t-body-sm" style={{ color: "var(--fg)", fontWeight: 500 }}>
-              AI를 사용하려면 서버 Gemini API 키가 필요해요
+              AI 정원사를 쓰려면 본인 Gemini API 키가 필요해요
             </div>
             <div className="t-caption" style={{ color: "var(--fg-muted)" }}>
-              서버 환경변수 LLM_API_KEY 설정을 확인해야 합니다.
+              키는 이 브라우저에만 저장돼요. 다른 기능은 키 없이 사용할 수 있어요.
             </div>
           </div>
+          <Link href="/settings" className="btn btn-sm">키 입력</Link>
         </div>
       )}
 

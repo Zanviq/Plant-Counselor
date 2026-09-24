@@ -7,13 +7,13 @@ import { listLogs, getLogDetail, type LogMeta, type LogDetail, type LlmCall, typ
 import { useAuthStore } from "@/lib/store/authStore";
 
 function LogDetailView({ filename, onClose }: { filename: string; onClose: () => void }) {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const [activeSection, setActiveSection] = useState<"overview" | "prompt" | "llm" | "skills" | "events" | "errors">("overview");
 
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "log", filename],
     queryFn: () => getLogDetail(filename),
-    enabled: !!accessToken && !!filename,
+    enabled: authed && !!filename,
   });
 
   const log: LogDetail | null = res?.ok ? res.data : null;
@@ -254,7 +254,7 @@ const preStyle: React.CSSProperties = {
 };
 
 function LogsContent() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -272,7 +272,7 @@ function LogsContent() {
       limit: LIMIT,
       offset: page * LIMIT,
     }),
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const logs: LogMeta[] = res?.ok ? res.data.items : [];

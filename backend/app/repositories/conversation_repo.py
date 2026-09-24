@@ -1,7 +1,7 @@
 from __future__ import annotations
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 from ulid import ULID
 
 
@@ -36,9 +36,13 @@ class ConversationRepository:
         res = q.limit(1).execute()
         if res.data:
             return _row(res.data[0])
+        # ON CONFLICT DO NOTHING: two concurrent first requests for the same scope
+        # must not trip the unique (user_id, scope, scope_id) constraint.
         row = {"id": str(ULID()), "user_id": user_id, "scope": scope, "scope_id": scope_id}
-        ins = self.db.table("conversations").insert(row).execute()
-        return _row(ins.data[0])
+        self.db.table("conversations").upsert(
+            row, on_conflict="user_id,scope,scope_id", ignore_duplicates=True
+        ).execute()
+        return _row(q.execute().data[0])
 
     def add_message(
         self,

@@ -6,12 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import admin, buds, chat, conversations, me, notifications, plants, public, stats
+from app.routers import admin, auth, buds, chat, conversations, me, notifications, plants, public, stats
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Tables are managed by Supabase migrations — no create_all needed.
+    # Schema is managed by Alembic (backend/alembic) and applied on container start.
     from app.scheduler.jobs import setup_scheduler
     sched = setup_scheduler()
     yield
@@ -58,6 +58,7 @@ _cors_origins = _parse_cors_origins(settings.cors_allow_origin)
 
 PREFIX = "/api/v1"
 for _router in [
+    auth.router,
     me.router,
     plants.router,
     buds.router,
@@ -84,5 +85,5 @@ app = CORSMiddleware(
     allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Content-Type", "X-Gemini-Api-Key"],
 )

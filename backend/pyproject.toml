@@ -1,34 +1,32 @@
 [project]
 name = "plant-counselor-backend"
-version = "0.2.0"
+version = "0.3.0"
 requires-python = ">=3.11"
 dependencies = [
     # Web framework
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
-    # Database — Supabase access over PostgREST HTTP (no SQLAlchemy/psycopg2)
-    "supabase>=2.30.0",
-    # Auth — Supabase JWT verification (ES256 via JWKS, HS256 fallback)
-    "python-jose[cryptography]>=3.3.0",
+    # Database — PostgreSQL 16 via psycopg 3 + connection pool
+    "psycopg[binary]>=3.2.0",
+    "psycopg-pool>=3.2.0",
+    # Migrations (plain-SQL revisions; SQLAlchemy is only Alembic's engine)
+    "alembic>=1.13.0",
+    "sqlalchemy>=2.0.30",
+    # Auth — bcrypt password hashes + HS256 session JWT in an httpOnly cookie
+    "bcrypt>=4.1.0",
+    "pyjwt>=2.8.0",
     # Config & env
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    # LLM (Google Gemini) — 2.6+ handles the new "AQ."-prefixed API key format
+    # LLM (Google Gemini) — key is supplied per request by the user's browser
     "google-genai>=2.6.0",
     # Scheduling (wilting/rot auto-transition)
     "apscheduler>=3.10.0",
     # Utilities
     "python-ulid>=2.0.0",
-    "cryptography>=42.0.0",
 ]
 
 [tool.poetry]
 # This repository runs app.main directly and is not published as a Python package.
 package-mode = false
-
-[tool.uv]
-dev-dependencies = [
-    "pytest>=8.0.0",
-    "httpx>=0.27.0",
-]

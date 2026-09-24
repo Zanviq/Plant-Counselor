@@ -8,7 +8,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
-from supabase import Client
+from app.db.pg import Client
 
 from app.calendar_colors import CalendarEventColor, DEFAULT_CALENDAR_EVENT_COLOR
 from app.deps import get_db, require_user

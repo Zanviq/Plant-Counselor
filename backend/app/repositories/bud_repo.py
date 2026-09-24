@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 from ulid import ULID
 
 import app.runtime_settings as rs

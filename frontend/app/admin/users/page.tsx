@@ -7,7 +7,7 @@ import { listAdminUsers, updateUserRole, sendNotification, type AdminUser } from
 import { useAuthStore } from "@/lib/store/authStore";
 
 export default function AdminUsersPage() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
   const router = useRouter();
 
@@ -18,7 +18,7 @@ export default function AdminUsersPage() {
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: listAdminUsers,
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const roleMut = useMutation({
@@ -95,7 +95,7 @@ export default function AdminUsersPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.04)" }}>
-                {["이메일", "닉네임", "역할", "식물", "봉우리", "AI 세션", "가입일", "액션"].map((h) => (
+                {["아이디", "닉네임", "역할", "식물", "봉우리", "AI 세션", "가입일", "액션"].map((h) => (
                   <th key={h} style={{
                     padding: "10px 14px", textAlign: "left",
                     fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)",
@@ -113,7 +113,7 @@ export default function AdminUsersPage() {
                   key={u.id}
                   style={{ borderBottom: i < users.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
                 >
-                  <td style={{ padding: "11px 14px", fontSize: 13, color: "#fff" }}>{u.email ?? "—"}</td>
+                  <td style={{ padding: "11px 14px", fontSize: 13, color: "#fff" }}>{u.username}</td>
                   <td style={{ padding: "11px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{u.nickname ?? "—"}</td>
                   <td style={{ padding: "11px 14px" }}>
                     <span style={{
@@ -158,7 +158,7 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => {
                           setNotifTarget(u.id);
-                          setNotifMsg(`${u.nickname ?? u.email}님께 보내는 메시지`);
+                          setNotifMsg(`${u.nickname ?? u.username}님께 보내는 메시지`);
                         }}
                         style={{
                           padding: "4px 10px", borderRadius: 5,

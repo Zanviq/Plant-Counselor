@@ -1,29 +1,24 @@
 from __future__ import annotations
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # ── Database (Supabase PostgreSQL) ────────────────────────────────────
-    database_url: str = "postgresql+psycopg2://postgres:password@db.mnqwrofidwotcsvsymnd.supabase.co:5432/postgres"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # ── Supabase Auth ─────────────────────────────────────────────────────
-    # Get JWT secret from: Supabase Dashboard → Settings → API → JWT Secret
-    supabase_jwt_secret: str = ""
-    supabase_url: str = "https://mnqwrofidwotcsvsymnd.supabase.co"
-    # Service role key for PostgREST access (bypasses RLS)
-    supabase_service_role_key: str = ""
+    # ── Database (PostgreSQL 16) ──────────────────────────────────────────
+    # psycopg conninfo URL. docker-compose builds this from POSTGRES_* values.
+    database_url: str = "postgresql://plant:plant@localhost:5432/plant_counselor"
+    database_pool_size: int = 10
 
-    # ── LLM ───────────────────────────────────────────────────────────────
-    llm_api_key: str = ""
-
-    # ── API key encryption (Fernet) ───────────────────────────────────────
-    key_encryption_secret: str = "dev-encryption-key-32chars-padded"
+    # ── Session auth (httpOnly cookie carrying an HS256 JWT) ──────────────
+    session_secret: str = "change-me-in-.env"
+    session_cookie_name: str = "pc_session"
+    session_ttl_hours: int = 24 * 7
+    # Set true when the app is served over HTTPS.
+    cookie_secure: bool = False
 
     # ── CORS ──────────────────────────────────────────────────────────────
     cors_allow_origin: str = "http://localhost:3000"
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()

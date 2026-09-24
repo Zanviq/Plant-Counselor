@@ -8,7 +8,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 
 export default function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
 
   const [notifMsg, setNotifMsg] = useState("");
@@ -17,7 +17,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
   const { data: res, isLoading } = useQuery({
     queryKey: ["admin", "user", id],
     queryFn: () => getAdminUserDetail(id),
-    enabled: !!accessToken && !!id,
+    enabled: authed && !!id,
   });
 
   const roleMut = useMutation({
@@ -63,7 +63,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
             <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
               {profile.nickname ?? "(닉네임 없음)"}
             </div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>{profile.email}</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>{profile.username}</div>
             <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
               {[
                 { label: "역할", value: profile.role === "admin" ? "관리자" : "일반" },

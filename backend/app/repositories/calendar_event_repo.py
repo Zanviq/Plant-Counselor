@@ -1,11 +1,11 @@
 """CalendarEventRepository — standalone calendar events (not buds).
 
-Backed by the `exec_admin_query` RPC instead of PostgREST (`db.table`) because a
-freshly-created table is not auto-exposed by Supabase's PostgREST schema cache.
-See migrations/001_calendar_events.sql.
+Uses raw SQL through `db.rpc("exec_admin_query", ...)` (see app/db/pg.py) rather
+than the query builder. This predates the move to self-hosted PostgreSQL and is
+kept to avoid changing tested behaviour.
 
 SQL injection safety: every value is rendered through `_lit()`, which quotes the
-value as a SQL string literal and doubles embedded single quotes. Supabase runs
+value as a SQL string literal and doubles embedded single quotes. PostgreSQL runs
 with standard_conforming_strings = on, so the single quote is the only literal
 metacharacter — doubling it is sufficient. Column/table names are hardcoded.
 """
@@ -15,7 +15,7 @@ from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
-from supabase import Client
+from app.db.pg import Client
 from ulid import ULID
 
 
@@ -31,7 +31,7 @@ def _lit(v: Any) -> str:
     """Render a value as a safe SQL string literal (or NULL).
 
     Doubles single quotes — the only literal metacharacter under
-    standard_conforming_strings = on (Supabase default). Backslashes are
+    standard_conforming_strings = on (PostgreSQL default). Backslashes are
     literal in that mode and must NOT be doubled, or backslash-containing
     text would be corrupted on round-trip.
     """

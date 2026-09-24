@@ -1,143 +1,235 @@
-# Plant Counselor
+<div align="center">
 
-> 고민, 목표, 일정을 식물의 생애주기로 표현하는 AI 정원사 웹 서비스.
+# 🌱 Plant Counselor
 
-사용자는 자연어로 식물과 봉우리를 관리한다. 식물은 분야 또는 카테고리이고, 봉우리는
-구체적인 고민, 목표, 할 일이다. 단순 약속과 예약은 별도 캘린더 일정으로 저장한다.
+**An AI gardener that grows your worries, goals, and schedules like plants**
 
-## 왜 식물인가
+<!-- TODO: license badge — add once a LICENSE file is chosen -->
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-고민과 일정을 식물로 표현하면 **성장을 눈으로 볼 수 있다.** 씨앗이 꽃이 되고 열매가
-맺히듯 목표가 자라는 과정이 한눈에 들어오고, 반대로 **신경 쓰지 못한 고민이 시들어 가는
-모습까지** 그대로 드러난다. 단순한 할 일 목록과 달리, 진짜 식물을 키우는 듯한 감각이
-"방치하면 시든다"는 자연스러운 동기를 만들어 목표 달성을 북돋운다. 여기에 AI 정원사가
-실제 고민 상담까지 함께하니, 기록을 넘어 **돌보는 경험**이 된다.
+**English** | [한국어](./README.ko.md)
 
-## 주요 기능
+<img src="https://img.shields.io/badge/Powered%20by-Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Powered by Gemini"/>
 
-- **AI 정원사 채팅**: Gemini ReAct 루프가 20개 스킬을 연속 호출하고 SSE로 응답한다.
-  AI가 의도를 추론해 확인 질문 없이 곧바로 실행하며, 설정한 응답 톤(상담사·비서·친구)이
-  시스템 프롬프트에 반영된다.
-- **4가지 채팅 스코프**: 전체, 식물, 봉우리, 캘린더 맥락을 분리한다.
-- **상단 AI 대화 버튼**: 홈·정원·캘린더 우측 상단 공통 버튼이며 채팅이 열리면 숨겨진다.
-- **식물과 봉우리 관리**: 생성, 수정, 삭제, 진행률(60·85% 자동 전이), 마감일, 수확(100%),
-  포기, 다른 식물로 봉우리 이동을 지원한다.
-- **벡터 픽셀아트 정원**: 식물과 봉우리를 픽셀 사각형으로 그려 확대·축소·스크롤한다.
-  수확한 열매는 가장 왼쪽 **수확 바구니**에 식물 이름과 함께 모이고, 바구니에서 검색·
-  식물 필터·과거 기록 보기를 한다. 시들면 갈색으로 표시된다.
-- **캘린더**: 봉우리 마감일과 색상/시작·종료 시간/하루 종일/반복 옵션을 고를 수 있는
-  독립 일정을 월간 화면에 병합한다. 일반 일정은 월간 뷰에서 드래그해 날짜를 이동할 수 있고,
-  같은 시간대 일정이 겹치면 저장은 허용하되 응답에 경고를 포함한다.
-- **되돌리기와 내보내기**: 최근 삭제/상태 변경은 즉시 되돌릴 수 있고, 개인 데이터는
-  JSON/CSV, 캘린더는 ICS로 내보낼 수 있다.
-- **대화 기록과 알림**: 스코프별 기록과 봉우리·식물 시듦, 썩음, 마감 임박 알림을 제공한다.
-  봉우리가 일정 수 이상 시들고 며칠 지나면 식물 전체가 시들며, 시든 뒤에는 소생할 수 없다.
-- **반응형 사용자 화면**: 홈, 정원 리스트, 식물 상세, 캘린더, 기록, 설정은 공통
-  레이아웃 규칙으로 큰 화면과 좁은 화면을 함께 대응한다. 모바일에서는 좌측 사이드바 대신
-  하단 탭 내비게이션을 사용한다.
-- **테마**: light, dark, system 모드를 제공한다.
-- **관리자 패널**: 사용자, AI 로그, 알림, 백업, 복원, 런타임 설정, SQL, 타임
-  트래블을 관리한다.
+</div>
 
-## 기술 스택
+---
 
-| 계층 | 기술 |
-| --- | --- |
-| Frontend | Next.js 16.2.6, React 19.2.4, TypeScript, Tailwind CSS v4 |
-| Frontend state | Zustand, TanStack Query v5 |
-| Backend | FastAPI, Pydantic v2, APScheduler |
-| Database | Supabase PostgreSQL, `supabase-py` PostgREST HTTP |
-| Authentication | Supabase Auth Google OAuth, ES256 JWKS 검증, HS256 fallback |
-| LLM | Google Gemini via `google-genai` |
-| IDs | ULID |
+## 💭 Developer's Note
 
-백엔드는 SQLAlchemy와 psycopg2를 사용하지 않는다. 일반 CRUD는
-`backend/app/db/supa.py`의 Supabase HTTP 클라이언트로 처리한다.
+> *"Every worry starts as a bud. Whether it flowers or wilts depends on whether you tend to it."*
 
-## 로컬 실행
+<!-- TODO: 개발 동기 -->
 
-### 요구 사항
+---
 
-- Python 3.11+
-- Poetry
-- Node.js 20+
-- Supabase 프로젝트와 Google OAuth Provider
-- Gemini API 키
+## ✨ Features
 
-### 백엔드
+### 🌿 Plants and Buds
+- A **plant** is an area of life (job hunting, health, study); a **bud** is a concrete worry, goal, or tracked schedule inside it
+- Buds move through `bud → flower → fruit → harvested`; progress of 60% turns a bud into a flower and 85% into a fruit
+- Harvesting is only allowed at 100% progress — the rule lives in the service layer, so the AI cannot bypass it either
+- Each status change is written to a history table and shown in the bud detail drawer
 
-```bash
-cd backend
-poetry config virtualenvs.in-project true --local
-poetry install
-```
+### 🥀 Wilting and Rot
+- An APScheduler job scans every 10 minutes and marks buds with no progress as `wilting`, then `rot`
+- Thresholds come from each user's garden rules (defaults: wilt after 7 days, rot after 14, deadline warning 3 days before)
+- Wilting, rot, and upcoming deadlines create notifications; duplicate unread deadline warnings are skipped
 
-`backend/.env`를 직접 생성한다. 이 저장소에는 `.env.example`이 없다.
+### 🤖 AI Gardener
+- Natural-language requests go through a Gemini ReAct loop (up to 10 steps) that can call 20 skills such as `create_bud`, `update_bud_progress`, and `create_calendar_event`
+- Responses stream over SSE (`start`, `tool_call`, `tool_result`, `token`, `done`)
+- Chat has four scopes (global, plant, bud, calendar); edits and deletes outside the current scope are blocked on the server
+- Each user brings their own Gemini API key; it is kept in the browser and sent per request, never stored on the server
 
-```dotenv
-SUPABASE_URL=https://PROJECT_REF.supabase.co
-SUPABASE_JWT_SECRET=...
-SUPABASE_SERVICE_ROLE_KEY=...
-LLM_API_KEY=...
-KEY_ENCRYPTION_SECRET=...
-CORS_ALLOW_ORIGIN=http://localhost:3000
-```
+### 🖼️ Pixel-Art Garden
+- Plants are drawn as pixel-art sprites whose flowers, fruit, and color reflect their buds' states
+- The garden view supports zoom, and harvested buds collect in a harvest basket
+- A list view is available for the same data
 
-`DATABASE_URL`은 과거 호환 설명을 위해 남아 있지만 일반 CRUD에는 사용하지 않는다.
+### 📅 Calendar
+- Bud deadlines and standalone events are merged into one month view
+- Events support start/end time, all-day, multi-day ranges, repeat rules (daily to yearly), and six colors
+- Overlapping times are saved but reported as conflicts; events can be dragged to another day
+- Data can be exported as JSON, CSV, or ICS
+
+### 🗂️ Conversation History
+- Conversations are stored per scope and can be browsed and searched on the history page
+- Chat and history share one Markdown renderer with `javascript:`/`data:` links blocked
+
+### 🛠️ Admin Console
+- User and role management, per-user AI model override, and an AI log viewer (prompts, LLM calls, skill calls, errors)
+- Notification broadcast, ZIP backup and non-overwriting restore, runtime settings, and a SQL console
+- A time-travel offset shifts the app clock to test wilting and deadline rules
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) with Docker Compose
+- (For AI chat only) a [Google Gemini API key](https://aistudio.google.com/apikey)
+
+### Run
 
 ```bash
-poetry run python run.py
+git clone https://github.com/Zanviq/Plant-Counselor.git
+cd Plant-Counselor
+cp .env.example .env
+docker compose up --build
 ```
 
-- API: [http://localhost:8000](http://localhost:8000)
-- OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
-- Health check: [http://localhost:8000/health](http://localhost:8000/health)
+- Web app: http://localhost:3000
+- API docs: http://localhost:8000/docs
 
-### 프론트엔드
+On first start the backend applies the Alembic migrations and inserts demo data.
 
-```bash
-cd frontend
-npm install
+### Demo Accounts
+
+| Role | ID | Password |
+|------|----|----------|
+| User | `demo` | `demo1234` |
+| Admin | `admin` | `admin1234` |
+
+### Gemini API Key
+
+Everything except the AI chat works without a key. To use the AI gardener:
+
+1. Open **Settings → AI** (or open the AI panel and use the key box shown there)
+2. Paste your key from [Google AI Studio](https://aistudio.google.com/apikey) and press **Save**
+3. The key is stored in this browser's `localStorage` and sent as the `X-Gemini-Api-Key` header on chat requests only
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript |
+| **State** | TanStack Query v5, Zustand |
+| **Styling** | Tailwind CSS v4, CSS variables (light/dark) |
+| **Backend** | FastAPI, Pydantic v2, APScheduler |
+| **Database** | PostgreSQL 16, psycopg 3, Alembic |
+| **Auth** | bcrypt password hashes, HS256 JWT in an httpOnly cookie |
+| **AI** | Google Gemini (`google-genai`) |
+| **Infra** | Docker Compose (multi-stage images) |
+
+---
+
+## 📁 Project Structure
+
+```
+plant-counselor/
+├── 📂 backend/
+│   ├── 📂 alembic/versions/     # SQL migrations (schema baseline)
+│   ├── 📂 app/
+│   │   ├── 📂 ai/               # ReAct orchestrator, Gemini client, prompt, permissions
+│   │   │   └── 📂 skills/       # 20 AI skills
+│   │   ├── 📂 db/
+│   │   │   ├── pg.py            # psycopg query builder and connection pool
+│   │   │   └── seed.py          # demo accounts and sample data
+│   │   ├── 📂 repositories/     # SQL access, always filtered by user_id
+│   │   ├── 📂 routers/          # auth, plants, buds, calendar, chat, admin ...
+│   │   ├── 📂 services/         # lifecycle rules, calendar, backup, transitions
+│   │   ├── 📂 scheduler/        # wilting / rot / deadline scan job
+│   │   ├── security.py          # bcrypt + session cookie
+│   │   └── main.py              # FastAPI app and CORS wrapper
+│   ├── docker-entrypoint.sh     # migrate → seed → start
+│   └── Dockerfile
+├── 📂 frontend/
+│   ├── 📂 app/
+│   │   ├── 📂 (app)/            # home, plants, calendar, history, settings
+│   │   ├── 📂 (auth)/login/     # login and sign-up
+│   │   └── 📂 admin/            # admin console
+│   ├── 📂 components/           # chat panel, garden sprites, sidebar
+│   ├── 📂 lib/
+│   │   ├── 📂 api/              # API client and SSE stream reader
+│   │   ├── geminiKey.ts         # browser-only Gemini key storage
+│   │   └── markdown.tsx         # shared Markdown renderer
+│   └── Dockerfile
+├── 📂 scripts/capture-screenshots/  # Playwright script for README images
+├── 📂 image/                    # screenshots
+├── docker-compose.yml
+└── .env.example
 ```
 
-`frontend/.env.local`을 생성한다.
+---
 
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-NEXT_PUBLIC_API_BASE=http://localhost:8000/api/v1
-```
+## 💡 How to Use
 
-```bash
-npm run dev
-```
+1. **Log in**: Sign in with `demo / demo1234` or create an account on the sign-up tab
+2. **Check the dashboard**: Home shows active worries, schedules, harvests this month, and buds that need attention
+3. **Ask the AI gardener**: Press the AI button (or Space) and type something like "Add a bud for 'portfolio' to job hunting, due next Friday"
+4. **Update progress**: Open a bud in a plant's detail page and drag the progress slider; harvest it at 100%
+5. **Plan on the calendar**: Add an event with **+ Add event**, or drag an event to another day
+6. **Review history**: Open the history page to search past conversations by scope
+7. **Adjust garden rules**: Change wilting and deadline thresholds in **Settings → Garden rules**
 
-웹 앱은 [http://localhost:3000](http://localhost:3000)에서 열린다.
+---
 
-## 검증
+## 👥 Team
 
-```bash
-cd backend
-poetry run python -m compileall app
+| Name | Role |
+|------|------|
+| confidencecat (Zanviq) | Project lead, overall development |
+| studysnack | Frontend development, feature support |
 
-cd ../frontend
-npm run lint
-npm run build
-```
+---
 
-`npm run lint`는 기존 프론트엔드 코드에 알려진 기준선 오류가 있다. 변경 파일에서 새
-오류를 추가하지 않았는지 함께 확인한다.
+## 🎨 Screenshots
 
-## 문서
+<div align="center">
 
-- [AGENTS.md](./AGENTS.md): 현재 코드 기준 작업 가이드. 후속 작업자는 먼저 읽는다.
-- [docs/README.md](./docs/README.md): 최신 문서와 역사 자료의 구분.
-- [docs/DEMO_GUIDE.md](./docs/DEMO_GUIDE.md): 기능별 수동 회귀 시나리오.
-- [docs/MVP/](./docs/MVP/): 설계·구현 상세 문서 (`10_Complete_Implementation_State.md`가 현재 코드에 가장 가깝다).
-- 배포(Render/Vercel/Supabase)는 루트 `render.yaml` 블루프린트를 참고한다.
-- [CLAUDE.md](./CLAUDE.md): `@AGENTS.md` 포인터. 별도 이력 문서는 유지하지 않는다.
+![Dashboard](image/dashboard.png)
 
-## 비밀값 주의
+<table>
+  <tr>
+    <td><img src="image/garden.png" width="400" alt="Garden"/></td>
+    <td><img src="image/plant-detail.png" width="400" alt="Plant detail"/></td>
+  </tr>
+  <tr>
+    <td><img src="image/bud-detail.png" width="400" alt="Bud detail"/></td>
+    <td><img src="image/calendar.png" width="400" alt="Calendar"/></td>
+  </tr>
+  <tr>
+    <td><img src="image/ai-chat.png" width="400" alt="AI chat"/></td>
+    <td><img src="image/history.png" width="400" alt="Conversation history"/></td>
+  </tr>
+  <tr>
+    <td><img src="image/settings-api-key.png" width="400" alt="API key settings"/></td>
+    <td><img src="image/ai-chat-no-key.png" width="400" alt="AI chat without a key"/></td>
+  </tr>
+  <tr>
+    <td><img src="image/admin-dashboard.png" width="400" alt="Admin dashboard"/></td>
+    <td><img src="image/admin-ai-logs.png" width="400" alt="Admin AI logs"/></td>
+  </tr>
+  <tr>
+    <td><img src="image/landing.png" width="400" alt="Landing page"/></td>
+    <td><img src="image/login.png" width="400" alt="Login"/></td>
+  </tr>
+</table>
 
-`backend/.env`, `frontend/.env.local`, 배포용 로컬 env 파일과 실제 키를 커밋하지
-않는다.
+<i>The AI chat screenshot uses a mocked response.</i>
+
+</div>
+
+---
+
+## 📝 License
+
+<!-- TODO: 라이선스 결정 후 LICENSE 파일 추가 및 문구 작성 -->
+
+---
+
+<div align="center">
+
+| 👤 **Developer** | ✉️ **Email** |
+|:---:|:---:|
+| Zanviq | zanviq.dev@gmail.com |
+
+</div>

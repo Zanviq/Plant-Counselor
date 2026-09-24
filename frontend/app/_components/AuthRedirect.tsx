@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/api/auth";
 
 /**
  * Silent client component — only job is to redirect logged-in users away
@@ -11,8 +11,8 @@ import { supabase } from "@/lib/supabase";
 export default function AuthRedirect() {
   const router = useRouter();
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/home");
+    getCurrentUser().then((res) => {
+      if (res.ok) router.replace("/home");
     });
   }, [router]);
   return null;

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 
 from app.calendar_colors import DEFAULT_CALENDAR_EVENT_COLOR, validate_calendar_event_color
 from app.repositories.calendar_event_repo import CalendarEventRepository

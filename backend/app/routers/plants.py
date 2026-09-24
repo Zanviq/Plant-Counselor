@@ -1,6 +1,6 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
-from supabase import Client
+from app.db.pg import Client
 
 from app.deps import get_db, require_user
 from app.schemas.plant import PlantOut, PlantUpdate

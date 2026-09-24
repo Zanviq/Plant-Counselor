@@ -14,7 +14,7 @@ const KIND_LABELS: Record<NotifKind, { label: string; color: string }> = {
 };
 
 export default function AdminNotificationsPage() {
-  const { accessToken } = useAuthStore();
+  const { authed } = useAuthStore();
   const qc = useQueryClient();
 
   const [message, setMessage] = useState("");
@@ -26,13 +26,13 @@ export default function AdminNotificationsPage() {
   const { data: usersRes } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: listAdminUsers,
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const { data: histRes, isLoading: histLoading } = useQuery({
     queryKey: ["admin", "notif-history"],
     queryFn: getNotificationHistory,
-    enabled: !!accessToken,
+    enabled: authed,
   });
 
   const sendMut = useMutation({
@@ -131,8 +131,8 @@ export default function AdminNotificationsPage() {
                       onChange={() => toggleUser(u.id)}
                       style={{ accentColor: "#60a5fa" }}
                     />
-                    <span style={{ fontSize: 13, color: "#fff" }}>{u.nickname ?? u.email}</span>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginLeft: "auto" }}>{u.email}</span>
+                    <span style={{ fontSize: 13, color: "#fff" }}>{u.nickname ?? u.username}</span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginLeft: "auto" }}>{u.username}</span>
                   </label>
                 ))}
               </div>

@@ -1,9 +1,10 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends
-from supabase import Client
+from fastapi import APIRouter, Depends, Response
+from app.db.pg import Client
 
 from app.deps import get_db, require_user
-from app.schemas.user import ApiKeySet, UserOut, UserUpdate
+from app.schemas.user import UserOut, UserUpdate
+from app.security import clear_session_cookie
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -21,12 +22,8 @@ def update_me(body: UserUpdate, user=Depends(require_user), db: Client = Depends
 
 
 @router.delete("")
-def delete_account(user=Depends(require_user), db: Client = Depends(get_db)):
+def delete_account(response: Response, user=Depends(require_user), db: Client = Depends(get_db)):
     deleted = UserService(db).delete_account(user.id)
+    clear_session_cookie(response)
     return {"ok": True, "data": {"deleted": deleted}}
 
-
-@router.put("/api-key")
-def set_api_key(body: ApiKeySet, user=Depends(require_user), db: Client = Depends(get_db)):
-    UserService(db).set_api_key(user.id, body.api_key)
-    return {"ok": True, "data": {}}

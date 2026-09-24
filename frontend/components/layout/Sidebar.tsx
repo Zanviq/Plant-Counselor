@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -130,13 +129,7 @@ function IconButton({
   );
 }
 
-function ProfileAvatar({ avatarUrl, initial, label }: {
-  avatarUrl?: string | null;
-  initial: string;
-  label: string;
-}) {
-  const [failed, setFailed] = useState(false);
-
+function ProfileAvatar({ initial, label }: { initial: string; label: string }) {
   return (
     <div
       aria-label={label}
@@ -148,18 +141,7 @@ function ProfileAvatar({ avatarUrl, initial, label }: {
       }}
       className="sidebar-icon-wrap"
     >
-      {avatarUrl && !failed ? (
-        <Image
-          src={avatarUrl}
-          alt=""
-          width={30}
-          height={30}
-          unoptimized
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
-        />
-      ) : initial}
+      {initial}
       <span className="sidebar-tip">{label}</span>
     </div>
   );
@@ -170,7 +152,7 @@ function ProfileAvatar({ avatarUrl, initial, label }: {
 export default function Sidebar() {
   const pathname = usePathname();
   const { open, openWith, close } = useChatStore();
-  const { user, accessToken } = useAuthStore();
+  const { user, authed } = useAuthStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const qc = useQueryClient();
 
@@ -205,7 +187,7 @@ export default function Sidebar() {
   const { data: notifRes } = useQuery({
     queryKey: QK.notifications(),
     queryFn: () => listNotifications(),
-    enabled: !!accessToken,
+    enabled: authed,
     staleTime: 10_000,
     // Poll every 15s so admin-sent notifications appear without a manual refresh.
     refetchInterval: 15_000,
@@ -264,8 +246,6 @@ export default function Sidebar() {
         <NavLink href="/settings" label="설정" active={isActive("/settings")}><SettingsIcon /></NavLink>
 
         <ProfileAvatar
-          key={user?.avatar_url ?? "fallback"}
-          avatarUrl={user?.avatar_url}
           initial={initial}
           label={user?.nickname ?? "프로필"}
         />

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from types import SimpleNamespace
 
-from supabase import Client
+from app.db.pg import Client
 from ulid import ULID
 
 
